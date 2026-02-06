@@ -1,0 +1,22 @@
+{
+  "name": "vuln-context-desktop",
+  "version": "0.1.0",
+  "description": "VulnContext Desktop - Electron + TypeScript UI for vulnerability scoring",
+  "main": "dist/electron-main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "dev": "npm run build && npm start"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "electron": "^27.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.2",
+    "@types/node": "^20.10.0"
+  }
+}

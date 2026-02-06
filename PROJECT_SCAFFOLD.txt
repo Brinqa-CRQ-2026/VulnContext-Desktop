@@ -1,0 +1,189 @@
+================================================================================
+VulnContext Desktop - Project Scaffold Complete
+================================================================================
+
+This is a CLEAN project scaffold with only essential files.
+Each folder contains a README with tasks to complete.
+
+================================================================================
+WHAT'S PROVIDED
+================================================================================
+
+✅ Configuration Files:
+  - docker-compose.yml
+  - .gitignore
+  - backend/requirements.txt
+  - frontend/package.json
+  - frontend/tsconfig.json
+
+✅ Scaffolding Files:
+  - frontend/electron-main.ts (window management)
+  - frontend/src/index.html (form structure)
+  - docker/backend.Dockerfile
+
+✅ Task Documentation:
+  - README.md (main project overview)
+  - backend/app/api/README.md (API endpoints to implement)
+  - backend/app/core/README.md (database setup to implement)
+  - frontend/src/README.md (UI components to implement)
+
+================================================================================
+WHAT TO BUILD
+================================================================================
+
+BACKEND (backend/app/):
+  [ ] main.py - FastAPI app entry point
+  [ ] core/db.py - Database connection
+  [ ] core/models.py - SQLAlchemy ORM
+  [ ] core/schemas.py - Pydantic validation
+  [ ] core/scoring.py - Risk scoring logic
+  [ ] api/scores.py - GET/POST endpoints
+
+FRONTEND (frontend/src/):
+  [ ] api.ts - API client
+  [ ] renderer.ts - Event handlers
+  [ ] styles.css - Styling
+
+================================================================================
+QUICK START
+================================================================================
+
+1. Read the main README.md
+
+2. For backend tasks, read:
+   - backend/app/api/README.md
+   - backend/app/core/README.md
+
+3. For frontend tasks, read:
+   - frontend/src/README.md
+
+4. Install dependencies:
+   Backend: pip install -r backend/requirements.txt
+   Frontend: cd frontend && npm install
+
+5. Run backend:
+   cd backend
+   uvicorn app.main:app --reload --port 8000
+
+6. Run frontend:
+   cd frontend
+   npm run build
+   npm start
+
+================================================================================
+FOLDER STRUCTURE
+================================================================================
+
+VulnContext-Desktop/
+├── backend/
+│   ├── app/
+│   │   ├── main.py              [TODO]
+│   │   ├── api/
+│   │   │   ├── __init__.py
+│   │   │   ├── scores.py        [TODO]
+│   │   │   └── README.md        [Task details]
+│   │   └── core/
+│   │       ├── __init__.py
+│   │       ├── db.py            [TODO]
+│   │       ├── models.py         [TODO]
+│   │       ├── schemas.py        [TODO]
+│   │       ├── scoring.py        [TODO]
+│   │       └── README.md         [Task details]
+│   ├── requirements.txt          [Dependencies]
+│   └── __init__.py
+│
+├── frontend/
+│   ├── src/
+│   │   ├── index.html           [Form template - done]
+│   │   ├── api.ts              [TODO]
+│   │   ├── renderer.ts         [TODO]
+│   │   ├── styles.css          [TODO]
+│   │   └── README.md           [Task details]
+│   ├── electron-main.ts        [Window management - done]
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── __init__.py
+│
+├── docker/
+│   ├── backend.Dockerfile      [Container config]
+│
+├── data/                        [SQLite database - auto-created]
+├── docker-compose.yml          [Docker orchestration]
+├── .gitignore                  [Git ignore patterns]
+└── README.md                   [Project overview]
+
+================================================================================
+API ENDPOINTS TO BUILD
+================================================================================
+
+GET /health
+  - Simple health check
+  - Response: {"status": "ok"}
+
+GET /scores
+  - Retrieve all scores from database
+  - Response: {"scores": [...]}
+
+POST /scores
+  - Create new vulnerability score
+  - Request: {"vulnerability_name": "CVE-2024-001", "severity": "high"}
+  - Response: {score object with computed risk_score}
+
+================================================================================
+KEY CONCEPTS
+================================================================================
+
+Risk Scoring:
+  - critical: 0.95 (95%)
+  - high: 0.75 (75%)
+  - medium: 0.50 (50%)
+  - low: 0.25 (25%)
+
+Database:
+  - SQLite at ./data/vuln_context.db
+  - Auto-creates on first run
+  - Reset by deleting db file
+
+Frontend:
+  - Electron desktop app
+  - Form to submit vulnerabilities
+  - List view of stored scores
+  - No external UI framework (just HTML/CSS)
+
+================================================================================
+IMPLEMENTATION ORDER
+================================================================================
+
+1. Backend Database Setup (backend/app/core/)
+   - db.py - SQLite connection
+   - models.py - ScoreRecord ORM model
+   - schemas.py - Pydantic request/response schemas
+   - scoring.py - Risk calculation logic
+
+2. Backend API (backend/app/)
+   - main.py - FastAPI app
+   - api/scores.py - GET/POST endpoints
+
+3. Frontend (frontend/src/)
+   - api.ts - Fetch wrapper
+   - renderer.ts - Form and list logic
+   - styles.css - Styling
+
+4. Test with Docker:
+   docker-compose up -d
+   Frontend runs locally
+
+================================================================================
+NO EXTRA DOCUMENTATION
+================================================================================
+
+This is a clean scaffold. All detailed instructions are in the README files
+in each folder:
+  - README.md (main)
+  - backend/app/api/README.md
+  - backend/app/core/README.md
+  - frontend/src/README.md
+
+Each README explains what to build and how.
+
+================================================================================
