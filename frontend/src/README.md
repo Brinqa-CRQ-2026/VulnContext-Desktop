@@ -8,7 +8,7 @@ This folder contains the TypeScript/HTML/CSS code for the Electron UI.
   - Functions: `getScores()`, `createScore(data)`
   - Calls: `http://localhost:8000/scores`
 
-- [ ] **renderer.ts** - Event handling and DOM interactions
+- [x] **renderer.ts** - Event handling and DOM interactions
   - Load scores on startup
   - Handle form submission
   - Update score list

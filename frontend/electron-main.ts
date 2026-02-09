@@ -1,5 +1,7 @@
-import { app, BrowserWindow, Menu } from "electron";
+import { app, BrowserWindow } from "electron";
 import path from "path";
+
+const isDev = process.env.NODE_ENV === "development";
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -8,34 +10,32 @@ function createWindow() {
     width: 1200,
     height: 800,
     webPreferences: {
-      preload: undefined,
-      nodeIntegration: false,
       contextIsolation: true,
+      nodeIntegration: false,
     },
   });
 
-  // Load the index.html
-  const indexPath = path.join(__dirname, "src", "index.html");
-  mainWindow.loadFile(indexPath);
-
-  // Open DevTools in development (comment out for production)
-  // mainWindow.webContents.openDevTools();
+  if (isDev) {
+    mainWindow.loadURL("http://localhost:5173");
+    mainWindow.webContents.openDevTools();
+  } else {
+    const indexPath = path.join(__dirname, "index.html");
+    mainWindow.loadFile(indexPath);
+  }
 
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
 }
 
-app.on("ready", createWindow);
+app.whenReady().then(() => {
+  createWindow();
 
-app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    app.quit();
-  }
+  app.on("activate", () => {
+    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  });
 });
 
-app.on("activate", () => {
-  if (mainWindow === null) {
-    createWindow();
-  }
+app.on("window-all-closed", () => {
+  if (process.platform !== "darwin") app.quit();
 });

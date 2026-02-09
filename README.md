@@ -1,43 +1,106 @@
 # VulnContext Desktop
 
-Local vulnerability risk scoring application with Electron UI and FastAPI backend.
+VulnContext Desktop is a local vulnerability risk scoring and analysis application with a **FastAPI backend** and a **desktop-style React/Electron UI**. It ingests Qualys-like vulnerability data, applies a **context-aware risk scoring model**, and presents ranked findings with rich drill-down detail.
+
+This project is designed to mirror real-world vulnerability management workflows (Qualys / VMDR style) while remaining lightweight and fully local.
+
+---
+
+## Features
+
+- Context-aware vulnerability risk scoring (CVSS + EPSS + asset context)
+- Ranked vulnerability list (highest risk first)
+- Right-side drawer with **full vulnerability & asset details**
+- Pagination for large datasets (1,500+ findings)
+- Risk band filtering (Critical / High / Medium / Low)
+- Aggregate metrics & risk distribution summary
+- SQLite persistence (auto-created)
+- FastAPI REST API
+- React + shadcn/ui frontend
+- Docker-ready backend
+
+---
+
+## Risk Scoring Model
+
+Each vulnerability is scored using a weighted, normalized model inspired by industry practices:
+
+- CVSS (severity)
+- EPSS (likelihood of exploitation)
+- Internet exposure
+- Asset criticality
+- Vulnerability age
+- Authentication requirements (penalty)
+
+Scores are normalized, weighted, and mapped into risk bands:
+
+- **Critical**
+- **High**
+- **Medium**
+- **Low**
+
+The model is designed to be explainable and extensible.
+
+---
 
 ## Quick Start
 
+### Prerequisites
+
+- Python 3.9+
+- Node.js 18+
+- npm
+- Docker (optional)
+
+---
+
 ### Install Dependencies
 
-**Backend:**
+#### Backend
 ```bash
 cd backend
-pip install -r requirements.txt
+python3 -m pip install -r requirements.txt
 ```
 
-**Frontend:**
+#### Frontend
 ```bash
 cd frontend
 npm install
 ```
 
-### Run
+---
 
-**Backend (Terminal 1):**
+### Run Locally
+
+#### Backend (Terminal 1)
 ```bash
 cd backend
-uvicorn app.main:app --reload --port 8000
+python3 -m uvicorn app.main:app --reload --port 8000
 ```
 
-**Frontend (Terminal 2):**
+#### Seed Database (first run)
+```bash
+cd backend
+python3 -m app.seed
+```
+
+#### Frontend (Terminal 2)
 ```bash
 cd frontend
-npm run build
-npm start
+npm run dev
 ```
 
-Or use Docker:
+Frontend will connect to `http://localhost:8000`.
+
+---
+
+### Optional: Docker (Backend)
+
 ```bash
 docker-compose up -d
-cd frontend && npm install && npm run build && npm start
 ```
+
+---
 
 ## Project Structure
 
@@ -45,182 +108,153 @@ cd frontend && npm install && npm run build && npm start
 VulnContext-Desktop/
 ├── backend/
 │   ├── app/
-│   │   ├── main.py              # TODO: FastAPI app entry point
+│   │   ├── main.py                # FastAPI app entry point
 │   │   ├── api/
-│   │   │   ├── scores.py        # TODO: GET/POST endpoints
-│   │   │   └── README.md        # Task details
-│   │   └── core/
-│   │       ├── db.py            # TODO: Database connection
-│   │       ├── models.py         # TODO: SQLAlchemy models
-│   │       ├── schemas.py        # TODO: Pydantic schemas
-│   │       ├── scoring.py        # TODO: Risk scoring logic
-│   │       └── README.md         # Task details
+│   │   │   └── scores.py          # Risk score & pagination endpoints
+│   │   ├── core/
+│   │   │   └── db.py              # Database session / engine
+│   │   ├── models.py              # SQLAlchemy models
+│   │   ├── schemas.py             # Pydantic response schemas
+│   │   ├── scoring.py             # Context-aware scoring logic
+│   │   └── seed.py                # CSV → DB ingestion
 │   ├── requirements.txt
 │   └── README.md
 │
 ├── frontend/
 │   ├── src/
-│   │   ├── index.html           # ✅ HTML form (created)
-│   │   ├── api.ts              # TODO: API client
-│   │   ├── renderer.ts         # TODO: Event handlers
-│   │   ├── styles.css          # TODO: Styling
-│   │   └── README.md           # Task details
-│   ├── electron-main.ts        # ✅ Window management (created)
+│   │   ├── api.ts                 # API client + types
+│   │   ├── App.tsx                # App composition
+│   │   ├── hooks/
+│   │   │   └── useScoresData.ts   # Data-fetching hooks
+│   │   ├── components/
+│   │   │   ├── layout/
+│   │   │   │   └── Header.tsx
+│   │   │   └── dashboard/
+│   │   │       ├── SummaryCards.tsx
+│   │   │       ├── RiskTable.tsx
+│   │   │       └── VulnerabilityDrawer.tsx
+│   │   └── components/ui/         # shadcn/ui components
 │   ├── package.json
 │   ├── tsconfig.json
 │   └── README.md
 │
-├── docker/
-│   ├── backend.Dockerfile      # ✅ Created
-│   └── README.md
+├── data/
+│   └── vulncontext.db             # SQLite database (auto-created)
 │
-├── data/                        # SQLite database (auto-created)
-├── docker-compose.yml          # ✅ Created
-├── .gitignore                  # ✅ Created
+├── docker-compose.yml
+├── .gitignore
 └── README.md
 ```
 
-## What to Build
+---
 
-### Backend (Python/FastAPI)
-- [ ] `backend/app/main.py` - FastAPI application entry point
-- [ ] `backend/app/core/db.py` - Database setup
-- [ ] `backend/app/core/models.py` - SQLAlchemy models
-- [ ] `backend/app/core/schemas.py` - Pydantic schemas
-- [ ] `backend/app/core/scoring.py` - Risk scoring logic
-- [ ] `backend/app/api/scores.py` - GET/POST endpoints
+## API Endpoints
 
-**See:** `backend/app/api/README.md` and `backend/app/core/README.md`
-
-### Frontend (TypeScript/Electron)
-- [ ] `frontend/src/api.ts` - API client
-- [ ] `frontend/src/renderer.ts` - Event handlers
-- [ ] `frontend/src/styles.css` - Styling
-
-**See:** `frontend/src/README.md`
-
-## API Endpoints to Implement
-
-- `GET /health` - Health check
-- `GET /scores` - Retrieve all scores
-- `POST /scores` - Create new score
-
-## Technologies
-
-- **Backend**: Python 3.9+, FastAPI, SQLAlchemy, SQLite
-- **Frontend**: Node 16+, Electron, TypeScript
-- **Docker**: Python 3.12-slim base
-
-## Development Workflow
-
-```bash
-# Terminal 1: Backend with auto-reload
-cd backend
-uvicorn app.main:app --reload --port 8000
-
-# Terminal 2: Frontend with TypeScript watch
-cd frontend
-npm run watch
-
-# Terminal 3: Run Electron app
-cd frontend
-npm start
+### Health
+```
+GET /health
 ```
 
-## Next Steps
+### Summary Metrics
+```
+GET /scores/summary
+```
 
-1. Read task READMEs in each folder
-2. Implement backend components (core/ then api/)
-3. Implement frontend components (src/)
-4. Test with sample data
-5. Deploy with Docker Compose
+### Top 10 by Risk
+```
+GET /scores/top10
+```
+
+### All Findings (Paginated)
+```
+GET /scores/all?page=1&page_size=50
+```
+
+Responses are sorted by `risk_score DESC`.
 
 ---
 
-**Component README files have detailed tasks and examples.**
-- [ ] Implement comprehensive error logging
+## Frontend Views
 
-## Dependencies
+### Dashboard
+- Total findings
+- Risk distribution
+- Ranked vulnerability table
+- Risk band filters
 
-### Backend
-- `fastapi` - Web framework
-- `uvicorn` - ASGI server
-- `sqlalchemy` - ORM
-- `pydantic` - Data validation
+### Vulnerability Drill-Down
+Click any row to open a **right-side drawer** showing:
 
-### Frontend
-- `electron` - Desktop framework
-- `typescript` - Type safety
+- CVE / CWE
+- Description
+- CVSS & EPSS
+- Attack vector & exploit context
+- Asset details (hostname, IP, OS, type)
+- Exposure (port, service, internet exposed)
+- Detection history
+- Risk score & band
+
+---
 
 ## Testing
 
+### Backend
 ```bash
-# Backend tests (pytest - to be implemented)
-cd backend
-pip install pytest
-pytest
+curl http://localhost:8000/health
+curl http://localhost:8000/scores/top10
+curl http://localhost:8000/scores/all?page=1&page_size=10
+```
 
-# Frontend build check
+### Frontend
+```bash
 cd frontend
 npm run build
-
-# Manual API testing
-curl http://localhost:8000/health
-curl http://localhost:8000/scores
-curl -X POST http://localhost:8000/scores \
-  -H "Content-Type: application/json" \
-  -d '{"vulnerability_name":"CVE-2023-001","severity":"high"}'
 ```
+
+---
 
 ## Troubleshooting
 
-### Backend won't connect
-- Ensure the API is running on `http://localhost:8000`
-- Check the health endpoint: `curl http://localhost:8000/health`
-- Review [app/main.py](backend/app/main.py) CORS settings
-- Check that port 8000 is not in use: `lsof -i :8000` (macOS)
-
-### Frontend can't reach backend
-- Check browser console for fetch errors (press F12 in Electron app)
-- Ensure backend is running before starting frontend
-- Verify API response in Network tab of DevTools
-- Check [frontend/src/api.ts](frontend/src/api.ts) for correct API_BASE_URL
+### Backend not reachable
+- Confirm FastAPI is running on port 8000
+- Check `/health`
+- Ensure port is free: `lsof -i :8000`
 
 ### Database issues
-- SQLite database is created at `./data/vuln_context.db`
-- Ensure `data/` directory exists and is writable
-- Delete database file to reset: `rm data/vuln_context.db`
-- Database is automatically initialized on first API call
+- SQLite DB is at `data/vulncontext.db`
+- Reset by deleting the file and re-running seed:
+```bash
+rm data/vulncontext.db
+python3 -m app.seed
+```
 
-### TypeScript compilation errors
-- Run `npm run build` in frontend/ to check for compilation errors
-- Ensure all types are properly defined in tsconfig.json
-- Install missing types: `npm install --save-dev @types/node`
+### Frontend errors
+- Ensure backend is running
+- Check browser DevTools console
+- Verify API base URL in `src/api.ts`
 
-### Electron app won't start
-- Ensure all npm dependencies are installed: `npm install`
-- Check that TypeScript is compiled: `npm run build`
-- Verify electron-main.ts path is correct in package.json
-- Check DevTools console for errors: `mainWindow.webContents.openDevTools()`
-- Ensure backend is running before starting the Electron app
-- Verify API_BASE_URL in `frontend/src/api.ts`
+### Pagination / UI errors
+- Ensure shadcn pagination is installed:
+```bash
+npx shadcn@latest add pagination
+```
 
-### Database errors
-- Check that `./data` directory exists and is writable
-- Delete `./data/vuln_context.db` to reset the database
-- Ensure SQLite3 is installed (usually included with Python)
+---
 
-## Contributing
+## Technologies
 
-1. Create a feature branch: `git checkout -b feature/your-feature`
-2. Make changes and test locally
-3. Commit with clear messages: `git commit -m "Add feature X"`
-4. Push and create a Pull Request
+- **Backend**: FastAPI, SQLAlchemy, SQLite
+- **Frontend**: React, TypeScript, shadcn/ui, Radix UI
+- **State & Data**: Custom hooks
+- **Infra**: Docker (optional)
 
-## License
+---
 
-MIT License - See LICENSE file for details
+## Future Enhancements
 
-## Contact
-
-For questions or contributions, please open an issue or contact the team.
+- CSV upload (Qualys-style integration)
+- Editable scoring weights per organization
+- Findings search & advanced filters
+- Auth & multi-tenant support
+- Charts & trend analysis
+- Export & reporting

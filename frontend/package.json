@@ -1,22 +1,39 @@
 {
   "name": "vuln-context-desktop",
   "version": "0.1.0",
-  "description": "VulnContext Desktop - Electron + TypeScript UI for vulnerability scoring",
+  "description": "VulnContext Desktop - Electron + React + TypeScript UI for vulnerability scoring",
   "main": "dist/electron-main.js",
+  "private": true,
   "scripts": {
-    "start": "electron .",
-    "build": "tsc",
-    "watch": "tsc --watch",
-    "dev": "npm run build && npm start"
+    "dev:renderer": "vite",
+    "dev:electron": "NODE_ENV=development electron .",
+    "dev": "concurrently \"npm run dev:renderer\" \"npm run dev:electron\"",
+    "build:renderer": "vite build",
+    "build:electron": "tsc",
+    "build": "npm run build:renderer && npm run build:electron"
   },
-  "keywords": [],
-  "author": "",
-  "license": "MIT",
   "dependencies": {
-    "electron": "^27.0.0"
+    "@radix-ui/react-menubar": "^1.1.16",
+    "@radix-ui/react-slot": "^1.2.4",
+    "clsx": "^2.1.1",
+    "electron": "^27.0.0",
+    "lucide-react": "^0.563.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {
-    "typescript": "^5.3.2",
-    "@types/node": "^20.10.0"
+    "@types/node": "^20.10.0",
+    "@types/react": "^19.2.13",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react-swc": "^4.2.3",
+    "autoprefixer": "^10.4.24",
+    "class-variance-authority": "^0.7.1",
+    "concurrently": "^9.2.1",
+    "postcss": "^8.5.6",
+    "tailwind-merge": "^3.4.0",
+    "tailwindcss": "^3.4.19",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1"
   }
 }

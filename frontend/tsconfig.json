@@ -13,11 +13,17 @@
     "declarationMap": true,
     "sourceMap": true,
     "moduleResolution": "node",
-    "types": ["node"]
+    "types": ["node"],
+
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    }
   },
   "include": [
     "electron-main.ts",
-    "src/**/*.ts"
+    "src/**/*.{ts,tsx}"
   ],
   "exclude": [
     "node_modules",
