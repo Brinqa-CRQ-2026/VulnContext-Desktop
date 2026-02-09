@@ -70,6 +70,27 @@ npm install
 
 ---
 
+### Data Setup (Required)
+
+VulnContext Desktop uses a synthetic, Qualys-inspired CSV file to seed the local SQLite database.
+
+Before running the backend for the first time, create the data directory and place the dataset inside it.
+
+```bash
+cd backend
+mkdir data
+```
+
+Copy the following file into the data/ directory:
+
+```bash
+data/synthetic_qualys_findings_v2.csv
+```
+
+This file is required for local database seeding.
+
+---
+
 ### Run Locally
 
 #### Backend (Terminal 1)
