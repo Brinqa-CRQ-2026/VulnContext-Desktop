@@ -1,6 +1,11 @@
+# API runtime dependencies
 fastapi
 uvicorn[standard]
 sqlalchemy
 pydantic
 pydantic-settings
 python-multipart
+
+# Test dependencies
+pytest
+httpx
