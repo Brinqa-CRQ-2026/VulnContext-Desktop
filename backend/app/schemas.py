@@ -61,6 +61,8 @@ class ScoredFindingOut(BaseModel):
 
     risk_score: float
     risk_band: str
+    
+    resolved: bool = False
 
     class Config:
         from_attributes = True

@@ -18,6 +18,7 @@ export function useScoresData() {
   useEffect(() => {
     async function loadData() {
       try {
+        console.log("🔄 useScoresData: Starting to load data...");
         setLoading(true);
         setError(null);
 
@@ -27,13 +28,18 @@ export function useScoresData() {
           getScoresSummary(),
         ]);
 
+        console.log("✅ useScoresData: Data loaded successfully");
+        console.log("📊 Summary data:", summaryData);
+        console.log("🔝 Top scores:", scores);
+
         setFindings(scores);
         setSummary(summaryData);
       } catch (err) {
-        console.error(err);
+        console.error("❌ useScoresData: Error loading data:", err);
         setError("Failed to load data from backend.");
       } finally {
         setLoading(false);
+        console.log("✅ useScoresData: Loading complete");
       }
     }
 
@@ -49,6 +55,7 @@ export function usePaginatedFindings(initialPageSize: number = 50) {
   const [data, setData] = useState<PaginatedFindings | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     async function load() {
@@ -65,7 +72,9 @@ export function usePaginatedFindings(initialPageSize: number = 50) {
       }
     }
     load();
-  }, [page, pageSize]);
+  }, [page, pageSize, refreshKey]);
+
+  const refetch = () => setRefreshKey(prev => prev + 1);
 
   return {
     page,
@@ -74,5 +83,6 @@ export function usePaginatedFindings(initialPageSize: number = 50) {
     data,
     loading,
     error,
+    refetch,
   };
 }

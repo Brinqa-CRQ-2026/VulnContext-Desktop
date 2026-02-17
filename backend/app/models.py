@@ -51,3 +51,6 @@ class ScoredFinding(Base):
     # Final risk scoring
     risk_score = Column(Float, nullable=False)
     risk_band = Column(String, nullable=False)
+    
+    # Resolution status
+    resolved = Column(Boolean, nullable=False, default=False)

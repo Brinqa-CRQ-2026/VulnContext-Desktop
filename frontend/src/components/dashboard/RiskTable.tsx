@@ -7,13 +7,14 @@ import {
   TableHeader,
   TableRow,
 } from "../ui/table";
-import { ScoredFinding } from "../../api";
+import { ScoredFinding, markFindingResolved } from "../../api";
 import {
   Card,
   CardHeader,
   CardTitle,
   CardContent,
 } from "../ui/card";
+import { Button } from "../ui/button";
 import { VulnerabilityDrawer } from "./VulnerabilityDrawer";
 import { usePaginatedFindings } from "../../hooks/useScoresData";
 import {
@@ -40,7 +41,18 @@ export function RiskTable() {
     data,
     loading,
     error,
+    refetch,
   } = usePaginatedFindings(15);
+
+  const handleMarkResolved = async (findingId: number, resolved: boolean, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent row click
+    try {
+      await markFindingResolved(findingId, resolved);
+      refetch(); // Refresh the data
+    } catch (err) {
+      console.error("Failed to update finding:", err);
+    }
+  };
 
   const findings = data?.items ?? [];
   const total = data?.total ?? 0;
@@ -132,12 +144,13 @@ export function RiskTable() {
                   <TableHead>Internet exposed</TableHead>
                   <TableHead>Risk score</TableHead>
                   <TableHead>Risk band</TableHead>
+                  <TableHead className="w-24">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading && (
                   <TableRow>
-                    <TableCell colSpan={9} className="py-6 text-center">
+                    <TableCell colSpan={10} className="py-6 text-center">
                       Loading findings...
                     </TableCell>
                   </TableRow>
@@ -146,7 +159,7 @@ export function RiskTable() {
                 {!loading && error && (
                   <TableRow>
                     <TableCell
-                      colSpan={9}
+                      colSpan={10}
                       className="py-6 text-center text-red-500"
                     >
                       {error}
@@ -156,7 +169,7 @@ export function RiskTable() {
 
                 {!loading && !error && filteredFindings.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={9} className="py-6 text-center">
+                    <TableCell colSpan={10} className="py-6 text-center">
                       No findings available for this filter.
                     </TableCell>
                   </TableRow>
@@ -193,6 +206,27 @@ export function RiskTable() {
                         >
                           {f.risk_band}
                         </span>
+                      </TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        {f.resolved ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={(e) => handleMarkResolved(f.id, false, e)}
+                          >
+                            Reopen
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700"
+                            onClick={(e) => handleMarkResolved(f.id, true, e)}
+                          >
+                            Resolve
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}

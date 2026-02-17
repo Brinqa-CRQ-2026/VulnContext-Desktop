@@ -38,6 +38,7 @@ export interface ScoredFinding {
 
   risk_score: number;
   risk_band: string;
+  resolved: boolean;
 }
 
 const API_BASE_URL = "http://127.0.0.1:8000";
@@ -87,6 +88,27 @@ export async function getAllFindings(
   if (!res.ok) {
     throw new Error(
       `Failed to fetch findings: ${res.status} ${res.statusText}`
+    );
+  }
+  return res.json();
+}
+
+export async function markFindingResolved(
+  findingId: number,
+  resolved: boolean = true
+): Promise<ScoredFinding> {
+  const res = await fetch(
+    `${API_BASE_URL}/scores/${findingId}/resolve?resolved=${resolved}`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    }
+  );
+  if (!res.ok) {
+    throw new Error(
+      `Failed to update finding: ${res.status} ${res.statusText}`
     );
   }
   return res.json();

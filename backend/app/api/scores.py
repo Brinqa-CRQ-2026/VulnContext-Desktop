@@ -135,3 +135,29 @@ def get_all_scores(
         page=page,
         page_size=page_size,
     )
+
+
+@router.patch("/{finding_id}/resolve", response_model=schemas.ScoredFindingOut)
+def mark_finding_resolved(
+    finding_id: int,
+    resolved: bool = True,
+    db: Session = Depends(get_db),
+):
+    """
+    Mark a finding as resolved or unresolved.
+    
+    - finding_id: The database ID of the finding
+    - resolved: True to mark as resolved, False to mark as unresolved
+    """
+    finding = db.query(models.ScoredFinding).filter(
+        models.ScoredFinding.id == finding_id
+    ).first()
+    
+    if not finding:
+        raise HTTPException(status_code=404, detail="Finding not found")
+    
+    finding.resolved = resolved
+    db.commit()
+    db.refresh(finding)
+    
+    return finding
