@@ -80,3 +80,4 @@ local/
 temp/
 tmp/
 backend/data/synthetic_qualys_findings_v2.csv
+backend/vulncontext.db

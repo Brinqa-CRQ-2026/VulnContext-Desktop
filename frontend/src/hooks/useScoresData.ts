@@ -6,10 +6,14 @@ import {
   getTopScores,
   getScoresSummary,
   getAllFindings,
-  PaginatedFindings
+  getFindingsByRiskBand,
+  FindingsSortBy,
+  PaginatedFindings,
+  RiskBandFilter,
+  SortOrder,
 } from "../api";
 
-export function useScoresData() {
+export function useScoresData(refreshToken: number = 0) {
   const [findings, setFindings] = useState<ScoredFinding[]>([]);
   const [summary, setSummary] = useState<ScoresSummary | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -38,12 +42,18 @@ export function useScoresData() {
     }
 
     loadData();
-  }, []);
+  }, [refreshToken]);
 
   return { findings, summary, loading, error };
 }
 
-export function usePaginatedFindings(initialPageSize: number = 50) {
+export function usePaginatedFindings(
+  initialPageSize: number = 50,
+  bandFilter: RiskBandFilter = "All",
+  sortBy: FindingsSortBy = "risk_score",
+  sortOrder: SortOrder = "desc",
+  refreshToken: number = 0
+) {
   const [page, setPage] = useState(1);
   const [pageSize] = useState(initialPageSize);
   const [data, setData] = useState<PaginatedFindings | null>(null);
@@ -51,12 +61,27 @@ export function usePaginatedFindings(initialPageSize: number = 50) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    setPage(1);
+  }, [bandFilter, sortBy, sortOrder]);
+
+  useEffect(() => {
     async function load() {
       try {
         setLoading(true);
         setError(null);
-        const result = await getAllFindings(page, pageSize);
-        setData(result);
+        if (bandFilter === "All") {
+          const allResult = await getAllFindings(page, pageSize, sortBy, sortOrder);
+          setData(allResult);
+          return;
+        }
+        const filteredResult = await getFindingsByRiskBand(
+          bandFilter,
+          page,
+          pageSize,
+          sortBy,
+          sortOrder
+        );
+        setData(filteredResult);
       } catch (err) {
         console.error(err);
         setError("Failed to load findings.");
@@ -65,7 +90,7 @@ export function usePaginatedFindings(initialPageSize: number = 50) {
       }
     }
     load();
-  }, [page, pageSize]);
+  }, [page, pageSize, bandFilter, sortBy, sortOrder, refreshToken]);
 
   return {
     page,

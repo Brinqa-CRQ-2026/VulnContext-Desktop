@@ -9,6 +9,8 @@ but operates on a single "finding" dict instead of a whole DataFrame.
 
 from typing import Any, Dict, Mapping, Tuple, Optional
 
+from app.core.risk_weights import DEFAULT_RISK_WEIGHTS, RiskWeights
+
 
 def compute_risk_score_and_band(
     *,
@@ -18,6 +20,7 @@ def compute_risk_score_and_band(
     asset_criticality_label: str,
     vuln_age_days: int,
     auth_required: bool,
+    weights: Optional[RiskWeights] = None,
 ) -> Tuple[float, str]:
     """
     Compute risk_score and risk_band for a single finding.
@@ -45,14 +48,16 @@ def compute_risk_score_and_band(
     crit_map = {"Low": 0.25, "Medium": 0.5, "High": 0.75, "Critical": 1.0}
     asset_crit_norm = crit_map.get(asset_criticality_label, 0.5)
 
+    applied_weights = weights or DEFAULT_RISK_WEIGHTS
+
     # ---- Weighted risk score ----
     risk_raw = (
-        0.30 * cvss_norm
-        + 0.25 * epss_norm
-        + 0.20 * internet_exposed_norm
-        + 0.15 * asset_crit_norm
-        + 0.10 * age_norm
-        - 0.10 * auth_norm
+        applied_weights["cvss_weight"] * cvss_norm
+        + applied_weights["epss_weight"] * epss_norm
+        + applied_weights["internet_exposed_weight"] * internet_exposed_norm
+        + applied_weights["asset_criticality_weight"] * asset_crit_norm
+        + applied_weights["vuln_age_weight"] * age_norm
+        + applied_weights["auth_required_weight"] * auth_norm
     )
 
     # Clamp to [0, 1]
@@ -76,6 +81,8 @@ def compute_risk_score_and_band(
 
 def _compute_risk_for_row(
     finding: Mapping[str, Any],
+    *,
+    weights: Optional[RiskWeights] = None,
 ) -> Dict[str, Any]:
     """
     Thin adapter: takes a dict-like finding and attaches risk_score + risk_band.
@@ -86,9 +93,15 @@ def _compute_risk_for_row(
     internet_exposed = bool(finding.get("internet_exposed", False))
 
     # These three fields must come from the caller (seed, POST /scores, etc.)
-    asset_crit_label = str(
-        finding.get("asset_criticality_label", finding.get("asset_criticality", "Medium"))
+    asset_crit_label_raw = finding.get(
+        "asset_criticality_label",
+        finding.get("asset_criticality", "Medium"),
     )
+    if isinstance(asset_crit_label_raw, (int, float)):
+        numeric_map = {1: "Low", 2: "Medium", 3: "High", 4: "Critical"}
+        asset_crit_label = numeric_map.get(int(asset_crit_label_raw), "Medium")
+    else:
+        asset_crit_label = str(asset_crit_label_raw)
     vuln_age_days = int(finding.get("vuln_age_days", 0))
     auth_required = bool(finding.get("auth_required", False))
 
@@ -99,6 +112,7 @@ def _compute_risk_for_row(
         asset_criticality_label=asset_crit_label,
         vuln_age_days=vuln_age_days,
         auth_required=auth_required,
+        weights=weights,
     )
 
     out = dict(finding)
@@ -112,6 +126,7 @@ def score_finding_dict(
     *,
     override_risk_score: Optional[float] = None,
     override_risk_band: Optional[str] = None,
+    weights: Optional[RiskWeights] = None,
 ) -> Dict[str, Any]:
     """
     Public API: score a single finding dict.
@@ -120,7 +135,7 @@ def score_finding_dict(
     - Computes risk_score & risk_band using _compute_risk_for_row.
     - Allows override of risk_score/risk_band if ingesting pre-scored CSV.
     """
-    scored = _compute_risk_for_row(finding)
+    scored = _compute_risk_for_row(finding, weights=weights)
 
     if override_risk_score is not None:
         scored["risk_score"] = float(override_risk_score)

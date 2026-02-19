@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { ArrowDown, ArrowUp, ChevronDown } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -14,6 +15,7 @@ import {
   CardTitle,
   CardContent,
 } from "../ui/card";
+import { Button } from "../ui/button";
 import { VulnerabilityDrawer } from "./VulnerabilityDrawer";
 import { usePaginatedFindings } from "../../hooks/useScoresData";
 import {
@@ -24,11 +26,29 @@ import {
   PaginationPrevious,
   PaginationLink,
 } from "../ui/pagination";
+import {
+  FindingsSortBy,
+  RiskBandFilter,
+  SortOrder,
+} from "../../api";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "../ui/dropdown-menu";
 
-type BandFilter = "All" | "Critical" | "High" | "Medium" | "Low";
+interface RiskTableProps {
+  refreshToken: number;
+  onOpenIntegrations: () => void;
+}
 
-export function RiskTable() {
-  const [bandFilter, setBandFilter] = useState<BandFilter>("All");
+export function RiskTable({ refreshToken, onOpenIntegrations }: RiskTableProps) {
+  const [bandFilter, setBandFilter] = useState<RiskBandFilter>("All");
+  const [sortBy, setSortBy] = useState<FindingsSortBy>("risk_score");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [selectedFinding, setSelectedFinding] = useState<ScoredFinding | null>(
     null
   );
@@ -40,19 +60,11 @@ export function RiskTable() {
     data,
     loading,
     error,
-  } = usePaginatedFindings(15);
+  } = usePaginatedFindings(15, bandFilter, sortBy, sortOrder, refreshToken);
 
   const findings = data?.items ?? [];
   const total = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
-
-  const filteredFindings =
-    bandFilter === "All"
-      ? findings
-      : findings.filter(
-          (f) =>
-            f.risk_band.toLowerCase() === bandFilter.toLowerCase()
-        );
 
   const bandPillClass = (band: string) => {
     const b = band.toLowerCase();
@@ -86,6 +98,13 @@ export function RiskTable() {
     return nums;
   })();
 
+  const sortLabelMap: Record<FindingsSortBy, string> = {
+    risk_score: "Sort by risk score",
+    cvss_score: "Sort by CVSS",
+    epss_score: "Sort by EPSS",
+    vuln_age_days: "Sort by vulnerability age",
+  };
+
   return (
     <>
       <Card className="flex-1 overflow-hidden">
@@ -95,109 +114,164 @@ export function RiskTable() {
               All findings by Context-Aware Risk
             </CardTitle>
 
-            {/* Band filter segmented control */}
-            <div className="flex items-center gap-1 rounded-full bg-slate-100 px-1 py-0.5 text-xs">
-              {(["All", "Critical", "High", "Medium", "Low"] as BandFilter[]).map(
-                (band) => {
-                  const active = bandFilter === band;
-                  return (
-                    <button
-                      key={band}
-                      onClick={() => setBandFilter(band)}
-                      className={`rounded-full px-2 py-0.5 transition ${
-                        active
-                          ? "bg-slate-900 text-slate-50"
-                          : "text-slate-600 hover:bg-slate-200"
-                      }`}
-                    >
-                      {band}
-                    </button>
-                  );
-                }
-              )}
+            <div className="flex items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger>
+                  {sortLabelMap[sortBy]}
+                  <ChevronDown className="h-4 w-4" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuLabel>Sort Field</DropdownMenuLabel>
+                  <DropdownMenuItem onClick={() => setSortBy("risk_score")}>
+                    Sort by risk score
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSortBy("cvss_score")}>
+                    Sort by CVSS
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSortBy("epss_score")}>
+                    Sort by EPSS
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSortBy("vuln_age_days")}>
+                    Sort by vulnerability age
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel>Direction</DropdownMenuLabel>
+                  <DropdownMenuItem onClick={() => setSortOrder("asc")}>
+                    Ascending
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSortOrder("desc")}>
+                    Descending
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))}
+              >
+                {sortOrder === "asc" ? (
+                  <>
+                    <ArrowUp className="h-4 w-4" /> Asc
+                  </>
+                ) : (
+                  <>
+                    <ArrowDown className="h-4 w-4" /> Desc
+                  </>
+                )}
+              </Button>
+              {/* Band filter segmented control */}
+              <div className="flex items-center gap-1 rounded-full bg-slate-100 px-1 py-0.5 text-xs">
+                {(["All", "Critical", "High", "Medium", "Low"] as RiskBandFilter[]).map(
+                  (band) => {
+                    const active = bandFilter === band;
+                    return (
+                      <button
+                        key={band}
+                        onClick={() => setBandFilter(band)}
+                        className={`rounded-full px-2 py-0.5 transition ${
+                          active
+                            ? "bg-slate-900 text-slate-50"
+                            : "text-slate-600 hover:bg-slate-200"
+                        }`}
+                      >
+                        {band}
+                      </button>
+                    );
+                  }
+                )}
+              </div>
             </div>
           </div>
         </CardHeader>
         <CardContent className="flex flex-col gap-3 overflow-auto">
           <div className="min-h-0 flex-1">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-10">#</TableHead>
-                  <TableHead>Finding ID</TableHead>
-                  <TableHead>Asset ID</TableHead>
-                  <TableHead>Hostname</TableHead>
-                  <TableHead>CVSS</TableHead>
-                  <TableHead>EPSS</TableHead>
-                  <TableHead>Internet exposed</TableHead>
-                  <TableHead>Risk score</TableHead>
-                  <TableHead>Risk band</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading && (
+            {!loading && !error && bandFilter === "All" && total === 0 ? (
+              <div className="flex h-full min-h-[16rem] flex-col items-center justify-center gap-3 rounded-md border border-dashed border-slate-300 bg-slate-50/70 p-6 text-center">
+                <p className="text-sm text-slate-600">
+                  No findings in the database yet. Add a source integration to start ingesting scanner data.
+                </p>
+                <Button onClick={onOpenIntegrations}>Go to Integrations</Button>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={9} className="py-6 text-center">
-                      Loading findings...
-                    </TableCell>
+                    <TableHead className="w-10">#</TableHead>
+                    <TableHead>Source</TableHead>
+                    <TableHead>CVE ID</TableHead>
+                    <TableHead>CVSS</TableHead>
+                    <TableHead>EPSS</TableHead>
+                    <TableHead>Vulnerability Age</TableHead>
+                    <TableHead>Detection Method</TableHead>
+                    <TableHead>Risk score</TableHead>
+                    <TableHead>Risk band</TableHead>
                   </TableRow>
-                )}
-
-                {!loading && error && (
-                  <TableRow>
-                    <TableCell
-                      colSpan={9}
-                      className="py-6 text-center text-red-500"
-                    >
-                      {error}
-                    </TableCell>
-                  </TableRow>
-                )}
-
-                {!loading && !error && filteredFindings.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={9} className="py-6 text-center">
-                      No findings available for this filter.
-                    </TableCell>
-                  </TableRow>
-                )}
-
-                {!loading &&
-                  !error &&
-                  filteredFindings.map((f, idx) => (
-                    <TableRow
-                      key={f.id}
-                      className="cursor-pointer hover:bg-slate-50"
-                      onClick={() => setSelectedFinding(f)}
-                    >
-                      <TableCell>
-                        {(page - 1) * pageSize + idx + 1}
-                      </TableCell>
-                      <TableCell>
-                        F-{String(f.finding_id).padStart(4, "0")}
-                      </TableCell>
-                      <TableCell>{f.asset_id}</TableCell>
-                      <TableCell>{f.hostname || "—"}</TableCell>
-                      <TableCell>{f.cvss_score.toFixed(1)}</TableCell>
-                      <TableCell>{f.epss_score.toFixed(4)}</TableCell>
-                      <TableCell>
-                        {f.internet_exposed ? "True" : "False"}
-                      </TableCell>
-                      <TableCell>{f.risk_score.toFixed(1)}</TableCell>
-                      <TableCell>
-                        <span
-                          className={
-                            "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold " +
-                            bandPillClass(f.risk_band)
-                          }
-                        >
-                          {f.risk_band}
-                        </span>
+                </TableHeader>
+                <TableBody>
+                  {loading && (
+                    <TableRow>
+                      <TableCell colSpan={9} className="py-6 text-center">
+                        Loading findings...
                       </TableCell>
                     </TableRow>
-                  ))}
-              </TableBody>
-            </Table>
+                  )}
+
+                  {!loading && error && (
+                    <TableRow>
+                      <TableCell
+                        colSpan={9}
+                        className="py-6 text-center text-red-500"
+                      >
+                        {error}
+                      </TableCell>
+                    </TableRow>
+                  )}
+
+                  {!loading && !error && findings.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={9} className="py-6 text-center">
+                        No findings available for this filter.
+                      </TableCell>
+                    </TableRow>
+                  )}
+
+                  {!loading &&
+                    !error &&
+                    findings.map((f, idx) => (
+                      <TableRow
+                        key={f.id}
+                        className="cursor-pointer hover:bg-slate-50"
+                        onClick={() => setSelectedFinding(f)}
+                      >
+                        <TableCell>
+                          {(page - 1) * pageSize + idx + 1}
+                        </TableCell>
+                        <TableCell>{f.source || "unknown"}</TableCell>
+                        <TableCell>{f.cve_id || "—"}</TableCell>
+                        <TableCell>{f.cvss_score.toFixed(1)}</TableCell>
+                        <TableCell>{f.epss_score.toFixed(4)}</TableCell>
+                        <TableCell>
+                          {f.vuln_age_days !== null && f.vuln_age_days !== undefined
+                            ? `${f.vuln_age_days}d`
+                            : "—"}
+                        </TableCell>
+                        <TableCell>{f.detection_method || "—"}</TableCell>
+                        <TableCell>{f.risk_score.toFixed(1)}</TableCell>
+                        <TableCell>
+                          <span
+                            className={
+                              "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold " +
+                              bandPillClass(f.risk_band)
+                            }
+                          >
+                            {f.risk_band}
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                </TableBody>
+              </Table>
+            )}
           </div>
 
           {/* Pagination controls */}

@@ -1,11 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.core.db import Base, engine
+from app.core.db import Base, engine, ensure_database_schema
 from app.api import scores as scores_router
 
 # Create tables on startup (simple academic prototype)
 Base.metadata.create_all(bind=engine)
+ensure_database_schema()
 
 app = FastAPI(
     title="VulnContext Backend",

@@ -8,6 +8,7 @@ class ScoredFinding(Base):
     id = Column(Integer, primary_key=True, index=True)
 
     # Identity / asset context
+    source = Column(String, nullable=False, default="unknown", index=True)
     finding_id = Column(String, index=True, nullable=False)
     asset_id = Column(String, index=True, nullable=False)
     hostname = Column(String, nullable=True)
@@ -51,3 +52,15 @@ class ScoredFinding(Base):
     # Final risk scoring
     risk_score = Column(Float, nullable=False)
     risk_band = Column(String, nullable=False)
+
+
+class RiskScoringConfig(Base):
+    __tablename__ = "risk_scoring_config"
+
+    id = Column(Integer, primary_key=True, index=True)
+    cvss_weight = Column(Float, nullable=False, default=0.30)
+    epss_weight = Column(Float, nullable=False, default=0.25)
+    internet_exposed_weight = Column(Float, nullable=False, default=0.20)
+    asset_criticality_weight = Column(Float, nullable=False, default=0.15)
+    vuln_age_weight = Column(Float, nullable=False, default=0.10)
+    auth_required_weight = Column(Float, nullable=False, default=-0.10)

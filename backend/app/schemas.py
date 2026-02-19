@@ -6,6 +6,7 @@ class ScoredFindingCreate(BaseModel):
     Input schema: what the client sends when it wants a finding scored.
     Note: no id, no risk_score, no risk_band here – those are computed.
     """
+    source: str = "manual"
     finding_id: str
     asset_id: str
     cvss_score: float
@@ -26,6 +27,7 @@ class ScoredFindingBase(ScoredFindingCreate):
 class ScoredFindingOut(BaseModel):
     id: int
 
+    source: str
     finding_id: str
     asset_id: str
     hostname: str | None = None
@@ -81,3 +83,45 @@ class RiskBandSummary(BaseModel):
 class ScoresSummary(BaseModel):
     total_findings: int
     risk_bands: RiskBandSummary
+
+
+class SeedUploadResult(BaseModel):
+    inserted: int
+    source: str
+    total_findings: int
+
+
+class SourceSummary(BaseModel):
+    source: str
+    total_findings: int
+    risk_bands: RiskBandSummary
+
+
+class SourceRenameRequest(BaseModel):
+    new_source: str
+
+
+class SourceRenameResult(BaseModel):
+    old_source: str
+    new_source: str
+    updated_rows: int
+
+
+class SourceDeleteResult(BaseModel):
+    source: str
+    deleted_rows: int
+    total_findings_remaining: int
+
+
+class RiskWeightsConfig(BaseModel):
+    cvss_weight: float = 0.30
+    epss_weight: float = 0.25
+    internet_exposed_weight: float = 0.20
+    asset_criticality_weight: float = 0.15
+    vuln_age_weight: float = 0.10
+    auth_required_weight: float = -0.10
+
+
+class RiskWeightsUpdateResult(BaseModel):
+    updated_rows: int
+    weights: RiskWeightsConfig

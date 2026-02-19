@@ -6,7 +6,14 @@ import {
   MenubarTrigger,
 } from "../ui/menubar";
 
-export function Header() {
+type AppPage = "dashboard" | "integrations";
+
+interface HeaderProps {
+  page: AppPage;
+  onNavigate: (page: AppPage) => void;
+}
+
+export function Header({ page, onNavigate }: HeaderProps) {
   return (
     <header className="border-b bg-white">
       <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between px-4">
@@ -19,13 +26,27 @@ export function Header() {
 
         <Menubar>
           <MenubarMenu>
-            <MenubarTrigger>Dashboard</MenubarTrigger>
+            <MenubarTrigger
+              onClick={() => onNavigate("dashboard")}
+              className={page === "dashboard" ? "bg-accent text-accent-foreground" : ""}
+            >
+              Dashboard
+            </MenubarTrigger>
           </MenubarMenu>
           <MenubarMenu>
-            <MenubarTrigger>Findings</MenubarTrigger>
+            <MenubarTrigger
+              onClick={() => onNavigate("dashboard")}
+            >
+              Findings
+            </MenubarTrigger>
           </MenubarMenu>
           <MenubarMenu>
-            <MenubarTrigger>Integrations</MenubarTrigger>
+            <MenubarTrigger
+              onClick={() => onNavigate("integrations")}
+              className={page === "integrations" ? "bg-accent text-accent-foreground" : ""}
+            >
+              Integrations
+            </MenubarTrigger>
           </MenubarMenu>
         </Menubar>
 
