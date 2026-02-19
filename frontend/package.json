@@ -6,6 +6,7 @@
   "private": true,
   "scripts": {
     "dev:renderer": "vite",
+    "predev:electron": "npm run build:electron",
     "dev:electron": "NODE_ENV=development electron .",
     "dev": "concurrently \"npm run dev:renderer\" \"npm run dev:electron\"",
     "build:renderer": "vite build",
