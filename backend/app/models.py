@@ -64,3 +64,11 @@ class RiskScoringConfig(Base):
     asset_criticality_weight = Column(Float, nullable=False, default=0.15)
     vuln_age_weight = Column(Float, nullable=False, default=0.10)
     auth_required_weight = Column(Float, nullable=False, default=-0.10)
+
+class EpssScore(Base):
+    __tablename__ = "epss_scores"
+
+    cve_id = Column(String(32), primary_key=True, index=True)
+    probability = Column(Float, nullable=False)
+    percentile = Column(Float, nullable=False)
+
