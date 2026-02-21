@@ -5,6 +5,7 @@ sqlalchemy
 pydantic
 pydantic-settings
 python-multipart
+requests
 
 # Test dependencies
 pytest
