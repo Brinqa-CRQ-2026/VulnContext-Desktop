@@ -17,7 +17,7 @@
     "@radix-ui/react-menubar": "^1.1.16",
     "@radix-ui/react-slot": "^1.2.4",
     "clsx": "^2.1.1",
-    "electron": "^27.0.0",
+    "electron": "^40.6.0",
     "lucide-react": "^0.563.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
