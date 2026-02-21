@@ -38,3 +38,8 @@ def health():
 
 # Register routers
 app.include_router(scores_router.router)
+
+from app.epss import get_epss_scores 
+@app.on_event("startup")
+def startup_event():
+    get_epss_scores()
