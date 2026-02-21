@@ -1,18 +1,14 @@
 # app/seed.py
 import csv
 import io
+import requests
 from pathlib import Path
 
 from app.core.db import SessionLocal, engine, Base, ensure_database_schema
 from app.core.risk_weights import DEFAULT_RISK_WEIGHTS, RiskWeights
-from app.models import ScoredFinding
+from app.models import ScoredFinding, EpssScore
 from app.scoring import score_finding_dict
 
-DATA_PATH = (
-    Path(__file__).resolve().parent.parent
-    / "data"
-    / "synthetic_qualys_findings_v2.csv"
-)
 
 ASSET_CRITICALITY_MAP = {
     "low": 1,
@@ -25,7 +21,6 @@ REQUIRED_CSV_COLUMNS = {
     "finding_id",
     "asset_id",
     "cvss_score",
-    "epss_score",
     "internet_exposed",
     "asset_criticality",
     "vuln_age_days",
@@ -33,6 +28,13 @@ REQUIRED_CSV_COLUMNS = {
     "times_detected",
 }
 
+def fetch_epss_score(db, cve_id):
+    if not cve_id:
+        return 0.0
+    row = db.query(EpssScore).filter(EpssScore.cve_id == cve_id).first()
+    if not row:
+        return 0.0
+    return row.percentile
 
 def _as_bool(value: str) -> bool:
     return str(value).strip().lower() in ("1", "true", "yes")
@@ -58,6 +60,7 @@ def _build_scored_finding_from_row(
     source: str,
     weights: RiskWeights,
 ) -> ScoredFinding:
+    db = SessionLocal()
     finding_id = (row.get("finding_id") or "").strip()
     asset_id = (row.get("asset_id") or "").strip()
     if not finding_id:
@@ -77,7 +80,7 @@ def _build_scored_finding_from_row(
     if cvss_score < 0 or cvss_score > 10:
         raise ValueError(f"Row {row_num}: 'cvss_score' must be between 0 and 10.")
 
-    epss_score = _require_float(row.get("epss_score"), "epss_score", row_num)
+    epss_score = fetch_epss_score(db, row.get("cve_id"))
     if epss_score < 0 or epss_score > 1:
         raise ValueError(f"Row {row_num}: 'epss_score' must be between 0 and 1.")
 
@@ -116,7 +119,7 @@ def _build_scored_finding_from_row(
     }
 
     scored = score_finding_dict(raw_finding, weights=weights)
-
+    db.close()
     return ScoredFinding(
         source=source,
         finding_id=scored["finding_id"],
@@ -150,7 +153,6 @@ def _build_scored_finding_from_row(
         risk_band=scored["risk_band"],
     )
 
-
 def parse_qualys_csv_to_scored_findings(
     csv_text: str,
     source: str = "qualys",
@@ -176,34 +178,3 @@ def parse_qualys_csv_to_scored_findings(
 
     return rows_to_add
 
-
-def seed_db_from_csv():
-    Base.metadata.create_all(bind=engine)
-    ensure_database_schema()
-
-    if not DATA_PATH.exists():
-        raise FileNotFoundError(f"CSV file not found at: {DATA_PATH}")
-
-    db = SessionLocal()
-    try:
-        existing_count = db.query(ScoredFinding).count()
-        if existing_count > 0:
-            print(f"[seed] Database already has {existing_count} rows. Skipping seed.")
-            return
-
-        print(f"[seed] Seeding database from {DATA_PATH} ...")
-        csv_text = DATA_PATH.read_text(encoding="utf-8-sig")
-        rows_to_add = parse_qualys_csv_to_scored_findings(
-            csv_text,
-            source="qualys-local-seed",
-        )
-
-        db.add_all(rows_to_add)
-        db.commit()
-        print(f"[seed] Inserted {len(rows_to_add)} rows into scored_findings.")
-    finally:
-        db.close()
-
-
-if __name__ == "__main__":
-    seed_db_from_csv()
