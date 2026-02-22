@@ -6,12 +6,15 @@ import {
   getTopScores,
   getScoresSummary,
   getAllFindings,
-  PaginatedFindings
+  PaginatedFindings,
+  getRiskOverTime,
+  RiskOverTimeSeries
 } from "../api";
 
 export function useScoresData() {
   const [findings, setFindings] = useState<ScoredFinding[]>([]);
   const [summary, setSummary] = useState<ScoresSummary | null>(null);
+  const [riskOverTime, setRiskOverTime] = useState<RiskOverTimeSeries | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -23,9 +26,10 @@ export function useScoresData() {
         setError(null);
 
         // Fetch Top 10 + summary in parallel
-        const [scores, summaryData] = await Promise.all([
+        const [scores, summaryData, riskOverTimeData] = await Promise.all([
           getTopScores(),
           getScoresSummary(),
+          getRiskOverTime(30),
         ]);
 
         console.log("✅ useScoresData: Data loaded successfully");
@@ -34,6 +38,7 @@ export function useScoresData() {
 
         setFindings(scores);
         setSummary(summaryData);
+        setRiskOverTime(riskOverTimeData);
       } catch (err) {
         console.error("❌ useScoresData: Error loading data:", err);
         setError("Failed to load data from backend.");
@@ -47,6 +52,34 @@ export function useScoresData() {
   }, []);
 
   return { findings, summary, loading, error };
+}
+
+export function useRiskOverTime(days: number = 30) {
+  const [data, setData] = useState<RiskOverTimeSeries | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        setLoading(true);
+        setError(null);
+        const result = await getRiskOverTime(days);
+        setData(result);
+      } catch (err) {
+        console.error(err);
+        setError("Failed to load risk over time.");
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, [days, refreshKey]);
+
+  const refetch = () => setRefreshKey((prev) => prev + 1);
+
+  return { data, loading, error, refetch };
 }
 
 export function usePaginatedFindings(initialPageSize: number = 50) {

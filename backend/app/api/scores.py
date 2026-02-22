@@ -1,4 +1,5 @@
 from typing import List
+from datetime import datetime, timedelta, time
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -141,6 +142,7 @@ def get_all_scores(
 def mark_finding_resolved(
     finding_id: int,
     resolved: bool = True,
+    update: schemas.ResolveFindingUpdate | None = None,
     db: Session = Depends(get_db),
 ):
     """
@@ -156,8 +158,91 @@ def mark_finding_resolved(
     if not finding:
         raise HTTPException(status_code=404, detail="Finding not found")
     
-    finding.resolved = resolved
+    resolved_value = resolved
+    resolved_at_value = None
+
+    if update is not None:
+        if update.resolved is not None:
+            resolved_value = update.resolved
+        resolved_at_value = update.resolved_at
+
+    if resolved_value:
+        if resolved_at_value is None:
+            resolved_at_value = datetime.utcnow()
+    else:
+        resolved_at_value = None
+
+    finding.resolved = resolved_value
+    finding.resolved_at = resolved_at_value
     db.commit()
     db.refresh(finding)
     
     return finding
+
+
+@router.get("/risk-over-time", response_model=schemas.RiskOverTime)
+def get_risk_over_time(
+    days: int = Query(30, ge=1, le=365),
+    db: Session = Depends(get_db),
+):
+    """
+    Time series showing total remaining risk declining over time as findings are resolved.
+    Returns one point per day with the cumulative total risk of all unresolved findings.
+    """
+    end_date = datetime.utcnow().date()
+    start_date = end_date - timedelta(days=days - 1)
+
+    start_dt = datetime.combine(start_date, time.min)
+    end_dt = datetime.combine(end_date, time.max)
+
+    # Get total risk at the start (before any resolutions in the time window)
+    initial_total = db.query(
+        func.coalesce(func.sum(models.ScoredFinding.risk_score), 0.0)
+    ).filter(
+        (models.ScoredFinding.resolved == False) | 
+        (models.ScoredFinding.resolved_at.is_(None)) |
+        (models.ScoredFinding.resolved_at >= start_dt)
+    ).scalar() or 0.0
+
+    # Get resolved findings grouped by date
+    rows = (
+        db.query(
+            func.date(models.ScoredFinding.resolved_at),
+            func.count(models.ScoredFinding.id),
+            func.coalesce(func.sum(models.ScoredFinding.risk_score), 0.0),
+        )
+        .filter(models.ScoredFinding.resolved == True)
+        .filter(models.ScoredFinding.resolved_at.isnot(None))
+        .filter(models.ScoredFinding.resolved_at >= start_dt)
+        .filter(models.ScoredFinding.resolved_at <= end_dt)
+        .group_by(func.date(models.ScoredFinding.resolved_at))
+        .all()
+    )
+
+    by_date: dict[str, tuple[int, float]] = {}
+    for date_value, count_value, risk_value in rows:
+        key = str(date_value)
+        by_date[key] = (int(count_value or 0), float(risk_value or 0.0))
+
+    # Calculate cumulative remaining risk for each day
+    points: list[schemas.RiskOverTimePoint] = []
+    cumulative_total = float(initial_total)
+    
+    for offset in range(days):
+        current_date = start_date + timedelta(days=offset)
+        key = current_date.isoformat()
+        count_value, risk_value = by_date.get(key, (0, 0.0))
+        
+        points.append(
+            schemas.RiskOverTimePoint(
+                date=key,
+                total_risk=cumulative_total,
+                resolved_count=count_value,
+                resolved_risk=risk_value,
+            )
+        )
+        
+        # Subtract resolved risk for the next day
+        cumulative_total -= risk_value
+
+    return schemas.RiskOverTime(days=days, points=points)

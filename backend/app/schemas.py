@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel
 
 
@@ -63,6 +65,7 @@ class ScoredFindingOut(BaseModel):
     risk_band: str
     
     resolved: bool = False
+    resolved_at: datetime | None = None
 
     class Config:
         from_attributes = True
@@ -72,6 +75,10 @@ class PaginatedFindings(BaseModel):
     total: int
     page: int
     page_size: int
+
+class ResolveFindingUpdate(BaseModel):
+    resolved: bool | None = None
+    resolved_at: datetime | None = None
 
 class RiskBandSummary(BaseModel):
     Critical: int = 0
@@ -83,3 +90,15 @@ class RiskBandSummary(BaseModel):
 class ScoresSummary(BaseModel):
     total_findings: int
     risk_bands: RiskBandSummary
+
+
+class RiskOverTimePoint(BaseModel):
+    date: str
+    total_risk: float
+    resolved_count: int
+    resolved_risk: float
+
+
+class RiskOverTime(BaseModel):
+    days: int
+    points: list[RiskOverTimePoint]

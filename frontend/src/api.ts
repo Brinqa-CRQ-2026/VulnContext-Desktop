@@ -39,6 +39,7 @@ export interface ScoredFinding {
   risk_score: number;
   risk_band: string;
   resolved: boolean;
+  resolved_at?: string | null;
 }
 
 const API_BASE_URL = "http://127.0.0.1:8000";
@@ -95,8 +96,13 @@ export async function getAllFindings(
 
 export async function markFindingResolved(
   findingId: number,
-  resolved: boolean = true
+  resolved: boolean = true,
+  resolvedAt?: string | null
 ): Promise<ScoredFinding> {
+  const resolved_at = resolved
+    ? resolvedAt ?? new Date().toISOString()
+    : null;
+
   const res = await fetch(
     `${API_BASE_URL}/scores/${findingId}/resolve?resolved=${resolved}`,
     {
@@ -104,11 +110,36 @@ export async function markFindingResolved(
       headers: {
         "Content-Type": "application/json",
       },
+      body: JSON.stringify({ resolved, resolved_at }),
     }
   );
   if (!res.ok) {
     throw new Error(
       `Failed to update finding: ${res.status} ${res.statusText}`
+    );
+  }
+  return res.json();
+}
+
+export interface RiskOverTimePoint {
+  date: string;
+  total_risk: number;
+  resolved_count: number;
+  resolved_risk: number;
+}
+
+export interface RiskOverTimeSeries {
+  days: number;
+  points: RiskOverTimePoint[];
+}
+
+export async function getRiskOverTime(
+  days: number = 30
+): Promise<RiskOverTimeSeries> {
+  const res = await fetch(`${API_BASE_URL}/scores/risk-over-time?days=${days}`);
+  if (!res.ok) {
+    throw new Error(
+      `Failed to fetch risk over time: ${res.status} ${res.statusText}`
     );
   }
   return res.json();

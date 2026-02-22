@@ -1,5 +1,6 @@
 # app/seed.py
 import csv
+from datetime import datetime, timedelta, time
 from pathlib import Path
 
 from app.core.db import SessionLocal, engine, Base
@@ -38,7 +39,9 @@ def seed_db_from_csv():
             reader = csv.DictReader(f)
             rows_to_add = []
 
-            for row in reader:
+            today = datetime.utcnow().date()
+
+            for idx, row in enumerate(reader):
                 asset_crit_label = row["asset_criticality"].strip()
                 crit_key = asset_crit_label.lower()
                 if crit_key not in ASSET_CRITICALITY_MAP:
@@ -86,6 +89,15 @@ def seed_db_from_csv():
 
                 scored = score_finding_dict(raw_finding)
 
+                resolved = idx % 3 == 0
+                resolved_at = None
+                if resolved:
+                    days_ago = (idx * 2) % 30
+                    resolved_at = datetime.combine(
+                        today - timedelta(days=days_ago),
+                        time(hour=12),
+                    )
+
                 db_obj = ScoredFinding(
                     finding_id=scored["finding_id"],
                     asset_id=scored["asset_id"],
@@ -122,6 +134,9 @@ def seed_db_from_csv():
 
                     risk_score=scored["risk_score"],
                     risk_band=scored["risk_band"],
+
+                    resolved=resolved,
+                    resolved_at=resolved_at,
                 )
                 rows_to_add.append(db_obj)
 

@@ -1,5 +1,5 @@
 # app/models.py
-from sqlalchemy import Column, Integer, String, Float, Boolean, Text
+from sqlalchemy import Column, Integer, String, Float, Boolean, Text, DateTime
 from app.core.db import Base
 
 class ScoredFinding(Base):
@@ -54,3 +54,4 @@ class ScoredFinding(Base):
     
     # Resolution status
     resolved = Column(Boolean, nullable=False, default=False)
+    resolved_at = Column(DateTime, nullable=True)
