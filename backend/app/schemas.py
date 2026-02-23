@@ -102,3 +102,10 @@ class RiskOverTimePoint(BaseModel):
 class RiskOverTime(BaseModel):
     days: int
     points: list[RiskOverTimePoint]
+
+
+class AssetVulnCount(BaseModel):
+    asset_id: str
+    hostname: str | None = None
+    vuln_count: int
+    total_risk: float

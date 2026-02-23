@@ -144,3 +144,20 @@ export async function getRiskOverTime(
   }
   return res.json();
 }
+
+export interface AssetVulnCount {
+  asset_id: string;
+  hostname: string | null;
+  vuln_count: number;
+  total_risk: number;
+}
+
+export async function getAssetVulnerabilityCounts(): Promise<AssetVulnCount[]> {
+  const res = await fetch(`${API_BASE_URL}/scores/assets`);
+  if (!res.ok) {
+    throw new Error(
+      `Failed to fetch asset vulnerability counts: ${res.status} ${res.statusText}`
+    );
+  }
+  return res.json();
+}

@@ -246,3 +246,33 @@ def get_risk_over_time(
         cumulative_total -= risk_value
 
     return schemas.RiskOverTime(days=days, points=points)
+
+
+@router.get("/assets", response_model=List[schemas.AssetVulnCount])
+def get_asset_vulnerability_counts(db: Session = Depends(get_db)):
+    """
+    Get vulnerability counts grouped by asset for packed bubble chart.
+    Returns asset_id, hostname, count of vulnerabilities, and total risk per asset.
+    """
+    rows = (
+        db.query(
+            models.ScoredFinding.asset_id,
+            models.ScoredFinding.hostname,
+            func.count(models.ScoredFinding.id).label("vuln_count"),
+            func.coalesce(func.sum(models.ScoredFinding.risk_score), 0.0).label("total_risk"),
+        )
+        .filter(models.ScoredFinding.resolved == False)
+        .group_by(models.ScoredFinding.asset_id, models.ScoredFinding.hostname)
+        .order_by(func.count(models.ScoredFinding.id).desc())
+        .all()
+    )
+
+    return [
+        schemas.AssetVulnCount(
+            asset_id=row.asset_id,
+            hostname=row.hostname,
+            vuln_count=row.vuln_count,
+            total_risk=float(row.total_risk),
+        )
+        for row in rows
+    ]
