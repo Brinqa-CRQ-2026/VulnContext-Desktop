@@ -34,7 +34,9 @@ def test_get_scores_summary_empty(client):
 
     assert response.status_code == 200
     payload = response.json()
-    assert set(payload.keys()) == {"total_findings", "risk_bands"}
+    assert {"total_findings", "risk_bands", "kevFindingsTotal", "kevRiskBands"}.issubset(
+        payload.keys()
+    )
     assert payload["total_findings"] == 0
     assert payload["risk_bands"] == {
         "Critical": 0,
@@ -42,6 +44,7 @@ def test_get_scores_summary_empty(client):
         "Medium": 0,
         "Low": 0,
     }
+    assert payload["kevFindingsTotal"] == 0
 
 
 def test_get_scores_summary_counts_by_band(client, db_session):
@@ -89,6 +92,10 @@ def test_get_scores_top10_sorted_desc_and_limited(client, db_session):
     assert {"id", "finding_id", "asset_id", "risk_score", "risk_band"}.issubset(
         first_item.keys()
     )
+    assert "isKev" in first_item
+    assert "kevDateAdded" in first_item
+    assert "kevDueDate" in first_item
+    assert "slaHours" in first_item
 
 
 def test_get_scores_top10_with_fewer_than_ten_rows(client, db_session):
@@ -290,8 +297,8 @@ F-2,A-2,9.1,0.88,true,High,14,false,1
 
 
 def test_seed_qualys_csv_validates_required_columns(client):
-    csv_payload = """finding_id,asset_id,cvss_score,internet_exposed,asset_criticality,vuln_age_days,auth_required,times_detected
-F-1,A-1,9.8,true,Critical,30,false,2
+    csv_payload = """finding_id,asset_id,cvss_score,internet_exposed,asset_criticality,vuln_age_days,times_detected
+F-1,A-1,9.8,true,Critical,30,2
 """
 
     response = client.post(
@@ -317,6 +324,56 @@ F-1,A-1,9.8,0.95,true,Critical,30,false,2
 
     assert response.status_code == 400
     assert "Source name is required" in response.json()["detail"]
+
+
+def test_get_finding_by_id_includes_kev_fields(client, db_session):
+    finding = _seed_finding(db_session, idx=42, risk_score=92.0, risk_band="Critical")
+    finding.cve_id = "CVE-2024-9999"
+    finding.is_kev = True
+    db_session.commit()
+
+    response = client.get(f"/scores/findings/{finding.id}")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["id"] == finding.id
+    assert payload["isKev"] is True
+    assert "kevDateAdded" in payload
+    assert "kevDueDate" in payload
+    assert "slaHours" in payload
+
+
+def test_seed_qualys_csv_marks_kev_and_boosts_scoring(client, monkeypatch, tmp_path):
+    kev_csv = tmp_path / "kev.csv"
+    kev_csv.write_text(
+        "cveID,dateAdded,dueDate\n"
+        "CVE-2024-1111,2024-01-10,2024-02-10\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("KEV_CSV_PATH", str(kev_csv))
+
+    csv_payload = """finding_id,asset_id,cvss_score,epss_score,internet_exposed,asset_criticality,vuln_age_days,auth_required,times_detected,cve_id
+F-1,A-1,5.0,0.2,true,High,10,false,1,CVE-2024-1111
+F-2,A-2,5.0,0.2,true,High,10,false,1,CVE-2024-2222
+"""
+    response = client.post(
+        "/scores/seed/qualys-csv",
+        data={"source": "Qualys"},
+        files={"file": ("qualys.csv", csv_payload, "text/csv")},
+    )
+    assert response.status_code == 200
+
+    findings_response = client.get("/scores/all?page=1&page_size=10")
+    assert findings_response.status_code == 200
+    items = findings_response.json()["items"]
+    by_cve = {item["cve_id"]: item for item in items}
+
+    kev_item = by_cve["CVE-2024-1111"]
+    non_kev_item = by_cve["CVE-2024-2222"]
+    assert kev_item["isKev"] is True
+    assert kev_item["risk_band"] == "Critical"
+    assert kev_item["risk_score"] > non_kev_item["risk_score"]
+    assert kev_item["slaHours"] in {24, 72}
+    assert non_kev_item["isKev"] is False
 
 
 def test_get_sources_summary_returns_counts_per_source(client, db_session):

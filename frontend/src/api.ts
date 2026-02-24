@@ -16,6 +16,16 @@ export interface ScoredFinding {
   cve_id?: string | null;
   cwe_id?: string | null;
   description?: string | null;
+  isKev?: boolean;
+  kevDateAdded?: string | null;
+  kevDueDate?: string | null;
+  slaHours?: number | null;
+  kevVendorProject?: string | null;
+  kevProduct?: string | null;
+  kevVulnerabilityName?: string | null;
+  kevShortDescription?: string | null;
+  kevRequiredAction?: string | null;
+  kevRansomwareUse?: string | null;
 
   cvss_score: number;
   cvss_severity?: string | null;
@@ -39,6 +49,23 @@ export interface ScoredFinding {
 
   risk_score: number;
   risk_band: string;
+
+  finding_key?: string | null;
+  lifecycle_status?: string | null;
+  is_present_in_latest_scan?: boolean | null;
+  first_seen_at?: string | null;
+  last_seen_at?: string | null;
+  fixed_at?: string | null;
+  status_changed_at?: string | null;
+  last_scan_run_id?: number | null;
+
+  disposition?: FindingDisposition;
+  disposition_state?: string | null;
+  disposition_reason?: string | null;
+  disposition_comment?: string | null;
+  disposition_created_at?: string | null;
+  disposition_expires_at?: string | null;
+  disposition_created_by?: string | null;
 }
 
 const API_BASE_URL = "http://127.0.0.1:8000";
@@ -63,12 +90,15 @@ export type FindingsSortBy =
   | "risk_score"
   | "cvss_score"
   | "epss_score"
-  | "vuln_age_days";
+  | "vuln_age_days"
+  | "source";
 export type SortOrder = "asc" | "desc";
 
 export interface ScoresSummary {
   total_findings: number;
   risk_bands: RiskBandSummary;
+  kevFindingsTotal?: number;
+  kevRiskBands?: RiskBandSummary;
 }
 
 export async function getScoresSummary(): Promise<ScoresSummary> {
@@ -124,15 +154,50 @@ export interface RiskWeightsUpdateResult {
   weights: RiskWeightsConfig;
 }
 
+export type FindingDisposition =
+  | "none"
+  | "ignored"
+  | "risk_accepted"
+  | "false_positive"
+  | "not_applicable";
+
+export interface FindingDispositionUpdateRequest {
+  disposition: Exclude<FindingDisposition, "none">;
+  reason?: string | null;
+  comment?: string | null;
+  expires_at?: string | null;
+  actor?: string | null;
+}
+
+export interface FindingDispositionResult {
+  id: number;
+  finding_id: string;
+  disposition: FindingDisposition;
+  disposition_state?: string | null;
+  disposition_reason?: string | null;
+  disposition_comment?: string | null;
+  disposition_created_at?: string | null;
+  disposition_expires_at?: string | null;
+  disposition_created_by?: string | null;
+}
+
 export async function getAllFindings(
   page: number,
   pageSize: number,
   sortBy: FindingsSortBy = "risk_score",
-  sortOrder: SortOrder = "desc"
+  sortOrder: SortOrder = "desc",
+  source?: string | null
 ): Promise<PaginatedFindings> {
-  const res = await fetch(
-    `${API_BASE_URL}/scores/all?page=${page}&page_size=${pageSize}&sort_by=${sortBy}&sort_order=${sortOrder}`
-  );
+  const params = new URLSearchParams({
+    page: String(page),
+    page_size: String(pageSize),
+    sort_by: sortBy,
+    sort_order: sortOrder,
+  });
+  if (source && source.trim()) {
+    params.set("source", source.trim());
+  }
+  const res = await fetch(`${API_BASE_URL}/scores/all?${params.toString()}`);
   if (!res.ok) {
     throw new Error(
       `Failed to fetch findings: ${res.status} ${res.statusText}`
@@ -146,11 +211,21 @@ export async function getFindingsByRiskBand(
   page: number,
   pageSize: number,
   sortBy: FindingsSortBy = "risk_score",
-  sortOrder: SortOrder = "desc"
+  sortOrder: SortOrder = "desc",
+  source?: string | null
 ): Promise<PaginatedFindings> {
   const encodedBand = encodeURIComponent(riskBand);
+  const params = new URLSearchParams({
+    page: String(page),
+    page_size: String(pageSize),
+    sort_by: sortBy,
+    sort_order: sortOrder,
+  });
+  if (source && source.trim()) {
+    params.set("source", source.trim());
+  }
   const res = await fetch(
-    `${API_BASE_URL}/scores/band/${encodedBand}?page=${page}&page_size=${pageSize}&sort_by=${sortBy}&sort_order=${sortOrder}`
+    `${API_BASE_URL}/scores/band/${encodedBand}?${params.toString()}`
   );
   if (!res.ok) {
     throw new Error(
@@ -193,6 +268,23 @@ export async function getSourcesSummary(): Promise<SourceSummary[]> {
   const res = await fetch(`${API_BASE_URL}/scores/sources`);
   if (!res.ok) {
     throw new Error(`Failed to fetch sources: ${res.status} ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function getFindingById(findingDbId: number): Promise<ScoredFinding> {
+  const res = await fetch(`${API_BASE_URL}/scores/findings/${findingDbId}`);
+  if (!res.ok) {
+    let message = `Failed to fetch finding: ${res.status} ${res.statusText}`;
+    try {
+      const body = await res.json();
+      if (body?.detail && typeof body.detail === "string") {
+        message = body.detail;
+      }
+    } catch {
+      // keep default
+    }
+    throw new Error(message);
   }
   return res.json();
 }
@@ -264,6 +356,60 @@ export async function updateRiskWeights(
   });
   if (!res.ok) {
     let message = `Failed to update risk weights: ${res.status} ${res.statusText}`;
+    try {
+      const body = await res.json();
+      if (body?.detail && typeof body.detail === "string") {
+        message = body.detail;
+      }
+    } catch {
+      // keep default
+    }
+    throw new Error(message);
+  }
+  return res.json();
+}
+
+export async function setFindingDisposition(
+  findingDbId: number,
+  payload: FindingDispositionUpdateRequest
+): Promise<FindingDispositionResult> {
+  const res = await fetch(`${API_BASE_URL}/scores/findings/${findingDbId}/disposition`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    let message = `Failed to update disposition: ${res.status} ${res.statusText}`;
+    try {
+      const body = await res.json();
+      if (body?.detail && typeof body.detail === "string") {
+        message = body.detail;
+      }
+    } catch {
+      // keep default
+    }
+    throw new Error(message);
+  }
+  return res.json();
+}
+
+export async function clearFindingDisposition(
+  findingDbId: number,
+  actor?: string | null
+): Promise<FindingDispositionResult> {
+  const params = new URLSearchParams();
+  if (actor && actor.trim()) {
+    params.set("actor", actor.trim());
+  }
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  const res = await fetch(
+    `${API_BASE_URL}/scores/findings/${findingDbId}/disposition/clear${suffix}`,
+    { method: "POST" }
+  );
+  if (!res.ok) {
+    let message = `Failed to clear disposition: ${res.status} ${res.statusText}`;
     try {
       const body = await res.json();
       if (body?.detail && typeof body.detail === "string") {

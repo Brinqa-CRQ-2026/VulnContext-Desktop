@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { ArrowDown, ArrowUp, ChevronDown } from "lucide-react";
 import {
   Table,
@@ -8,7 +8,7 @@ import {
   TableHeader,
   TableRow,
 } from "../ui/table";
-import { ScoredFinding } from "../../api";
+import { ScoredFinding, SourceSummary, getSourcesSummary } from "../../api";
 import {
   Card,
   CardHeader,
@@ -16,7 +16,6 @@ import {
   CardContent,
 } from "../ui/card";
 import { Button } from "../ui/button";
-import { VulnerabilityDrawer } from "./VulnerabilityDrawer";
 import { usePaginatedFindings } from "../../hooks/useScoresData";
 import {
   Pagination,
@@ -43,15 +42,54 @@ import {
 interface RiskTableProps {
   refreshToken: number;
   onOpenIntegrations: () => void;
+  onDataChanged?: () => void;
+  onOpenFinding?: (finding: ScoredFinding) => void;
 }
 
-export function RiskTable({ refreshToken, onOpenIntegrations }: RiskTableProps) {
+export function RiskTable({
+  refreshToken,
+  onOpenIntegrations,
+  onOpenFinding,
+}: RiskTableProps) {
   const [bandFilter, setBandFilter] = useState<RiskBandFilter>("All");
   const [sortBy, setSortBy] = useState<FindingsSortBy>("risk_score");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
-  const [selectedFinding, setSelectedFinding] = useState<ScoredFinding | null>(
-    null
-  );
+  const [sourceFilter, setSourceFilter] = useState<string>("All");
+  const [showKevOnly, setShowKevOnly] = useState(false);
+  const [sources, setSources] = useState<SourceSummary[]>([]);
+  useEffect(() => {
+    let isActive = true;
+
+    async function loadSources() {
+      try {
+        const summaries = await getSourcesSummary();
+        if (!isActive) return;
+        setSources(summaries);
+        if (
+          sourceFilter !== "All" &&
+          !summaries.some((item) => item.source === sourceFilter)
+        ) {
+          setSourceFilter("All");
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    loadSources();
+    return () => {
+      isActive = false;
+    };
+  }, [refreshToken]);
+
+  useEffect(() => {
+    if (sourceFilter === "All") {
+      return;
+    }
+    if (!sources.some((item) => item.source === sourceFilter)) {
+      setSourceFilter("All");
+    }
+  }, [sourceFilter, sources]);
 
   const {
     page,
@@ -60,9 +98,17 @@ export function RiskTable({ refreshToken, onOpenIntegrations }: RiskTableProps) 
     data,
     loading,
     error,
-  } = usePaginatedFindings(15, bandFilter, sortBy, sortOrder, refreshToken);
+  } = usePaginatedFindings(
+    20,
+    bandFilter,
+    sortBy,
+    sortOrder,
+    sourceFilter === "All" ? null : sourceFilter,
+    refreshToken
+  );
 
   const findings = data?.items ?? [];
+  const visibleFindings = showKevOnly ? findings.filter((f) => Boolean(f.isKev)) : findings;
   const total = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
@@ -88,6 +134,12 @@ export function RiskTable({ refreshToken, onOpenIntegrations }: RiskTableProps) 
     setPage(p);
   };
 
+  const tagPillClass = (tone: "neutral" | "warn" | "success") => {
+    if (tone === "warn") return "border-amber-200 bg-amber-50 text-amber-700";
+    if (tone === "success") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    return "border-slate-200 bg-slate-50 text-slate-700";
+  };
+
   // Simple window around current page for links (e.g., 1 ... 4 5 6 ... 30)
   const pageNumbers = (() => {
     const windowSize = 3;
@@ -103,20 +155,46 @@ export function RiskTable({ refreshToken, onOpenIntegrations }: RiskTableProps) 
     cvss_score: "Sort by CVSS",
     epss_score: "Sort by EPSS",
     vuln_age_days: "Sort by vulnerability age",
+    source: "Sort by source",
   };
 
   return (
     <>
       <Card className="flex-1 overflow-hidden">
         <CardHeader>
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <CardTitle className="text-sm font-semibold">
               All findings by Context-Aware Risk
             </CardTitle>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 md:justify-end">
               <DropdownMenu>
-                <DropdownMenuTrigger>
+                <DropdownMenuTrigger className="inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50">
+                  Source: {sourceFilter}
+                  <ChevronDown className="h-4 w-4" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuLabel>Filter by source</DropdownMenuLabel>
+                  <DropdownMenuItem onClick={() => setSourceFilter("All")}>
+                    All sources
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  {sources.length === 0 ? (
+                    <DropdownMenuItem disabled>No sources yet</DropdownMenuItem>
+                  ) : (
+                    sources.map((source) => (
+                      <DropdownMenuItem
+                        key={source.source}
+                        onClick={() => setSourceFilter(source.source)}
+                      >
+                        {source.source} ({source.total_findings.toLocaleString()})
+                      </DropdownMenuItem>
+                    ))
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <DropdownMenu>
+                <DropdownMenuTrigger className="inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50">
                   {sortLabelMap[sortBy]}
                   <ChevronDown className="h-4 w-4" />
                 </DropdownMenuTrigger>
@@ -133,6 +211,9 @@ export function RiskTable({ refreshToken, onOpenIntegrations }: RiskTableProps) 
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setSortBy("vuln_age_days")}>
                     Sort by vulnerability age
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSortBy("source")}>
+                    Sort by source
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuLabel>Direction</DropdownMenuLabel>
@@ -180,6 +261,15 @@ export function RiskTable({ refreshToken, onOpenIntegrations }: RiskTableProps) 
                   }
                 )}
               </div>
+              <label className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={showKevOnly}
+                  onChange={(e) => setShowKevOnly(e.target.checked)}
+                  className="h-3.5 w-3.5 rounded border-slate-300"
+                />
+                Show only KEV
+              </label>
             </div>
           </div>
         </CardHeader>
@@ -201,8 +291,8 @@ export function RiskTable({ refreshToken, onOpenIntegrations }: RiskTableProps) 
                     <TableHead>CVE ID</TableHead>
                     <TableHead>CVSS</TableHead>
                     <TableHead>EPSS</TableHead>
-                    <TableHead>Vulnerability Age</TableHead>
                     <TableHead>Detection Method</TableHead>
+                    <TableHead>Tags</TableHead>
                     <TableHead>Risk score</TableHead>
                     <TableHead>Risk band</TableHead>
                   </TableRow>
@@ -210,7 +300,7 @@ export function RiskTable({ refreshToken, onOpenIntegrations }: RiskTableProps) 
                 <TableBody>
                   {loading && (
                     <TableRow>
-                      <TableCell colSpan={9} className="py-6 text-center">
+                      <TableCell colSpan={10} className="py-6 text-center">
                         Loading findings...
                       </TableCell>
                     </TableRow>
@@ -219,7 +309,7 @@ export function RiskTable({ refreshToken, onOpenIntegrations }: RiskTableProps) 
                   {!loading && error && (
                     <TableRow>
                       <TableCell
-                        colSpan={9}
+                        colSpan={10}
                         className="py-6 text-center text-red-500"
                       >
                         {error}
@@ -227,35 +317,73 @@ export function RiskTable({ refreshToken, onOpenIntegrations }: RiskTableProps) 
                     </TableRow>
                   )}
 
-                  {!loading && !error && findings.length === 0 && (
+                  {!loading && !error && visibleFindings.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={9} className="py-6 text-center">
-                        No findings available for this filter.
+                      <TableCell colSpan={10} className="py-6 text-center">
+                        {showKevOnly
+                          ? "No KEV findings on this page/filter."
+                          : "No findings available for this filter."}
                       </TableCell>
                     </TableRow>
                   )}
 
                   {!loading &&
                     !error &&
-                    findings.map((f, idx) => (
+                    visibleFindings.map((f, idx) => (
                       <TableRow
                         key={f.id}
                         className="cursor-pointer hover:bg-slate-50"
-                        onClick={() => setSelectedFinding(f)}
+                        onClick={() => onOpenFinding?.(f)}
                       >
                         <TableCell>
                           {(page - 1) * pageSize + idx + 1}
                         </TableCell>
                         <TableCell>{f.source || "unknown"}</TableCell>
-                        <TableCell>{f.cve_id || "—"}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap items-center gap-1">
+                            <span>{f.cve_id || "—"}</span>
+                            {f.isKev ? (
+                              <span className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-rose-700">
+                                KEV
+                              </span>
+                            ) : null}
+                          </div>
+                        </TableCell>
                         <TableCell>{f.cvss_score.toFixed(1)}</TableCell>
                         <TableCell>{f.epss_score.toFixed(4)}</TableCell>
-                        <TableCell>
-                          {f.vuln_age_days !== null && f.vuln_age_days !== undefined
-                            ? `${f.vuln_age_days}d`
-                            : "—"}
-                        </TableCell>
                         <TableCell>{f.detection_method || "—"}</TableCell>
+                        <TableCell>
+                          <div className="flex max-w-[20rem] flex-wrap gap-1">
+                            {f.lifecycle_status ? (
+                              <span
+                                className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${tagPillClass("neutral")}`}
+                              >
+                                {f.lifecycle_status}
+                              </span>
+                            ) : null}
+                            {f.isKev ? (
+                              <span
+                                className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${tagPillClass("warn")}`}
+                              >
+                                actively exploited
+                              </span>
+                            ) : null}
+                            {f.disposition && f.disposition !== "none" ? (
+                              <span
+                                className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${tagPillClass("warn")}`}
+                              >
+                                {f.disposition.replaceAll("_", " ")}
+                              </span>
+                            ) : null}
+                            <span
+                              className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${tagPillClass(
+                                f.internet_exposed ? "warn" : "success"
+                              )}`}
+                            >
+                              {f.internet_exposed ? "internet" : "internal"}
+                            </span>
+                          </div>
+                        </TableCell>
                         <TableCell>{f.risk_score.toFixed(1)}</TableCell>
                         <TableCell>
                           <span
@@ -332,11 +460,6 @@ export function RiskTable({ refreshToken, onOpenIntegrations }: RiskTableProps) 
           )}
         </CardContent>
       </Card>
-
-      <VulnerabilityDrawer
-        finding={selectedFinding}
-        onClose={() => setSelectedFinding(null)}
-      />
     </>
   );
 }

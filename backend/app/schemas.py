@@ -1,4 +1,6 @@
-from pydantic import BaseModel
+from datetime import datetime
+
+from pydantic import BaseModel, Field
 
 
 class ScoredFindingCreate(BaseModel):
@@ -13,6 +15,8 @@ class ScoredFindingCreate(BaseModel):
     epss_score: float
     internet_exposed: bool
     asset_criticality: int
+    cve_id: str | None = None
+    is_kev: bool = False
 
 
 class ScoredFindingBase(ScoredFindingCreate):
@@ -40,6 +44,28 @@ class ScoredFindingOut(BaseModel):
     cve_id: str | None = None
     cwe_id: str | None = None
     description: str | None = None
+    is_kev: bool = Field(default=False, serialization_alias="isKev")
+    kev_date_added: datetime | None = Field(default=None, serialization_alias="kevDateAdded")
+    kev_due_date: datetime | None = Field(default=None, serialization_alias="kevDueDate")
+    sla_hours: int | None = Field(default=None, serialization_alias="slaHours")
+    kev_vendor_project: str | None = Field(default=None, serialization_alias="kevVendorProject")
+    kev_product: str | None = Field(default=None, serialization_alias="kevProduct")
+    kev_vulnerability_name: str | None = Field(
+        default=None,
+        serialization_alias="kevVulnerabilityName",
+    )
+    kev_short_description: str | None = Field(
+        default=None,
+        serialization_alias="kevShortDescription",
+    )
+    kev_required_action: str | None = Field(
+        default=None,
+        serialization_alias="kevRequiredAction",
+    )
+    kev_ransomware_use: str | None = Field(
+        default=None,
+        serialization_alias="kevRansomwareUse",
+    )
 
     cvss_score: float
     cvss_severity: str | None = None
@@ -64,6 +90,23 @@ class ScoredFindingOut(BaseModel):
     risk_score: float
     risk_band: str
 
+    finding_key: str | None = None
+    lifecycle_status: str | None = None
+    is_present_in_latest_scan: bool | None = None
+    first_seen_at: datetime | None = None
+    last_seen_at: datetime | None = None
+    fixed_at: datetime | None = None
+    status_changed_at: datetime | None = None
+    last_scan_run_id: int | None = None
+
+    disposition: str | None = None
+    disposition_state: str | None = None
+    disposition_reason: str | None = None
+    disposition_comment: str | None = None
+    disposition_created_at: datetime | None = None
+    disposition_expires_at: datetime | None = None
+    disposition_created_by: str | None = None
+
     class Config:
         from_attributes = True
 
@@ -83,6 +126,11 @@ class RiskBandSummary(BaseModel):
 class ScoresSummary(BaseModel):
     total_findings: int
     risk_bands: RiskBandSummary
+    kev_findings_total: int = Field(default=0, serialization_alias="kevFindingsTotal")
+    kev_risk_bands: RiskBandSummary = Field(
+        default_factory=RiskBandSummary,
+        serialization_alias="kevRiskBands",
+    )
 
 
 class SeedUploadResult(BaseModel):
@@ -125,3 +173,34 @@ class RiskWeightsConfig(BaseModel):
 class RiskWeightsUpdateResult(BaseModel):
     updated_rows: int
     weights: RiskWeightsConfig
+
+
+class FindingDispositionUpdateRequest(BaseModel):
+    disposition: str
+    reason: str | None = None
+    comment: str | None = None
+    expires_at: datetime | None = None
+    actor: str | None = None
+
+
+class FindingDispositionResult(BaseModel):
+    id: int
+    finding_id: str
+    disposition: str
+    disposition_state: str | None = None
+    disposition_reason: str | None = None
+    disposition_comment: str | None = None
+    disposition_created_at: datetime | None = None
+    disposition_expires_at: datetime | None = None
+    disposition_created_by: str | None = None
+
+
+class KevReenrichRequest(BaseModel):
+    csv_path: str
+
+
+class KevReenrichResult(BaseModel):
+    csv_path: str
+    updated_rows: int
+    kev_rows_marked: int
+    kev_rows_cleared: int

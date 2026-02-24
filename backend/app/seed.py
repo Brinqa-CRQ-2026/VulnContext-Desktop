@@ -1,6 +1,7 @@
 # app/seed.py
 import csv
 import io
+import os
 import requests
 from pathlib import Path
 
@@ -8,6 +9,7 @@ from app.core.db import SessionLocal, engine, Base, ensure_database_schema
 from app.core.risk_weights import DEFAULT_RISK_WEIGHTS, RiskWeights
 from app.models import ScoredFinding, EpssScore
 from app.scoring import score_finding_dict
+from app.services.kev_enrichment import KevRecord, kev_record_for_cve, load_kev_catalog
 
 
 ASSET_CRITICALITY_MAP = {
@@ -34,7 +36,18 @@ def fetch_epss_score(db, cve_id):
     row = db.query(EpssScore).filter(EpssScore.cve_id == cve_id).first()
     if not row:
         return 0.0
-    return row.percentile
+    return row.probability
+
+
+def load_kev_catalog_from_env() -> dict[str, KevRecord] | None:
+    kev_csv_path = (os.getenv("KEV_CSV_PATH") or "").strip()
+    if kev_csv_path:
+        return load_kev_catalog(kev_csv_path)
+
+    default_csv = Path(__file__).resolve().parents[1] / "data" / "known_exploited_vulnerabilities.csv"
+    if default_csv.exists():
+        return load_kev_catalog(default_csv)
+    return None
 
 def _as_bool(value: str) -> bool:
     return str(value).strip().lower() in ("1", "true", "yes")
@@ -59,6 +72,7 @@ def _build_scored_finding_from_row(
     row_num: int,
     source: str,
     weights: RiskWeights,
+    kev_catalog: dict[str, KevRecord] | None = None,
 ) -> ScoredFinding:
     db = SessionLocal()
     finding_id = (row.get("finding_id") or "").strip()
@@ -83,6 +97,7 @@ def _build_scored_finding_from_row(
     epss_score = fetch_epss_score(db, row.get("cve_id"))
     if epss_score < 0 or epss_score > 1:
         raise ValueError(f"Row {row_num}: 'epss_score' must be between 0 and 1.")
+    kev_record = kev_record_for_cve(kev_catalog, row.get("cve_id"))
 
     vuln_age_days = _require_int(row.get("vuln_age_days"), "vuln_age_days", row_num)
     times_detected = _require_int(row.get("times_detected"), "times_detected", row_num)
@@ -104,6 +119,15 @@ def _build_scored_finding_from_row(
         "cve_id": row.get("cve_id"),
         "cwe_id": row.get("cwe_id"),
         "description": row.get("description"),
+        "is_kev": bool(kev_record),
+        "kev_date_added": kev_record.date_added if kev_record else None,
+        "kev_due_date": kev_record.due_date if kev_record else None,
+        "kev_vendor_project": kev_record.vendor_project if kev_record else None,
+        "kev_product": kev_record.product if kev_record else None,
+        "kev_vulnerability_name": kev_record.vulnerability_name if kev_record else None,
+        "kev_short_description": kev_record.short_description if kev_record else None,
+        "kev_required_action": kev_record.required_action if kev_record else None,
+        "kev_ransomware_use": kev_record.ransomware_use if kev_record else None,
         "cvss_severity": row.get("cvss_severity"),
         "attack_vector": row.get("attack_vector"),
         "privileges_required": row.get("privileges_required"),
@@ -132,6 +156,16 @@ def _build_scored_finding_from_row(
         cve_id=scored.get("cve_id"),
         cwe_id=scored.get("cwe_id"),
         description=scored.get("description"),
+        is_kev=bool(scored.get("is_kev", False)),
+        kev_date_added=scored.get("kev_date_added"),
+        kev_due_date=scored.get("kev_due_date"),
+        sla_hours=scored.get("sla_hours"),
+        kev_vendor_project=scored.get("kev_vendor_project"),
+        kev_product=scored.get("kev_product"),
+        kev_vulnerability_name=scored.get("kev_vulnerability_name"),
+        kev_short_description=scored.get("kev_short_description"),
+        kev_required_action=scored.get("kev_required_action"),
+        kev_ransomware_use=scored.get("kev_ransomware_use"),
         cvss_score=scored["cvss_score"],
         cvss_severity=scored.get("cvss_severity"),
         epss_score=scored["epss_score"],
@@ -157,6 +191,7 @@ def parse_qualys_csv_to_scored_findings(
     csv_text: str,
     source: str = "qualys",
     weights: RiskWeights = DEFAULT_RISK_WEIGHTS,
+    kev_catalog: dict[str, KevRecord] | None = None,
 ) -> list[ScoredFinding]:
     reader = csv.DictReader(io.StringIO(csv_text))
     if not reader.fieldnames:
@@ -171,10 +206,17 @@ def parse_qualys_csv_to_scored_findings(
     for row_num, row in enumerate(reader, start=2):
         if not any((value or "").strip() for value in row.values()):
             continue
-        rows_to_add.append(_build_scored_finding_from_row(row, row_num, source, weights))
+        rows_to_add.append(
+            _build_scored_finding_from_row(
+                row,
+                row_num,
+                source,
+                weights,
+                kev_catalog=kev_catalog,
+            )
+        )
 
     if not rows_to_add:
         raise ValueError("CSV has no data rows to insert.")
 
     return rows_to_add
-

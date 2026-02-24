@@ -102,7 +102,7 @@ export function IntegrationsPage({ refreshToken, onDataChanged }: IntegrationsPa
   }, [sources]);
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-4 px-4 py-4">
+    <section className="flex flex-col gap-4">
       <Card>
         <CardHeader>
           <CardTitle className="text-sm font-semibold">Add Scanner Data</CardTitle>
@@ -127,7 +127,7 @@ export function IntegrationsPage({ refreshToken, onDataChanged }: IntegrationsPa
       )}
 
       {!loading && hasSources && (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4">
           {sortedSources.map((source) => {
             const isEditing = editingSource === source.source;
             return (
@@ -218,6 +218,6 @@ export function IntegrationsPage({ refreshToken, onDataChanged }: IntegrationsPa
           })}
         </div>
       )}
-    </main>
+    </section>
   );
 }

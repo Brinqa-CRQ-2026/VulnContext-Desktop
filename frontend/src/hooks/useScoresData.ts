@@ -52,6 +52,7 @@ export function usePaginatedFindings(
   bandFilter: RiskBandFilter = "All",
   sortBy: FindingsSortBy = "risk_score",
   sortOrder: SortOrder = "desc",
+  sourceFilter: string | null = null,
   refreshToken: number = 0
 ) {
   const [page, setPage] = useState(1);
@@ -62,7 +63,7 @@ export function usePaginatedFindings(
 
   useEffect(() => {
     setPage(1);
-  }, [bandFilter, sortBy, sortOrder]);
+  }, [bandFilter, sortBy, sortOrder, sourceFilter]);
 
   useEffect(() => {
     async function load() {
@@ -70,7 +71,13 @@ export function usePaginatedFindings(
         setLoading(true);
         setError(null);
         if (bandFilter === "All") {
-          const allResult = await getAllFindings(page, pageSize, sortBy, sortOrder);
+          const allResult = await getAllFindings(
+            page,
+            pageSize,
+            sortBy,
+            sortOrder,
+            sourceFilter
+          );
           setData(allResult);
           return;
         }
@@ -79,7 +86,8 @@ export function usePaginatedFindings(
           page,
           pageSize,
           sortBy,
-          sortOrder
+          sortOrder,
+          sourceFilter
         );
         setData(filteredResult);
       } catch (err) {
@@ -90,7 +98,7 @@ export function usePaginatedFindings(
       }
     }
     load();
-  }, [page, pageSize, bandFilter, sortBy, sortOrder, refreshToken]);
+  }, [page, pageSize, bandFilter, sortBy, sortOrder, sourceFilter, refreshToken]);
 
   return {
     page,

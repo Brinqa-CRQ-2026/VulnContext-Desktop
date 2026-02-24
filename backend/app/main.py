@@ -42,4 +42,8 @@ app.include_router(scores_router.router)
 from app.epss import get_epss_scores 
 @app.on_event("startup")
 def startup_event():
-    get_epss_scores()
+    try:
+        get_epss_scores()
+    except Exception as exc:
+        # Keep local dev/tests usable when offline; EPSS can be refreshed later.
+        print(f"[startup] EPSS refresh skipped: {exc}")
