@@ -32,10 +32,10 @@ export function RiskDistributionChart({
   if (loading || !bands) {
     console.log("⚠️ Chart not rendering - loading:", loading, "bands:", bands);
     return (
-      <Card>
+      <Card className="shadow-md border-slate-200/60">
         <CardHeader>
-          <CardTitle className="text-xs font-semibold text-slate-500">
-            RISK DISTRIBUTION
+          <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+            Risk Distribution
           </CardTitle>
         </CardHeader>
         <CardContent className="flex items-center justify-center py-8">
@@ -74,10 +74,10 @@ export function RiskDistributionChart({
   console.log("✅ Chart data prepared:", chartData, "total:", totalFindings);
 
   return (
-    <Card>
+    <Card className="shadow-md border-slate-200/60">
       <CardHeader>
-        <CardTitle className="text-xs font-semibold text-slate-500">
-          RISK DISTRIBUTION
+        <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+          Risk Distribution
         </CardTitle>
       </CardHeader>
       <CardContent className="h-[320px]">
@@ -125,9 +125,10 @@ export function RiskDistributionChart({
               contentStyle={{
                 backgroundColor: "white",
                 border: "1px solid #e2e8f0",
-                borderRadius: "6px",
+                borderRadius: "8px",
                 padding: "8px 12px",
-                fontSize: "12px"
+                fontSize: "12px",
+                boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
               }}
             />
           </PieChart>

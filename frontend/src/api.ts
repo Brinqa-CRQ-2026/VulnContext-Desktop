@@ -161,3 +161,81 @@ export async function getAssetVulnerabilityCounts(): Promise<AssetVulnCount[]> {
   }
   return res.json();
 }
+
+export interface AttackVectorCount {
+  attack_vector: string;
+  count: number;
+  percentage: number;
+}
+
+export async function getAttackVectorDistribution(): Promise<AttackVectorCount[]> {
+  const res = await fetch(`${API_BASE_URL}/scores/attack-vectors`);
+  if (!res.ok) {
+    throw new Error(
+      `Failed to fetch attack vector distribution: ${res.status} ${res.statusText}`
+    );
+  }
+  return res.json();
+}
+
+export interface VulnerabilityAgeBucket {
+  age_range: string;
+  count: number;
+  percentage: number;
+}
+
+export async function getVulnerabilityAgeDistribution(): Promise<VulnerabilityAgeBucket[]> {
+  const res = await fetch(`${API_BASE_URL}/scores/vulnerability-age`);
+  if (!res.ok) {
+    throw new Error(
+      `Failed to fetch vulnerability age distribution: ${res.status} ${res.statusText}`
+    );
+  }
+  return res.json();
+}
+
+export async function getVulnerabilitiesByAsset(assetId: string): Promise<ScoredFinding[]> {
+  const res = await fetch(`${API_BASE_URL}/scores/by-asset/${encodeURIComponent(assetId)}`);
+  if (!res.ok) {
+    throw new Error(
+      `Failed to fetch vulnerabilities for asset: ${res.status} ${res.statusText}`
+    );
+  }
+  return res.json();
+}
+
+export async function getVulnerabilitiesByAge(ageRange: string): Promise<ScoredFinding[]> {
+  const res = await fetch(`${API_BASE_URL}/scores/by-age/${encodeURIComponent(ageRange)}`);
+  if (!res.ok) {
+    throw new Error(
+      `Failed to fetch vulnerabilities for age range: ${res.status} ${res.statusText}`
+    );
+  }
+  return res.json();
+}
+
+export interface RemediationTimeBucket {
+  bucket_label: string;
+  count: number;
+  percentage: number;
+}
+
+export async function getRemediationTimeHistogram(): Promise<RemediationTimeBucket[]> {
+  const res = await fetch(`${API_BASE_URL}/scores/remediation-time-histogram`);
+  if (!res.ok) {
+    throw new Error(
+      `Failed to fetch remediation time histogram: ${res.status} ${res.statusText}`
+    );
+  }
+  return res.json();
+}
+
+export async function getCriticalUrgentFindings(limit: number = 5): Promise<ScoredFinding[]> {
+  const res = await fetch(`${API_BASE_URL}/scores/critical-urgent?limit=${limit}`);
+  if (!res.ok) {
+    throw new Error(
+      `Failed to fetch critical urgent findings: ${res.status} ${res.statusText}`
+    );
+  }
+  return res.json();
+}

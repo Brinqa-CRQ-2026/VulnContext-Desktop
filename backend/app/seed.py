@@ -89,13 +89,27 @@ def seed_db_from_csv():
 
                 scored = score_finding_dict(raw_finding)
 
-                resolved = idx % 3 == 0
+                # Create a more natural resolution pattern
+                # Higher chance of resolution for newer entries, creating a gradual risk decline
+                # Resolved ~40% of findings with bias towards more recent resolutions
+                import random
+                random.seed(idx)  # Deterministic but varied
+                
+                # Weight resolution probability based on position (newer findings more likely resolved)
+                resolution_probability = 0.45 if idx % 5 == 0 else 0.35 if idx % 4 == 0 else 0.25
+                resolved = random.random() < resolution_probability
+                
                 resolved_at = None
                 if resolved:
-                    days_ago = (idx * 2) % 30
+                    # Spread resolutions more naturally across the 30 days
+                    # More resolutions in recent days, fewer in past
+                    day_weights = [1, 1, 2, 2, 3, 3, 4, 5, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 18, 16, 14, 12, 10, 8]
+                    days_ago = random.choices(range(30), weights=day_weights, k=1)[0]
+                    hour = random.randint(8, 17)  # Business hours
+                    minute = random.randint(0, 59)
                     resolved_at = datetime.combine(
                         today - timedelta(days=days_ago),
-                        time(hour=12),
+                        time(hour=hour, minute=minute),
                     )
 
                 db_obj = ScoredFinding(

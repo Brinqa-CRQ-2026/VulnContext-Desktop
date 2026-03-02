@@ -8,7 +8,9 @@ import {
   getAllFindings,
   PaginatedFindings,
   getRiskOverTime,
-  RiskOverTimeSeries
+  RiskOverTimeSeries,
+  RemediationTimeBucket,
+  getRemediationTimeHistogram
 } from "../api";
 
 export function useScoresData() {
@@ -118,4 +120,29 @@ export function usePaginatedFindings(initialPageSize: number = 50) {
     error,
     refetch,
   };
+}
+
+export function useRemediationTimeHistogram() {
+  const [data, setData] = useState<RemediationTimeBucket[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        setLoading(true);
+        setError(null);
+        const result = await getRemediationTimeHistogram();
+        setData(result);
+      } catch (err) {
+        console.error(err);
+        setError("Failed to load remediation time histogram.");
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  return { data, loading, error };
 }

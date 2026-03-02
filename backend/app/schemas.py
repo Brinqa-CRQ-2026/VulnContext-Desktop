@@ -109,3 +109,21 @@ class AssetVulnCount(BaseModel):
     hostname: str | None = None
     vuln_count: int
     total_risk: float
+
+
+class AttackVectorCount(BaseModel):
+    attack_vector: str
+    count: int
+    percentage: float
+
+
+class VulnerabilityAgeBucket(BaseModel):
+    age_range: str
+    count: int
+    percentage: float
+
+
+class RemediationTimeBucket(BaseModel):
+    bucket_label: str
+    count: int
+    percentage: float

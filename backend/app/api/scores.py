@@ -276,3 +276,289 @@ def get_asset_vulnerability_counts(db: Session = Depends(get_db)):
         )
         for row in rows
     ]
+
+
+@router.get("/by-asset/{asset_id}", response_model=List[schemas.ScoredFindingOut])
+def get_findings_by_asset(
+    asset_id: str,
+    db: Session = Depends(get_db),
+):
+    """
+    Get all findings for a specific asset, sorted by risk score descending.
+    """
+    findings = (
+        db.query(models.ScoredFinding)
+        .filter(models.ScoredFinding.asset_id == asset_id)
+        .filter(models.ScoredFinding.resolved == False)
+        .order_by(models.ScoredFinding.risk_score.desc())
+        .all()
+    )
+    
+    return findings
+
+
+@router.get("/by-age/{age_range}", response_model=List[schemas.ScoredFindingOut])
+def get_findings_by_age(
+    age_range: str,
+    db: Session = Depends(get_db),
+):
+    """
+    Get all findings for a specific age range, sorted by risk score descending.
+    Age ranges: "0-7 days", "8-30 days", "31-90 days", "91-180 days", 
+                "181-365 days", "1+ years"
+    """
+    from datetime import datetime, timezone
+    
+    # Get all unresolved findings with published dates
+    findings = (
+        db.query(models.ScoredFinding)
+        .filter(models.ScoredFinding.resolved == False)
+        .filter(models.ScoredFinding.vuln_published_date.isnot(None))
+        .all()
+    )
+    
+    # Parse age range to get min/max days
+    age_ranges = {
+        "0-7 days": (0, 7),
+        "8-30 days": (8, 30),
+        "31-90 days": (31, 90),
+        "91-180 days": (91, 180),
+        "181-365 days": (181, 365),
+        "1+ years": (366, float('inf'))
+    }
+    
+    if age_range not in age_ranges:
+        raise HTTPException(status_code=400, detail="Invalid age range")
+    
+    min_days, max_days = age_ranges[age_range]
+    now = datetime.now(timezone.utc)
+    
+    filtered_findings = []
+    for finding in findings:
+        try:
+            # Parse the date string
+            if 'T' in finding.vuln_published_date:
+                published_date = datetime.fromisoformat(finding.vuln_published_date.replace('Z', '+00:00'))
+            else:
+                published_date = datetime.strptime(finding.vuln_published_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            
+            age_days = (now - published_date).days
+            
+            if min_days <= age_days <= max_days:
+                filtered_findings.append(finding)
+        except (ValueError, TypeError):
+            continue
+    
+    # Sort by risk score descending
+    filtered_findings.sort(key=lambda f: f.risk_score, reverse=True)
+    
+    return filtered_findings
+
+
+@router.get("/attack-vectors", response_model=List[schemas.AttackVectorCount])
+def get_attack_vector_distribution(db: Session = Depends(get_db)):
+    """
+    Get distribution of vulnerabilities by attack vector.
+    Returns count and percentage for each attack vector type.
+    """
+    total = db.query(func.count(models.ScoredFinding.id)).filter(
+        models.ScoredFinding.resolved == False
+    ).scalar() or 0
+
+    if total == 0:
+        return []
+
+    rows = (
+        db.query(
+            models.ScoredFinding.attack_vector,
+            func.count(models.ScoredFinding.id).label("count"),
+        )
+        .filter(models.ScoredFinding.resolved == False)
+        .filter(models.ScoredFinding.attack_vector.isnot(None))
+        .group_by(models.ScoredFinding.attack_vector)
+        .order_by(func.count(models.ScoredFinding.id).desc())
+        .all()
+    )
+
+    return [
+        schemas.AttackVectorCount(
+            attack_vector=row.attack_vector or "Unknown",
+            count=row.count,
+            percentage=round((row.count / total) * 100, 1),
+        )
+        for row in rows
+    ]
+
+
+@router.get("/vulnerability-age", response_model=List[schemas.VulnerabilityAgeBucket])
+def get_vulnerability_age_distribution(
+    db: Session = Depends(get_db),
+):
+    """
+    Get distribution of unresolved vulnerabilities by age (how long they've existed).
+    Uses vuln_published_date to calculate age.
+    """
+    from datetime import datetime, timezone
+    
+    # Get all unresolved findings with their published dates
+    findings = (
+        db.query(models.ScoredFinding)
+        .filter(models.ScoredFinding.resolved == False)
+        .filter(models.ScoredFinding.vuln_published_date.isnot(None))
+        .all()
+    )
+    
+    if not findings:
+        return []
+    
+    # Use timezone-aware datetime to match database timestamps
+    now = datetime.now(timezone.utc)
+    
+    # Define age buckets (in days)
+    buckets = [
+        ("0-7 days", 0, 7),
+        ("8-30 days", 8, 30),
+        ("31-90 days", 31, 90),
+        ("91-180 days", 91, 180),
+        ("181-365 days", 181, 365),
+        ("1+ years", 366, float('inf'))
+    ]
+    
+    bucket_counts = {bucket[0]: 0 for bucket in buckets}
+    
+    for finding in findings:
+        try:
+            # Parse the date string (can be ISO 8601 format or YYYY-MM-DD)
+            if 'T' in finding.vuln_published_date:
+                # ISO 8601 format: 2026-01-22T17:16:10.523000+00:00
+                published_date = datetime.fromisoformat(finding.vuln_published_date.replace('Z', '+00:00'))
+            else:
+                # Simple format: YYYY-MM-DD (make it timezone-aware)
+                published_date = datetime.strptime(finding.vuln_published_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            
+            age_days = (now - published_date).days
+            
+            for bucket_name, min_days, max_days in buckets:
+                if min_days <= age_days <= max_days:
+                    bucket_counts[bucket_name] += 1
+                    break
+        except (ValueError, TypeError):
+            # Skip findings with invalid dates
+            continue
+    
+    total = sum(bucket_counts.values())
+    
+    if total == 0:
+        return []
+    
+    return [
+        schemas.VulnerabilityAgeBucket(
+            age_range=bucket_name,
+            count=count,
+            percentage=round((count / total * 100), 1) if total > 0 else 0
+        )
+        for bucket_name, count in bucket_counts.items()
+        if count > 0
+    ]
+
+
+@router.get("/remediation-time-histogram", response_model=List[schemas.RemediationTimeBucket])
+def get_remediation_time_histogram(db: Session = Depends(get_db)):
+    """
+    Return histogram data showing distribution of days to remediation for resolved findings.
+    
+    Buckets findings by how long they took to resolve (from first_detected to resolved_at).
+    """
+    from datetime import datetime, timezone
+    
+    # Get all resolved findings with both first_detected and resolved_at
+    findings = (
+        db.query(models.ScoredFinding)
+        .filter(models.ScoredFinding.resolved == True)
+        .filter(models.ScoredFinding.first_detected.isnot(None))
+        .filter(models.ScoredFinding.resolved_at.isnot(None))
+        .all()
+    )
+    
+    if not findings:
+        return []
+    
+    # Define remediation time buckets (in days)
+    buckets = [
+        ("0-7 days", 0, 7),
+        ("8-14 days", 8, 14),
+        ("15-30 days", 15, 30),
+        ("31-60 days", 31, 60),
+        ("61-90 days", 61, 90),
+        ("90+ days", 91, float('inf'))
+    ]
+    
+    bucket_counts = {bucket[0]: 0 for bucket in buckets}
+    
+    for finding in findings:
+        try:
+            # Parse first_detected string
+            if 'T' in finding.first_detected:
+                detected_date = datetime.fromisoformat(finding.first_detected.replace('Z', '+00:00'))
+            else:
+                detected_date = datetime.strptime(finding.first_detected, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            
+            # resolved_at is already a DateTime object from SQLAlchemy
+            resolved_date = finding.resolved_at
+            if resolved_date.tzinfo is None:
+                resolved_date = resolved_date.replace(tzinfo=timezone.utc)
+            
+            # Calculate days to remediation
+            days_to_fix = (resolved_date - detected_date).days
+            
+            # Ensure non-negative
+            if days_to_fix < 0:
+                continue
+            
+            # Find the appropriate bucket
+            for bucket_name, min_days, max_days in buckets:
+                if min_days <= days_to_fix <= max_days:
+                    bucket_counts[bucket_name] += 1
+                    break
+        except (ValueError, TypeError, AttributeError):
+            # Skip findings with invalid dates
+            continue
+    
+    total = sum(bucket_counts.values())
+    
+    if total == 0:
+        return []
+    
+    return [
+        schemas.RemediationTimeBucket(
+            bucket_label=bucket_name,
+            count=count,
+            percentage=round((count / total * 100), 1) if total > 0 else 0
+        )
+        for bucket_name, count in bucket_counts.items()
+        if count > 0
+    ]
+
+
+@router.get("/critical-urgent", response_model=List[schemas.ScoredFindingOut])
+def get_critical_urgent_findings(
+    limit: int = Query(default=5, ge=1, le=50),
+    db: Session = Depends(get_db)
+):
+    """
+    Return the top unresolved findings by risk score.
+    
+    Filters for:
+    - Not resolved
+    - Orders by risk_score descending
+    - Limited to top N findings
+    """
+    findings = (
+        db.query(models.ScoredFinding)
+        .filter(models.ScoredFinding.resolved == False)
+        .order_by(models.ScoredFinding.risk_score.desc())
+        .limit(limit)
+        .all()
+    )
+    
+    return findings
