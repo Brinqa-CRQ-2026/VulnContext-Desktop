@@ -11,7 +11,7 @@ import pandas as pd
 # =========================
 # CONFIG - EDIT THESE
 # =========================
-
+print("push test")
 API_URL = "https://ucsc.brinqa.net/api/caasm/bql"
 
 # Change result size here
