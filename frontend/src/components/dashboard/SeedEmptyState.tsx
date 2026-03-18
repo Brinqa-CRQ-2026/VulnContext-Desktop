@@ -27,7 +27,7 @@ export function SeedEmptyState({ onSeeded, compact = false }: SeedEmptyStateProp
 
   const helperText = useMemo(() => {
     if (!selectedFile) {
-      return "Select a Qualys CSV to seed the local SQLite database.";
+      return "Select a staged findings CSV to seed the local SQLite database.";
     }
     return `Selected: ${selectedFile.name}`;
   }, [selectedFile]);
@@ -104,7 +104,7 @@ export function SeedEmptyState({ onSeeded, compact = false }: SeedEmptyStateProp
       <EmptyHeader>
         <EmptyTitle>No vulnerability findings yet</EmptyTitle>
         <EmptyDescription>
-          Import a Qualys export CSV to initialize dashboard data.
+          Import a staged findings CSV to initialize dashboard data.
         </EmptyDescription>
       </EmptyHeader>
 

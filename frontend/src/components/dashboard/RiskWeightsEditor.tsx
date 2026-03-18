@@ -17,19 +17,17 @@ interface RiskWeightsEditorProps {
 const FIELD_ORDER: Array<keyof RiskWeightsConfig> = [
   "cvss_weight",
   "epss_weight",
-  "internet_exposed_weight",
+  "kev_weight",
   "asset_criticality_weight",
-  "vuln_age_weight",
-  "auth_required_weight",
+  "context_weight",
 ];
 
 const FIELD_LABELS: Record<keyof RiskWeightsConfig, string> = {
   cvss_weight: "CVSS weight",
   epss_weight: "EPSS weight",
-  internet_exposed_weight: "Internet exposed weight",
+  kev_weight: "KEV weight",
   asset_criticality_weight: "Asset criticality weight",
-  vuln_age_weight: "Vulnerability age weight",
-  auth_required_weight: "Auth required weight",
+  context_weight: "Analyst context weight",
 };
 
 export function RiskWeightsEditor({ refreshToken, onWeightsUpdated }: RiskWeightsEditorProps) {
@@ -52,10 +50,9 @@ export function RiskWeightsEditor({ refreshToken, onWeightsUpdated }: RiskWeight
         setDraft({
           cvss_weight: String(current.cvss_weight),
           epss_weight: String(current.epss_weight),
-          internet_exposed_weight: String(current.internet_exposed_weight),
+          kev_weight: String(current.kev_weight),
           asset_criticality_weight: String(current.asset_criticality_weight),
-          vuln_age_weight: String(current.vuln_age_weight),
-          auth_required_weight: String(current.auth_required_weight),
+          context_weight: String(current.context_weight),
         });
       } catch (err) {
         console.error(err);
@@ -73,10 +70,9 @@ export function RiskWeightsEditor({ refreshToken, onWeightsUpdated }: RiskWeight
     setDraft({
       cvss_weight: String(weights.cvss_weight),
       epss_weight: String(weights.epss_weight),
-      internet_exposed_weight: String(weights.internet_exposed_weight),
+      kev_weight: String(weights.kev_weight),
       asset_criticality_weight: String(weights.asset_criticality_weight),
-      vuln_age_weight: String(weights.vuln_age_weight),
-      auth_required_weight: String(weights.auth_required_weight),
+      context_weight: String(weights.context_weight),
     });
     setMessage(null);
     setError(null);
@@ -90,10 +86,9 @@ export function RiskWeightsEditor({ refreshToken, onWeightsUpdated }: RiskWeight
       setDraft({
         cvss_weight: String(weights.cvss_weight),
         epss_weight: String(weights.epss_weight),
-        internet_exposed_weight: String(weights.internet_exposed_weight),
+        kev_weight: String(weights.kev_weight),
         asset_criticality_weight: String(weights.asset_criticality_weight),
-        vuln_age_weight: String(weights.vuln_age_weight),
-        auth_required_weight: String(weights.auth_required_weight),
+        context_weight: String(weights.context_weight),
       });
     }
   };
@@ -115,16 +110,16 @@ export function RiskWeightsEditor({ refreshToken, onWeightsUpdated }: RiskWeight
     const nonNegativeSum =
       next.cvss_weight +
       next.epss_weight +
-      next.internet_exposed_weight +
+      next.kev_weight +
       next.asset_criticality_weight +
-      next.vuln_age_weight;
+      next.context_weight;
 
     const nonNegativeFields: Array<keyof RiskWeightsConfig> = [
       "cvss_weight",
       "epss_weight",
-      "internet_exposed_weight",
+      "kev_weight",
       "asset_criticality_weight",
-      "vuln_age_weight",
+      "context_weight",
     ];
     for (const field of nonNegativeFields) {
       if (next[field] < 0) {
@@ -136,16 +131,8 @@ export function RiskWeightsEditor({ refreshToken, onWeightsUpdated }: RiskWeight
         return;
       }
     }
-    if (next.auth_required_weight > 0) {
-      setError("Auth required weight must be <= 0.");
-      return;
-    }
-    if (next.auth_required_weight < -1) {
-      setError("Auth required weight must be >= -1.");
-      return;
-    }
     if (Math.abs(nonNegativeSum - 1.0) > 0.001) {
-      setError("Positive weights must sum to 1.0.");
+      setError("Weights must sum to 1.0.");
       return;
     }
 
@@ -221,7 +208,7 @@ export function RiskWeightsEditor({ refreshToken, onWeightsUpdated }: RiskWeight
               ))}
             </div>
             <p className="mt-2 text-xs text-slate-500">
-              Guardrails: non-negative weights must be between 0 and 1 and sum to 1.0. Auth required weight must be between -1 and 0.
+              Guardrails: each weight must be between 0 and 1, and all weights together must sum to 1.0.
             </p>
           </>
         )}
@@ -257,10 +244,9 @@ export function RiskWeightsEditor({ refreshToken, onWeightsUpdated }: RiskWeight
               </p>
               <ul className="list-disc space-y-1 pl-5 text-sm">
                 <li>Higher CVSS and EPSS values increase the score.</li>
-                <li>Internet-exposed assets increase the score.</li>
+                <li>KEV findings receive an explicit exploitation boost.</li>
                 <li>Higher asset criticality increases the score.</li>
-                <li>Older vulnerabilities increase the score.</li>
-                <li>Requiring authentication decreases the score slightly.</li>
+                <li>Analyst context contributes an additional adjustment.</li>
               </ul>
               <p className="mt-3 text-sm">
                 The final number is a weighted combination of these inputs, so tuning weights

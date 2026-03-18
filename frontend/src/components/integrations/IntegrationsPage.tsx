@@ -34,7 +34,7 @@ export function IntegrationsPage({ refreshToken, onDataChanged }: IntegrationsPa
         setSources(data);
       } catch (err) {
         console.error(err);
-        setError("Failed to load integrations.");
+        setError("Failed to load sources.");
       } finally {
         setLoading(false);
       }
@@ -105,7 +105,7 @@ export function IntegrationsPage({ refreshToken, onDataChanged }: IntegrationsPa
     <section className="flex flex-col gap-4">
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-semibold">Add Scanner Data</CardTitle>
+          <CardTitle className="text-sm font-semibold">Import Source Data</CardTitle>
         </CardHeader>
         <CardContent>
           <SeedEmptyState onSeeded={onDataChanged} compact />
@@ -114,13 +114,13 @@ export function IntegrationsPage({ refreshToken, onDataChanged }: IntegrationsPa
 
       {error && <p className="text-sm text-rose-600">{error}</p>}
 
-      {loading && <p className="text-sm text-slate-500">Loading integrations…</p>}
+      {loading && <p className="text-sm text-slate-500">Loading sources…</p>}
 
       {!loading && !hasSources && (
         <Card>
           <CardContent className="py-8 text-center">
             <p className="text-sm text-slate-500">
-              No source integrations yet. Upload a CSV above to initialize your first source.
+              No sources yet. Upload a CSV above to initialize your first source.
             </p>
           </CardContent>
         </Card>
@@ -193,23 +193,37 @@ export function IntegrationsPage({ refreshToken, onDataChanged }: IntegrationsPa
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <p className="mb-2 text-xs font-semibold text-slate-500">RISK DISTRIBUTION</p>
-                  <div className="space-y-1 text-xs text-slate-600">
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-rose-600">Critical</span>
-                      <span>{source.risk_bands.Critical.toLocaleString()}</span>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                      <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        Total Findings
+                      </div>
+                      <div className="mt-1 text-2xl font-semibold text-slate-900">
+                        {source.total_findings.toLocaleString()}
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-orange-500">High</span>
-                      <span>{source.risk_bands.High.toLocaleString()}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-amber-500">Medium</span>
-                      <span>{source.risk_bands.Medium.toLocaleString()}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-emerald-600">Low</span>
-                      <span>{source.risk_bands.Low.toLocaleString()}</span>
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                      <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        Risk Breakdown
+                      </div>
+                      <div className="mt-2 space-y-1 text-xs text-slate-600">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-rose-600">Critical</span>
+                          <span>{source.risk_bands.Critical.toLocaleString()}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-orange-500">High</span>
+                          <span>{source.risk_bands.High.toLocaleString()}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-amber-500">Medium</span>
+                          <span>{source.risk_bands.Medium.toLocaleString()}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-emerald-600">Low</span>
+                          <span>{source.risk_bands.Low.toLocaleString()}</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </CardContent>

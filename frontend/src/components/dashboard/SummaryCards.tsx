@@ -1,26 +1,30 @@
-// src/components/dashboard/SummaryCards.tsx
 import React from "react";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-} from "../ui/card";
-import { ScoresSummary } from "../../api";
+
+import { ScoresSummary, SourceSummary } from "../../api";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 
 interface SummaryCardsProps {
   summary: ScoresSummary | null;
+  sources: SourceSummary[];
   loading: boolean;
 }
 
-export function SummaryCards({ summary, loading }: SummaryCardsProps) {
+function formatPercent(part: number, total: number) {
+  if (total <= 0) return "0%";
+  return `${Math.round((part / total) * 100)}%`;
+}
+
+export function SummaryCards({ summary, sources, loading }: SummaryCardsProps) {
   const totalFindings =
     summary?.total_findings !== undefined ? summary.total_findings : null;
   const bands = summary?.risk_bands;
+  const kevFindings = summary?.kevFindingsTotal ?? 0;
+  const sourceCount = sources.length;
+  const topSource = [...sources].sort((a, b) => b.total_findings - a.total_findings)[0] ?? null;
+  const criticalHighCount = (bands?.Critical ?? 0) + (bands?.High ?? 0);
 
   return (
     <div className="grid gap-4 md:grid-cols-4">
-      {/* TOTAL FINDINGS */}
       <Card>
         <CardHeader>
           <CardTitle className="text-xs font-semibold text-slate-500">
@@ -36,26 +40,31 @@ export function SummaryCards({ summary, loading }: SummaryCardsProps) {
             {!loading && totalFindings === null && "—"}
           </p>
           <p className="mt-1 text-xs text-slate-400">
-            Count across all scanned assets.
+            Current findings loaded into the local dataset.
           </p>
         </CardContent>
       </Card>
 
-      {/* RISK FACTORS – still placeholder for now */}
       <Card>
         <CardHeader>
           <CardTitle className="text-xs font-semibold text-slate-500">
-            RISK FACTORS
+            KEV FINDINGS
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-xs text-slate-400">
-            Placeholder for EPSS ≥95, KEV, etc.
+          <p className="text-3xl font-bold">
+            {loading && !summary && "…"}
+            {!loading && totalFindings !== null && kevFindings.toLocaleString()}
+            {!loading && totalFindings === null && "—"}
+          </p>
+          <p className="mt-1 text-xs text-slate-400">
+            {totalFindings !== null
+              ? `${formatPercent(kevFindings, totalFindings)} of all findings are marked KEV.`
+              : "Known exploited vulnerabilities in the current dataset."}
           </p>
         </CardContent>
       </Card>
 
-      {/* SOURCES – still placeholder */}
       <Card>
         <CardHeader>
           <CardTitle className="text-xs font-semibold text-slate-500">
@@ -63,46 +72,34 @@ export function SummaryCards({ summary, loading }: SummaryCardsProps) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-xs text-slate-400">
-            Placeholder for scanner/source mix.
+          <p className="text-3xl font-bold">
+            {loading && sources.length === 0 ? "…" : sourceCount.toLocaleString()}
+          </p>
+          <p className="mt-1 text-xs text-slate-400">
+            {topSource
+              ? `${topSource.source} is the largest source with ${topSource.total_findings.toLocaleString()} findings.`
+              : "Distinct imported sources currently represented."}
           </p>
         </CardContent>
       </Card>
 
-      {/* RISK DISTRIBUTION */}
       <Card>
         <CardHeader>
           <CardTitle className="text-xs font-semibold text-slate-500">
-            RISK DISTRIBUTION
+            CRITICAL + HIGH
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {loading && !bands && (
-            <p className="text-xs text-slate-400">Loading distribution…</p>
-          )}
-          {!loading && bands && (
-            <div className="space-y-1 text-xs text-slate-500">
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-rose-600">Critical</span>
-                <span>{bands.Critical.toLocaleString()}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-orange-500">High</span>
-                <span>{bands.High.toLocaleString()}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-amber-500">Medium</span>
-                <span>{bands.Medium.toLocaleString()}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-emerald-600">Low</span>
-                <span>{bands.Low.toLocaleString()}</span>
-              </div>
-            </div>
-          )}
-          {!loading && !bands && (
-            <p className="text-xs text-slate-400">No data.</p>
-          )}
+          <p className="text-3xl font-bold">
+            {loading && !summary && "…"}
+            {!loading && totalFindings !== null && criticalHighCount.toLocaleString()}
+            {!loading && totalFindings === null && "—"}
+          </p>
+          <p className="mt-1 text-xs text-slate-400">
+            {bands && totalFindings !== null
+              ? `${formatPercent(criticalHighCount, totalFindings)} of findings are currently in the top two risk bands.`
+              : "Current high-priority share of the dataset."}
+          </p>
         </CardContent>
       </Card>
     </div>

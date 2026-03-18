@@ -55,7 +55,7 @@ Key files:
 
 - `backend/app/main.py`: app startup, CORS, router registration, EPSS download on startup
 - `backend/app/api/scores.py`: main API (summary, pagination, band filtering, source management, disposition updates, CSV seeding)
-- `backend/app/models.py`: SQLAlchemy models (`ScoredFinding`, `RiskScoringConfig`, `EpssScore`, `ScanRun`, `FindingEvent`)
+- `backend/app/models.py`: SQLAlchemy models (`ScoredFinding`, `RiskScoringConfig`, `EpssScore`, `FindingEvent`)
 - `backend/app/schemas.py`: response/request schemas including new disposition fields
 - `backend/app/scoring.py`: scoring logic and risk band mapping
 - `backend/app/seed.py`: CSV parsing/validation + row scoring
@@ -80,20 +80,18 @@ Primary record used by the UI. Includes:
 
 - Asset/vuln metadata (CVE/CWE, host/IP, exposure, detection fields)
 - Risk scoring output (`risk_score`, `risk_band`)
-- New lifecycle fields (groundwork): `lifecycle_status`, `first_seen_at`, `last_seen_at`, `fixed_at`, etc.
+- Lifecycle + status fields used in UI (`lifecycle_status`, `fixed_at`, `status_changed_at`)
 - New manual triage fields: `disposition`, `disposition_reason`, `disposition_comment`, `disposition_expires_at`, etc.
 
 ### `finding_events`
 
 Audit/event log table for finding changes. The recent work writes disposition changes here.
 
-### `scan_runs`
-
-Model exists to support future scan-over-time workflows, but the current seed endpoint does not populate or use it yet.
-
 ## API Overview
 
 Base URL: `http://127.0.0.1:8000`
+
+For the complete up-to-date backend route list with payload examples, see `backend/README.md`.
 
 Core endpoints:
 

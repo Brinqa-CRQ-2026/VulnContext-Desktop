@@ -1,25 +1,57 @@
 // src/api.ts
 
+export type FindingDisposition =
+  | "none"
+  | "ignored"
+  | "risk_accepted"
+  | "false_positive"
+  | "not_applicable";
+
 export interface ScoredFinding {
   id: number;
-
   source: string;
-  finding_id: string;
-  asset_id: string;
-  hostname?: string | null;
-  ip_address?: string | null;
-  operating_system?: string | null;
-  asset_type?: string | null;
 
-  asset_criticality: number;
+  uid?: string | null;
+  record_id?: string | null;
+  display_name?: string | null;
+  record_link?: string | null;
+
+  status?: string | null;
+  status_category?: string | null;
+  source_status?: string | null;
+  compliance_status?: string | null;
+  severity?: string | null;
+  lifecycle_status?: string | null;
+
+  age_in_days?: number | null;
+  first_found?: string | null;
+  last_found?: string | null;
+  due_date?: string | null;
+  fixed_at?: string | null;
+  status_changed_at?: string | null;
+  cisa_due_date_expired?: boolean | null;
+
+  target_count?: number | null;
+  target_ids?: string | null;
+  target_names?: string | null;
 
   cve_id?: string | null;
-  cwe_id?: string | null;
-  description?: string | null;
+  cve_ids?: string | null;
+  cve_record_names?: string | null;
+  cwe_ids?: string | null;
+
+  cvss_score?: number | null;
+  cvss_version?: string | null;
+  cvss_severity?: string | null;
+  cvss_vector?: string | null;
+  attack_vector?: string | null;
+  attack_complexity?: string | null;
+  epss_score?: number | null;
+  epss_percentile?: number | null;
+
   isKev?: boolean;
   kevDateAdded?: string | null;
   kevDueDate?: string | null;
-  slaHours?: number | null;
   kevVendorProject?: string | null;
   kevProduct?: string | null;
   kevVulnerabilityName?: string | null;
@@ -27,37 +59,63 @@ export interface ScoredFinding {
   kevRequiredAction?: string | null;
   kevRansomwareUse?: string | null;
 
-  cvss_score: number;
-  cvss_severity?: string | null;
-  epss_score: number;
+  risk_score?: number | null;
+  risk_band?: string | null;
+  source_risk_score?: number | null;
+  source_risk_band?: string | null;
+  source_risk_rating?: string | null;
+  base_risk_score?: number | null;
+  internal_risk_score?: number | null;
+  internal_risk_band?: string | null;
+  internal_risk_notes?: string | null;
 
-  attack_vector?: string | null;
-  privileges_required?: string | null;
-  user_interaction?: string | null;
-  vector_string?: string | null;
+  asset_criticality?: number | null;
+  context_score?: number | null;
+  risk_factor_names?: string | null;
+  risk_factor_values?: string | null;
+  risk_factor_offset?: number | null;
 
-  vuln_published_date?: string | null;
-  vuln_age_days?: number | null;
-  port?: number | null;
-  service?: string | null;
-  internet_exposed: boolean;
-  auth_required: boolean;
-  detection_method?: string | null;
-  first_detected?: string | null;
-  last_detected?: string | null;
-  times_detected?: number | null;
+  summary?: string | null;
+  description?: string | null;
+  cveDescription?: string | null;
+  type_display_name?: string | null;
+  type_id?: string | null;
+  attack_pattern_names?: string | null;
+  attack_technique_names?: string | null;
+  attack_tactic_names?: string | null;
 
-  risk_score: number;
-  risk_band: string;
+  sla_days?: number | null;
+  sla_level?: string | null;
+  risk_owner_name?: string | null;
+  remediation_owner_name?: string | null;
 
-  finding_key?: string | null;
-  lifecycle_status?: string | null;
-  is_present_in_latest_scan?: boolean | null;
-  first_seen_at?: string | null;
-  last_seen_at?: string | null;
-  fixed_at?: string | null;
-  status_changed_at?: string | null;
-  last_scan_run_id?: number | null;
+  source_count?: number | null;
+  source_uids?: string | null;
+  source_record_uids?: string | null;
+  source_links?: string | null;
+  connector_names?: string | null;
+  source_connector_names?: string | null;
+  connector_categories?: string | null;
+  data_integration_titles?: string | null;
+  informed_user_names?: string | null;
+  data_model_name?: string | null;
+  created_by?: string | null;
+  updated_by?: string | null;
+  date_created?: string | null;
+  last_updated?: string | null;
+  risk_scoring_model_name?: string | null;
+  sla_definition_name?: string | null;
+  confidence?: string | null;
+  category_count?: number | null;
+  categories?: string | null;
+
+  remediation_summary?: string | null;
+  remediation_plan?: string | null;
+  remediation_notes?: string | null;
+  remediation_status?: string | null;
+  remediation_due_date?: string | null;
+  remediation_updated_at?: string | null;
+  remediation_updated_by?: string | null;
 
   disposition?: FindingDisposition;
   disposition_state?: string | null;
@@ -70,14 +128,6 @@ export interface ScoredFinding {
 
 const API_BASE_URL = "http://127.0.0.1:8000";
 
-export async function getTopScores(): Promise<ScoredFinding[]> {
-  const res = await fetch(`${API_BASE_URL}/scores/top10`);
-  if (!res.ok) {
-    throw new Error(`Failed to fetch scores: ${res.status} ${res.statusText}`);
-  }
-  return res.json();
-}
-
 export interface RiskBandSummary {
   Critical: number;
   High: number;
@@ -88,9 +138,12 @@ export interface RiskBandSummary {
 export type RiskBandFilter = "All" | "Critical" | "High" | "Medium" | "Low";
 export type FindingsSortBy =
   | "risk_score"
+  | "internal_risk_score"
+  | "source_risk_score"
   | "cvss_score"
   | "epss_score"
-  | "vuln_age_days"
+  | "age_in_days"
+  | "due_date"
   | "source";
 export type SortOrder = "asc" | "desc";
 
@@ -99,14 +152,6 @@ export interface ScoresSummary {
   risk_bands: RiskBandSummary;
   kevFindingsTotal?: number;
   kevRiskBands?: RiskBandSummary;
-}
-
-export async function getScoresSummary(): Promise<ScoresSummary> {
-  const res = await fetch(`${API_BASE_URL}/scores/summary`);
-  if (!res.ok) {
-    throw new Error(`Failed to fetch scores summary: ${res.status} ${res.statusText}`);
-  }
-  return res.json();
 }
 
 export interface PaginatedFindings {
@@ -143,23 +188,15 @@ export interface SourceDeleteResult {
 export interface RiskWeightsConfig {
   cvss_weight: number;
   epss_weight: number;
-  internet_exposed_weight: number;
+  kev_weight: number;
   asset_criticality_weight: number;
-  vuln_age_weight: number;
-  auth_required_weight: number;
+  context_weight: number;
 }
 
 export interface RiskWeightsUpdateResult {
   updated_rows: number;
   weights: RiskWeightsConfig;
 }
-
-export type FindingDisposition =
-  | "none"
-  | "ignored"
-  | "risk_accepted"
-  | "false_positive"
-  | "not_applicable";
 
 export interface FindingDispositionUpdateRequest {
   disposition: Exclude<FindingDisposition, "none">;
@@ -171,7 +208,8 @@ export interface FindingDispositionUpdateRequest {
 
 export interface FindingDispositionResult {
   id: number;
-  finding_id: string;
+  uid?: string | null;
+  record_id?: string | null;
   disposition: FindingDisposition;
   disposition_state?: string | null;
   disposition_reason?: string | null;
@@ -179,6 +217,36 @@ export interface FindingDispositionResult {
   disposition_created_at?: string | null;
   disposition_expires_at?: string | null;
   disposition_created_by?: string | null;
+}
+
+async function parseJsonOrThrow(res: Response, fallbackMessage: string) {
+  if (res.ok) {
+    return res.json();
+  }
+
+  let message = fallbackMessage;
+  try {
+    const body = await res.json();
+    if (body?.detail && typeof body.detail === "string") {
+      message = body.detail;
+    }
+  } catch {
+    // Keep fallback message.
+  }
+  throw new Error(message);
+}
+
+export async function getTopScores(): Promise<ScoredFinding[]> {
+  const res = await fetch(`${API_BASE_URL}/scores/top10`);
+  return parseJsonOrThrow(res, `Failed to fetch scores: ${res.status} ${res.statusText}`);
+}
+
+export async function getScoresSummary(): Promise<ScoresSummary> {
+  const res = await fetch(`${API_BASE_URL}/scores/summary`);
+  return parseJsonOrThrow(
+    res,
+    `Failed to fetch scores summary: ${res.status} ${res.statusText}`
+  );
 }
 
 export async function getAllFindings(
@@ -198,12 +266,10 @@ export async function getAllFindings(
     params.set("source", source.trim());
   }
   const res = await fetch(`${API_BASE_URL}/scores/all?${params.toString()}`);
-  if (!res.ok) {
-    throw new Error(
-      `Failed to fetch findings: ${res.status} ${res.statusText}`
-    );
-  }
-  return res.json();
+  return parseJsonOrThrow(
+    res,
+    `Failed to fetch findings: ${res.status} ${res.statusText}`
+  );
 }
 
 export async function getFindingsByRiskBand(
@@ -227,12 +293,10 @@ export async function getFindingsByRiskBand(
   const res = await fetch(
     `${API_BASE_URL}/scores/band/${encodedBand}?${params.toString()}`
   );
-  if (!res.ok) {
-    throw new Error(
-      `Failed to fetch findings by risk band: ${res.status} ${res.statusText}`
-    );
-  }
-  return res.json();
+  return parseJsonOrThrow(
+    res,
+    `Failed to fetch findings by risk band: ${res.status} ${res.statusText}`
+  );
 }
 
 export async function seedQualysCsv(
@@ -248,45 +312,26 @@ export async function seedQualysCsv(
     body: formData,
   });
 
-  if (!res.ok) {
-    let message = `Failed to seed CSV: ${res.status} ${res.statusText}`;
-    try {
-      const body = await res.json();
-      if (body?.detail && typeof body.detail === "string") {
-        message = body.detail;
-      }
-    } catch {
-      // Keep the default message when response isn't JSON.
-    }
-    throw new Error(message);
-  }
-
-  return res.json();
+  return parseJsonOrThrow(
+    res,
+    `Failed to seed CSV: ${res.status} ${res.statusText}`
+  );
 }
 
 export async function getSourcesSummary(): Promise<SourceSummary[]> {
   const res = await fetch(`${API_BASE_URL}/scores/sources`);
-  if (!res.ok) {
-    throw new Error(`Failed to fetch sources: ${res.status} ${res.statusText}`);
-  }
-  return res.json();
+  return parseJsonOrThrow(
+    res,
+    `Failed to fetch sources: ${res.status} ${res.statusText}`
+  );
 }
 
 export async function getFindingById(findingDbId: number): Promise<ScoredFinding> {
   const res = await fetch(`${API_BASE_URL}/scores/findings/${findingDbId}`);
-  if (!res.ok) {
-    let message = `Failed to fetch finding: ${res.status} ${res.statusText}`;
-    try {
-      const body = await res.json();
-      if (body?.detail && typeof body.detail === "string") {
-        message = body.detail;
-      }
-    } catch {
-      // keep default
-    }
-    throw new Error(message);
-  }
-  return res.json();
+  return parseJsonOrThrow(
+    res,
+    `Failed to fetch finding: ${res.status} ${res.statusText}`
+  );
 }
 
 export async function renameSource(
@@ -301,19 +346,10 @@ export async function renameSource(
     },
     body: JSON.stringify({ new_source: newSource }),
   });
-  if (!res.ok) {
-    let message = `Failed to rename source: ${res.status} ${res.statusText}`;
-    try {
-      const body = await res.json();
-      if (body?.detail && typeof body.detail === "string") {
-        message = body.detail;
-      }
-    } catch {
-      // keep default
-    }
-    throw new Error(message);
-  }
-  return res.json();
+  return parseJsonOrThrow(
+    res,
+    `Failed to rename source: ${res.status} ${res.statusText}`
+  );
 }
 
 export async function deleteSource(source: string): Promise<SourceDeleteResult> {
@@ -321,27 +357,18 @@ export async function deleteSource(source: string): Promise<SourceDeleteResult> 
   const res = await fetch(`${API_BASE_URL}/scores/sources/${encoded}`, {
     method: "DELETE",
   });
-  if (!res.ok) {
-    let message = `Failed to delete source: ${res.status} ${res.statusText}`;
-    try {
-      const body = await res.json();
-      if (body?.detail && typeof body.detail === "string") {
-        message = body.detail;
-      }
-    } catch {
-      // keep default
-    }
-    throw new Error(message);
-  }
-  return res.json();
+  return parseJsonOrThrow(
+    res,
+    `Failed to delete source: ${res.status} ${res.statusText}`
+  );
 }
 
 export async function getRiskWeights(): Promise<RiskWeightsConfig> {
   const res = await fetch(`${API_BASE_URL}/scores/weights`);
-  if (!res.ok) {
-    throw new Error(`Failed to fetch risk weights: ${res.status} ${res.statusText}`);
-  }
-  return res.json();
+  return parseJsonOrThrow(
+    res,
+    `Failed to fetch risk weights: ${res.status} ${res.statusText}`
+  );
 }
 
 export async function updateRiskWeights(
@@ -354,19 +381,10 @@ export async function updateRiskWeights(
     },
     body: JSON.stringify(weights),
   });
-  if (!res.ok) {
-    let message = `Failed to update risk weights: ${res.status} ${res.statusText}`;
-    try {
-      const body = await res.json();
-      if (body?.detail && typeof body.detail === "string") {
-        message = body.detail;
-      }
-    } catch {
-      // keep default
-    }
-    throw new Error(message);
-  }
-  return res.json();
+  return parseJsonOrThrow(
+    res,
+    `Failed to update risk weights: ${res.status} ${res.statusText}`
+  );
 }
 
 export async function setFindingDisposition(
@@ -380,19 +398,10 @@ export async function setFindingDisposition(
     },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) {
-    let message = `Failed to update disposition: ${res.status} ${res.statusText}`;
-    try {
-      const body = await res.json();
-      if (body?.detail && typeof body.detail === "string") {
-        message = body.detail;
-      }
-    } catch {
-      // keep default
-    }
-    throw new Error(message);
-  }
-  return res.json();
+  return parseJsonOrThrow(
+    res,
+    `Failed to update disposition: ${res.status} ${res.statusText}`
+  );
 }
 
 export async function clearFindingDisposition(
@@ -408,17 +417,8 @@ export async function clearFindingDisposition(
     `${API_BASE_URL}/scores/findings/${findingDbId}/disposition/clear${suffix}`,
     { method: "POST" }
   );
-  if (!res.ok) {
-    let message = `Failed to clear disposition: ${res.status} ${res.statusText}`;
-    try {
-      const body = await res.json();
-      if (body?.detail && typeof body.detail === "string") {
-        message = body.detail;
-      }
-    } catch {
-      // keep default
-    }
-    throw new Error(message);
-  }
-  return res.json();
+  return parseJsonOrThrow(
+    res,
+    `Failed to clear disposition: ${res.status} ${res.statusText}`
+  );
 }

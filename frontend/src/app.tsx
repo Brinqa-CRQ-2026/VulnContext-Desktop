@@ -1,22 +1,20 @@
 import { useEffect, useState } from "react";
-import { LayoutDashboard, ListFilter, PlugZap } from "lucide-react";
+import { ListFilter, PlugZap } from "lucide-react";
 import { ScoredFinding } from "./api";
 import { Header } from "./components/layout/Header";
-import { SummaryCards } from "./components/dashboard/SummaryCards";
-import { RiskBandDistributionChart } from "./components/dashboard/RiskBandDistributionChart";
+import { DashboardOverview } from "./components/dashboard/DashboardOverview";
 import { RiskTable } from "./components/dashboard/RiskTable";
 import { RiskWeightsEditor } from "./components/dashboard/RiskWeightsEditor";
 import { FindingDetailPage } from "./components/dashboard/FindingDetailPage";
 import { IntegrationsPage } from "./components/integrations/IntegrationsPage";
-import { useScoresData } from "./hooks/useScoresData";
 import { Button } from "./components/ui/button";
 import { cn } from "./lib/utils";
 
-type BasePage = "dashboard" | "findings" | "integrations";
+type BasePage = "findings" | "integrations";
 type AppRoute = { page: BasePage; findingId: number | null };
 
 function parseHashRoute(): AppRoute {
-  const hash = (window.location.hash || "#/dashboard").replace(/^#/, "");
+  const hash = (window.location.hash || "#/findings").replace(/^#/, "");
   const parts = hash.split("/").filter(Boolean);
 
   if (parts[0] === "findings") {
@@ -29,7 +27,7 @@ function parseHashRoute(): AppRoute {
   if (parts[0] === "integrations") {
     return { page: "integrations", findingId: null };
   }
-  return { page: "dashboard", findingId: null };
+  return { page: "findings", findingId: null };
 }
 
 function writeHashRoute(route: AppRoute) {
@@ -40,7 +38,7 @@ function writeHashRoute(route: AppRoute) {
         ? "#/findings"
         : route.page === "integrations"
           ? "#/integrations"
-          : "#/dashboard";
+          : "#/findings";
 
   if (window.location.hash !== nextHash) {
     window.location.hash = nextHash;
@@ -50,11 +48,10 @@ function writeHashRoute(route: AppRoute) {
 function App() {
   const [route, setRoute] = useState<AppRoute>(() => parseHashRoute());
   const [refreshToken, setRefreshToken] = useState(0);
-  const { summary, loading } = useScoresData(refreshToken);
 
   useEffect(() => {
     if (!window.location.hash) {
-      writeHashRoute({ page: "dashboard", findingId: null });
+      writeHashRoute({ page: "findings", findingId: null });
     }
     const onHashChange = () => setRoute(parseHashRoute());
     window.addEventListener("hashchange", onHashChange);
@@ -78,10 +75,6 @@ function App() {
   const inFindingDetail = page === "findings" && route.findingId !== null;
 
   const pageMeta = {
-    dashboard: {
-      title: "Dashboard",
-      description: "High-level risk posture and distribution across all findings.",
-    },
     findings: {
       title: inFindingDetail ? "Finding Details" : "Findings",
       description: inFindingDetail
@@ -89,19 +82,18 @@ function App() {
         : "Review, filter, and tune scoring for vulnerability triage workflows.",
     },
     integrations: {
-      title: "Integrations",
-      description: "Manage source uploads and scanner integrations.",
+      title: "Sources",
+      description: "Review imported sources and the number of findings stored for each.",
     },
   } as const;
 
   const navItems: Array<{
-    id: "dashboard" | "findings" | "integrations";
+    id: "findings" | "integrations";
     label: string;
-    icon: typeof LayoutDashboard;
+    icon: typeof ListFilter;
   }> = [
-    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "findings", label: "Findings", icon: ListFilter },
-    { id: "integrations", label: "Integrations", icon: PlugZap },
+    { id: "integrations", label: "Sources", icon: PlugZap },
   ];
 
   return (
@@ -137,7 +129,7 @@ function App() {
         </aside>
 
         <div className="min-w-0 flex-1 overflow-auto bg-white">
-          <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-4 md:px-6">
+          <div className="mx-auto flex w-full max-w-[1800px] flex-col gap-4 px-4 py-4 md:px-6">
             <section className="rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-none">
               <h1 className="text-xl font-semibold tracking-tight text-slate-900">
                 {pageMeta[page].title}
@@ -145,17 +137,7 @@ function App() {
               <p className="mt-1 text-sm text-slate-500">{pageMeta[page].description}</p>
             </section>
 
-            {page === "dashboard" ? (
-              <>
-                <SummaryCards summary={summary} loading={loading} />
-                <div className="grid gap-4 xl:grid-cols-[420px_minmax(0,1fr)]">
-                  <RiskBandDistributionChart summary={summary} loading={loading} />
-                  <div className="rounded-xl border border-dashed border-slate-300 bg-white/60 p-5 text-sm text-slate-500">
-                    Next chart slot: Source Breakdown by Risk Band
-                  </div>
-                </div>
-              </>
-            ) : page === "findings" ? (
+            {page === "findings" ? (
               inFindingDetail && route.findingId ? (
                 <FindingDetailPage
                   findingId={route.findingId}
@@ -165,6 +147,7 @@ function App() {
                 />
               ) : (
                 <>
+                  <DashboardOverview refreshToken={refreshToken} />
                   <RiskWeightsEditor
                     refreshToken={refreshToken}
                     onWeightsUpdated={handleDataChanged}
@@ -178,10 +161,12 @@ function App() {
                 </>
               )
             ) : (
-              <IntegrationsPage
-                refreshToken={refreshToken}
-                onDataChanged={handleDataChanged}
-              />
+              <>
+                <IntegrationsPage
+                  refreshToken={refreshToken}
+                  onDataChanged={handleDataChanged}
+                />
+              </>
             )}
           </div>
         </div>

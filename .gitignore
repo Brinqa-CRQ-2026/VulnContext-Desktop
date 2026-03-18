@@ -83,3 +83,8 @@ backend/data/synthetic_qualys_findings_v2.csv
 backend/vulncontext.db
 backend/data/known_exploited_vulnerabilities.csv
 backend/data/bql_export.csv
+backend/data/nvd/*.json
+backend/data/nvd/*.json.gz
+vulncontext.db
+CODEX.md
+backend/data/import_staging/finding_clean_sample.csv

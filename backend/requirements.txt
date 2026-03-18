@@ -6,6 +6,7 @@ pydantic
 pydantic-settings
 python-multipart
 requests
+pandas
 
 # Test dependencies
 pytest

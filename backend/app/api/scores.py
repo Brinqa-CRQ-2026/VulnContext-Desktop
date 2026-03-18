@@ -3,22 +3,26 @@ from datetime import datetime
 from typing import List
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
-from sqlalchemy.orm import Session
 from sqlalchemy import func, or_
+from sqlalchemy.orm import Session
 
 from app import models, schemas
 from app.core.db import get_db
 from app.core.risk_weights import get_or_create_scoring_config, weights_from_config
-from app.scoring import score_finding_dict, compute_risk_assessment
-from app.seed import parse_qualys_csv_to_scored_findings, load_kev_catalog_from_env
+from app.epss import get_epss_scores
+from app.scoring import compute_risk_assessment
+from app.seed import (
+    enrich_findings_with_epss,
+    parse_staged_findings_csv_to_scored_findings,
+)
 from app.services.kev_enrichment import kev_record_for_cve, load_kev_catalog
+from app.services.nvd_enrichment import enrich_findings_with_nvd_cache
 
 router = APIRouter(
     prefix="/scores",
     tags=["scores"],
 )
 
-ALLOWED_LIFECYCLE_STATUSES = {"new", "active", "fixed", "reopened"}
 ALLOWED_DISPOSITIONS = {
     "none",
     "ignored",
@@ -26,6 +30,22 @@ ALLOWED_DISPOSITIONS = {
     "false_positive",
     "not_applicable",
 }
+
+
+def _display_risk_score(finding: models.ScoredFinding) -> float | None:
+    if finding.internal_risk_score is not None:
+        return float(finding.internal_risk_score)
+    if finding.risk_score is not None:
+        return float(finding.risk_score)
+    return None
+
+
+def _display_risk_band(finding: models.ScoredFinding) -> str | None:
+    return (
+        finding.internal_risk_band
+        or finding.risk_band
+        or finding.risk_rating
+    )
 
 def _normalize_risk_band(raw_band: str) -> str:
     candidate = raw_band.strip().lower()
@@ -73,7 +93,10 @@ def _record_finding_event(
     new_value: dict | None = None,
     scan_run_id: int | None = None,
 ) -> None:
-    finding_key = finding.finding_key or f"{finding.source}:{finding.asset_id}:{finding.finding_id}"
+    finding_key = (
+        finding.finding_key
+        or f"{finding.source}:{finding.uid or finding.record_id or finding.id}"
+    )
     db.add(
         models.FindingEvent(
             finding_key=finding_key,
@@ -94,10 +117,20 @@ def _resolve_sorting(sort_by: str, sort_order: str):
     sort_order_key = sort_order.strip().lower()
 
     sort_columns = {
-        "risk_score": models.ScoredFinding.risk_score,
+        "risk_score": func.coalesce(
+            models.ScoredFinding.internal_risk_score,
+            models.ScoredFinding.risk_score,
+        ),
+        "internal_risk_score": func.coalesce(
+            models.ScoredFinding.internal_risk_score,
+            models.ScoredFinding.risk_score,
+        ),
+        "source_risk_score": models.ScoredFinding.risk_score,
         "cvss_score": models.ScoredFinding.cvss_score,
         "epss_score": models.ScoredFinding.epss_score,
-        "vuln_age_days": models.ScoredFinding.vuln_age_days,
+        "age_in_days": models.ScoredFinding.age_in_days,
+        "vuln_age_days": models.ScoredFinding.age_in_days,
+        "due_date": models.ScoredFinding.due_date,
         "source": func.lower(func.coalesce(models.ScoredFinding.source, "")),
     }
 
@@ -105,7 +138,10 @@ def _resolve_sorting(sort_by: str, sort_order: str):
     if column is None:
         raise HTTPException(
             status_code=400,
-            detail="Invalid sort_by. Use one of: risk_score, cvss_score, epss_score, vuln_age_days, source.",
+            detail=(
+                "Invalid sort_by. Use one of: risk_score, internal_risk_score, "
+                "source_risk_score, cvss_score, epss_score, age_in_days, due_date, source."
+            ),
         )
 
     if sort_order_key not in {"asc", "desc"}:
@@ -115,7 +151,7 @@ def _resolve_sorting(sort_by: str, sort_order: str):
         )
 
     primary = column.asc() if sort_order_key == "asc" else column.desc()
-    if sort_by_key == "vuln_age_days":
+    if sort_by_key in {"age_in_days", "vuln_age_days", "due_date"}:
         primary = primary.nullslast()
 
     tie_breaker = models.ScoredFinding.id.desc()
@@ -160,26 +196,23 @@ def _rescore_finding_in_place(
     assessment = compute_risk_assessment(
         cvss_score=finding.cvss_score,
         epss_score=finding.epss_score,
-        internet_exposed=bool(finding.internet_exposed),
-        asset_criticality_label=_asset_criticality_label_from_numeric(finding.asset_criticality),
+        asset_criticality_label=_asset_criticality_label_from_numeric(finding.asset_criticality or 2),
         asset_criticality=int(finding.asset_criticality or 2),
-        vuln_age_days=int(finding.vuln_age_days or 0),
-        auth_required=bool(finding.auth_required),
+        context_score=finding.context_score,
         is_kev=bool(getattr(finding, "is_kev", False)),
         weights=weights,
     )
-    finding.risk_score = assessment.risk_score
-    finding.risk_band = assessment.risk_band
-    finding.sla_hours = assessment.sla_hours
+    finding.internal_risk_score = assessment.risk_score
+    finding.internal_risk_band = assessment.risk_band
 
 
 def _validate_risk_weights(payload: schemas.RiskWeightsConfig) -> None:
     non_negative_fields = {
         "cvss_weight": payload.cvss_weight,
         "epss_weight": payload.epss_weight,
-        "internet_exposed_weight": payload.internet_exposed_weight,
+        "kev_weight": payload.kev_weight,
         "asset_criticality_weight": payload.asset_criticality_weight,
-        "vuln_age_weight": payload.vuln_age_weight,
+        "context_weight": payload.context_weight,
     }
     for field_name, value in non_negative_fields.items():
         if value < 0:
@@ -193,36 +226,124 @@ def _validate_risk_weights(payload: schemas.RiskWeightsConfig) -> None:
                 detail=f"{field_name} must be <= 1.",
             )
 
-    if payload.auth_required_weight > 0:
-        raise HTTPException(
-            status_code=400,
-            detail="auth_required_weight must be <= 0.",
-        )
-    if payload.auth_required_weight < -1:
-        raise HTTPException(
-            status_code=400,
-            detail="auth_required_weight must be >= -1.",
-        )
-
-    non_negative_sum = (
-        payload.cvss_weight
-        + payload.epss_weight
-        + payload.internet_exposed_weight
-        + payload.asset_criticality_weight
-        + payload.vuln_age_weight
-    )
-    if abs(non_negative_sum - 1.0) > 0.001:
-        raise HTTPException(
-            status_code=400,
-            detail="Positive weights must sum to 1.0.",
-        )
-
 
 def _to_disposition_result(finding: models.ScoredFinding) -> schemas.FindingDispositionResult:
     return schemas.FindingDispositionResult(
         id=finding.id,
-        finding_id=finding.finding_id,
+        uid=finding.uid,
+        record_id=finding.record_id,
         disposition=finding.disposition or "none",
+        disposition_state=finding.disposition_state,
+        disposition_reason=finding.disposition_reason,
+        disposition_comment=finding.disposition_comment,
+        disposition_created_at=finding.disposition_created_at,
+        disposition_expires_at=finding.disposition_expires_at,
+        disposition_created_by=finding.disposition_created_by,
+    )
+
+
+def _to_scored_finding_out(
+    finding: models.ScoredFinding,
+    *,
+    cve_description: str | None = None,
+) -> schemas.ScoredFindingOut:
+    return schemas.ScoredFindingOut(
+        id=finding.id,
+        source=finding.source,
+        uid=finding.uid,
+        record_id=finding.record_id,
+        display_name=finding.display_name,
+        record_link=finding.record_link,
+        status=finding.status,
+        status_category=finding.status_category,
+        source_status=finding.source_status,
+        compliance_status=finding.compliance_status,
+        severity=finding.severity,
+        lifecycle_status=finding.lifecycle_status,
+        age_in_days=finding.age_in_days,
+        first_found=finding.first_found,
+        last_found=finding.last_found,
+        due_date=finding.due_date,
+        fixed_at=finding.fixed_at,
+        status_changed_at=finding.status_changed_at,
+        cisa_due_date_expired=finding.cisa_due_date_expired,
+        target_count=finding.target_count,
+        target_ids=finding.target_ids,
+        target_names=finding.target_names,
+        cve_id=finding.cve_id,
+        cve_ids=finding.cve_ids,
+        cve_record_names=finding.cve_record_names,
+        cwe_ids=finding.cwe_ids,
+        cvss_score=finding.cvss_score,
+        cvss_version=finding.cvss_version,
+        cvss_severity=finding.cvss_severity,
+        cvss_vector=finding.cvss_vector,
+        attack_vector=finding.attack_vector,
+        attack_complexity=finding.attack_complexity,
+        epss_score=finding.epss_score,
+        epss_percentile=finding.epss_percentile,
+        is_kev=bool(finding.is_kev),
+        kev_date_added=finding.kev_date_added,
+        kev_due_date=finding.kev_due_date,
+        kev_vendor_project=finding.kev_vendor_project,
+        kev_product=finding.kev_product,
+        kev_vulnerability_name=finding.kev_vulnerability_name,
+        kev_short_description=finding.kev_short_description,
+        kev_required_action=finding.kev_required_action,
+        kev_ransomware_use=finding.kev_ransomware_use,
+        risk_score=_display_risk_score(finding),
+        risk_band=_display_risk_band(finding),
+        source_risk_score=finding.risk_score,
+        source_risk_band=finding.risk_band,
+        source_risk_rating=finding.risk_rating,
+        base_risk_score=finding.base_risk_score,
+        internal_risk_score=finding.internal_risk_score,
+        internal_risk_band=finding.internal_risk_band,
+        internal_risk_notes=finding.internal_risk_notes,
+        asset_criticality=finding.asset_criticality,
+        context_score=finding.context_score,
+        risk_factor_names=finding.risk_factor_names,
+        risk_factor_values=finding.risk_factor_values,
+        risk_factor_offset=finding.risk_factor_offset,
+        summary=finding.summary,
+        description=finding.description,
+        cve_description=cve_description,
+        type_display_name=finding.type_display_name,
+        type_id=finding.type_id,
+        attack_pattern_names=finding.attack_pattern_names,
+        attack_technique_names=finding.attack_technique_names,
+        attack_tactic_names=finding.attack_tactic_names,
+        sla_days=finding.sla_days,
+        sla_level=finding.sla_level,
+        risk_owner_name=finding.risk_owner_name,
+        remediation_owner_name=finding.remediation_owner_name,
+        source_count=finding.source_count,
+        source_uids=finding.source_uids,
+        source_record_uids=finding.source_record_uids,
+        source_links=finding.source_links,
+        connector_names=finding.connector_names,
+        source_connector_names=finding.source_connector_names,
+        connector_categories=finding.connector_categories,
+        data_integration_titles=finding.data_integration_titles,
+        informed_user_names=finding.informed_user_names,
+        data_model_name=finding.data_model_name,
+        created_by=finding.created_by,
+        updated_by=finding.updated_by,
+        date_created=finding.date_created,
+        last_updated=finding.last_updated,
+        risk_scoring_model_name=finding.risk_scoring_model_name,
+        sla_definition_name=finding.sla_definition_name,
+        confidence=finding.confidence,
+        category_count=finding.category_count,
+        categories=finding.categories,
+        remediation_summary=finding.remediation_summary,
+        remediation_plan=finding.remediation_plan,
+        remediation_notes=finding.remediation_notes,
+        remediation_status=finding.remediation_status,
+        remediation_due_date=finding.remediation_due_date,
+        remediation_updated_at=finding.remediation_updated_at,
+        remediation_updated_by=finding.remediation_updated_by,
+        disposition=finding.disposition,
         disposition_state=finding.disposition_state,
         disposition_reason=finding.disposition_reason,
         disposition_comment=finding.disposition_comment,
@@ -243,7 +364,7 @@ def get_scores(db: Session = Depends(get_db)):
     Return ALL scored findings currently stored in the database.
     """
     findings = db.query(models.ScoredFinding).all()
-    return findings
+    return [_to_scored_finding_out(finding) for finding in findings]
 
 
 @router.get("/top10", response_model=List[schemas.ScoredFindingOut])
@@ -256,39 +377,18 @@ def get_top_10_scores(db: Session = Depends(get_db)):
     """
     findings = (
         db.query(models.ScoredFinding)
-        .order_by(models.ScoredFinding.risk_score.desc())
+        .order_by(
+            func.coalesce(
+                models.ScoredFinding.internal_risk_score,
+                models.ScoredFinding.risk_score,
+            ).desc(),
+            models.ScoredFinding.id.desc(),
+        )
         .limit(10)
         .all()
     )
-    return findings
+    return [_to_scored_finding_out(finding) for finding in findings]
 
-
-@router.post("/", response_model=schemas.ScoredFindingOut)
-def create_scored_finding(
-    finding_in: schemas.ScoredFindingCreate,
-    db: Session = Depends(get_db),
-):
-    """
-    Score a single finding and persist it.
-
-    Flow:
-    - Take raw finding fields (no risk_score/band).
-    - Compute risk_score + risk_band via score_finding_dict.
-    - Insert into SQLite.
-    - Return the created row.
-    """
-    config = get_or_create_scoring_config(db)
-    scored_dict = score_finding_dict(
-        finding_in.dict(),
-        weights=weights_from_config(config),
-    )
-
-    db_obj = models.ScoredFinding(**scored_dict)
-    db.add(db_obj)
-    db.commit()
-    db.refresh(db_obj)
-
-    return db_obj
 
 @router.get("/summary", response_model=schemas.ScoresSummary)
 def get_scores_summary(db: Session = Depends(get_db)):
@@ -299,15 +399,20 @@ def get_scores_summary(db: Session = Depends(get_db)):
     """
     total = db.query(func.count(models.ScoredFinding.id)).scalar() or 0
 
+    display_band = func.coalesce(
+        models.ScoredFinding.internal_risk_band,
+        models.ScoredFinding.risk_band,
+        models.ScoredFinding.risk_rating,
+    )
     rows = (
-        db.query(models.ScoredFinding.risk_band, func.count(models.ScoredFinding.id))
-        .group_by(models.ScoredFinding.risk_band)
+        db.query(display_band, func.count(models.ScoredFinding.id))
+        .group_by(display_band)
         .all()
     )
     kev_rows = (
-        db.query(models.ScoredFinding.risk_band, func.count(models.ScoredFinding.id))
+        db.query(display_band, func.count(models.ScoredFinding.id))
         .filter(models.ScoredFinding.is_kev.is_(True))
-        .group_by(models.ScoredFinding.risk_band)
+        .group_by(display_band)
         .all()
     )
     kev_total = (
@@ -380,7 +485,7 @@ def get_all_scores(
     )
 
     return schemas.PaginatedFindings(
-        items=items,
+        items=[_to_scored_finding_out(item) for item in items],
         total=total,
         page=page,
         page_size=page_size,
@@ -403,10 +508,9 @@ def update_risk_weights(
 
     config.cvss_weight = payload.cvss_weight
     config.epss_weight = payload.epss_weight
-    config.internet_exposed_weight = payload.internet_exposed_weight
+    config.kev_weight = payload.kev_weight
     config.asset_criticality_weight = payload.asset_criticality_weight
-    config.vuln_age_weight = payload.vuln_age_weight
-    config.auth_required_weight = payload.auth_required_weight
+    config.context_weight = payload.context_weight
 
     weights = weights_from_config(config)
     findings = db.query(models.ScoredFinding).all()
@@ -439,7 +543,11 @@ def get_scores_by_risk_band(
     sort_primary, sort_tie_breaker = _resolve_sorting(sort_by, sort_order)
 
     total_query = db.query(func.count(models.ScoredFinding.id)).filter(
-        models.ScoredFinding.risk_band == normalized_band
+        func.coalesce(
+            models.ScoredFinding.internal_risk_band,
+            models.ScoredFinding.risk_band,
+            models.ScoredFinding.risk_rating,
+        ) == normalized_band
     )
     total = _apply_source_filter(total_query, source).scalar() or 0
 
@@ -453,7 +561,13 @@ def get_scores_by_risk_band(
 
     offset = (page - 1) * page_size
     items_query = (
-        db.query(models.ScoredFinding).filter(models.ScoredFinding.risk_band == normalized_band)
+        db.query(models.ScoredFinding).filter(
+            func.coalesce(
+                models.ScoredFinding.internal_risk_band,
+                models.ScoredFinding.risk_band,
+                models.ScoredFinding.risk_rating,
+            ) == normalized_band
+        )
     )
     items_query = _apply_source_filter(items_query, source)
     items = (
@@ -464,7 +578,7 @@ def get_scores_by_risk_band(
     )
 
     return schemas.PaginatedFindings(
-        items=items,
+        items=[_to_scored_finding_out(item) for item in items],
         total=total,
         page=page,
         page_size=page_size,
@@ -476,10 +590,21 @@ def get_sources_summary(db: Session = Depends(get_db)):
     rows = (
         db.query(
             models.ScoredFinding.source,
-            models.ScoredFinding.risk_band,
+            func.coalesce(
+                models.ScoredFinding.internal_risk_band,
+                models.ScoredFinding.risk_band,
+                models.ScoredFinding.risk_rating,
+            ),
             func.count(models.ScoredFinding.id),
         )
-        .group_by(models.ScoredFinding.source, models.ScoredFinding.risk_band)
+        .group_by(
+            models.ScoredFinding.source,
+            func.coalesce(
+                models.ScoredFinding.internal_risk_band,
+                models.ScoredFinding.risk_band,
+                models.ScoredFinding.risk_rating,
+            ),
+        )
         .all()
     )
 
@@ -575,7 +700,16 @@ def get_finding_by_id(finding_db_id: int, db: Session = Depends(get_db)):
     finding = db.query(models.ScoredFinding).filter(models.ScoredFinding.id == finding_db_id).first()
     if finding is None:
         raise HTTPException(status_code=404, detail="Finding not found.")
-    return finding
+    cve_description = None
+    if finding.cve_id:
+        cache_row = (
+            db.query(models.NvdCveCache.description)
+            .filter(models.NvdCveCache.cve_id == finding.cve_id)
+            .first()
+        )
+        if cache_row:
+            cve_description = cache_row[0]
+    return _to_scored_finding_out(finding, cve_description=cve_description)
 
 
 @router.post("/kev/re-enrich", response_model=schemas.KevReenrichResult)
@@ -760,7 +894,7 @@ async def seed_qualys_csv(
     db: Session = Depends(get_db),
 ):
     """
-    Seed the DB from a Qualys-style CSV upload.
+    Seed the DB from the staged Brinqa/Wiz-style findings CSV.
 
     Safety checks:
     - accepts `.csv` files only
@@ -796,12 +930,24 @@ async def seed_qualys_csv(
 
     try:
         config = get_or_create_scoring_config(db)
-        kev_catalog = load_kev_catalog_from_env()
-        rows_to_add = parse_qualys_csv_to_scored_findings(
+        try:
+            get_epss_scores()
+        except Exception:
+            # Fall back to the locally cached EPSS table if refresh fails.
+            pass
+        rows_to_add = parse_staged_findings_csv_to_scored_findings(
             csv_text,
             source=source_name,
+        )
+        enrich_findings_with_epss(
+            rows_to_add,
+            db=db,
             weights=weights_from_config(config),
-            kev_catalog=kev_catalog,
+        )
+        enrich_findings_with_nvd_cache(
+            rows_to_add,
+            db=db,
+            weights=weights_from_config(config),
         )
         db.add_all(rows_to_add)
         db.commit()

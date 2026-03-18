@@ -1,61 +1,56 @@
-# Scoring Model (CVSS + EPSS + KEV + Asset Context)
+# Scoring Model (Current Internal Risk)
 
 ## Overview
 
-VulnContext computes a local-first risk score for each finding and then maps the score into a risk band. The model combines:
+The current internal risk score is being narrowed to signals we can either store
+directly on a finding now or enrich locally from a CVE:
 
 - CVSS base score
-- EPSS (stored in this project as a normalized 0-1 signal)
-- Asset criticality
-- Exposure (internet-facing bonus)
-- Vulnerability age
-- Authentication-required penalty
-- CISA KEV (Known Exploited Vulnerabilities) override/boost
+- EPSS probability
+- CISA KEV presence
+- asset criticality
+- analyst context score
+
+Imported vendor risk values remain separate. The app-owned score should live in:
+
+- `internal_risk_score`
+- `internal_risk_band`
 
 ## Normalization
 
 - `cvss_norm = cvss_score / 10.0`
 - `epss_norm = clamp(epss_score, 0, 1)`
-- `crit_norm = asset_criticality / 4.0` (this app currently uses 1-4 criticality)
-- `age_norm = min(vuln_age_days, 365) / 365.0`
+- `kev_norm = 1.0 if is_kev else 0.0`
+- `crit_norm = asset_criticality / 4.0` when numeric, otherwise label mapping
+- `context_norm = context_score` if already `0-1`, otherwise `context_score / 100`
 
 ## Base Score
 
-The base score uses the existing weighted structure (weights remain configurable):
+The weighted score uses:
 
-- CVSS weight
-- EPSS weight
-- Internet exposure weight
-- Asset criticality weight
-- Vulnerability age weight
-- Auth-required penalty (negative)
+- `cvss_weight`
+- `epss_weight`
+- `kev_weight`
+- `asset_criticality_weight`
+- `context_weight`
 
 The weighted result is clamped to `[0,1]`, then converted to a UI score in `0-100`.
 
-## KEV Override / Boost
+## Current Defaults
 
-If a finding’s `cve_id` is in the CISA KEV catalog:
+- `cvss_weight = 0.40`
+- `epss_weight = 0.25`
+- `kev_weight = 0.25`
+- `asset_criticality_weight = 0.15`
+- `context_weight = 0.20`
 
-- `risk_raw = min(1.0, base_score + 0.25)`
-- `risk_band = Critical` (minimum)
-- `slaHours` is assigned:
-  - `24` hours if `asset_criticality >= 4`
-  - `72` hours otherwise
+These defaults intentionally allow the sum to exceed `1.0` because multiple
+strong signals should be able to saturate the score at `100`.
 
-This is intended to float known-exploited items to the top and support urgent remediation workflows.
+## Current Gaps
 
-## EPSS Threshold Floors (non-KEV only)
-
-For non-KEV findings, the normal score-to-band mapping is kept, but EPSS floors are applied:
-
-- `epss_norm >= 0.95` -> at least `High`
-- `epss_norm >= 0.80` and `< 0.95` -> at least `Medium`
-
-This keeps highly likely-to-be-exploited findings from being buried by a low base score.
-
-## `slaHours`
-
-`slaHours` is a recommended remediation SLA produced only for KEV findings right now.
-
-- It is derived from KEV status + asset criticality.
-- It is returned via API and displayed in the finding detail page.
+- the staged finding CSV does not currently include CVSS fields
+- the staged finding CSV does not currently include EPSS fields
+- the app still needs an enrichment pass to populate `epss_score` from `epss_scores`
+- the app still needs a CVSS/NVD enrichment path or an upstream source feed
+- route responses still expose transitional vendor `risk_score` / `risk_band` fields

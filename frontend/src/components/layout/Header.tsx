@@ -1,7 +1,7 @@
 import React from "react";
 import { Button } from "../ui/button";
 
-type AppPage = "dashboard" | "findings" | "integrations";
+type AppPage = "findings" | "integrations";
 
 interface HeaderProps {
   page: AppPage;
@@ -10,7 +10,7 @@ interface HeaderProps {
 
 export function Header({ page, onNavigate }: HeaderProps) {
   const pageLabel =
-    page === "dashboard" ? "Dashboard" : page === "findings" ? "Findings" : "Integrations";
+    page === "findings" ? "Findings" : "Sources";
 
   return (
     <header className="border-b border-slate-800 bg-slate-950 text-slate-100">
@@ -34,9 +34,9 @@ export function Header({ page, onNavigate }: HeaderProps) {
             variant="outline"
             size="sm"
             className="border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800 hover:text-white"
-            onClick={() => onNavigate("dashboard")}
+            onClick={() => onNavigate("findings")}
           >
-            Home
+            Findings
           </Button>
         </div>
       </div>

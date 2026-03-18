@@ -39,7 +39,19 @@ function toDateTimeLocalValue(value?: string | null): string {
   return `${y}-${m}-${d}T${hh}:${mm}`;
 }
 
-function badgeClass(kind: "neutral" | "warn" | "success" | "band", value?: string) {
+function formatDate(value?: string | null, withTime = false) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return withTime ? date.toLocaleString() : date.toLocaleDateString();
+}
+
+function formatNumber(value?: number | null, digits = 1) {
+  if (value === null || value === undefined || Number.isNaN(value)) return "—";
+  return value.toFixed(digits);
+}
+
+function badgeClass(kind: "neutral" | "warn" | "success" | "band", value?: string | null) {
   if (kind === "band") {
     const band = (value || "").toLowerCase();
     if (band === "critical") return "border-rose-200 bg-rose-50 text-rose-700";
@@ -59,7 +71,7 @@ function Badge({
 }: {
   children: string;
   kind?: "neutral" | "warn" | "success" | "band";
-  value?: string;
+  value?: string | null;
 }) {
   return (
     <span
@@ -186,7 +198,11 @@ export function FindingDetailPage({
   };
 
   if (loading) {
-    return <Card><CardContent className="py-8 text-sm text-slate-500">Loading finding…</CardContent></Card>;
+    return (
+      <Card>
+        <CardContent className="py-8 text-sm text-slate-500">Loading finding...</CardContent>
+      </Card>
+    );
   }
 
   if (error || !finding) {
@@ -194,12 +210,20 @@ export function FindingDetailPage({
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0">
           <CardTitle className="text-sm">Finding Details</CardTitle>
-          <Button size="sm" variant="outline" onClick={onBack}>Back to Findings</Button>
+          <Button size="sm" variant="outline" onClick={onBack}>
+            Back to Findings
+          </Button>
         </CardHeader>
-        <CardContent className="text-sm text-rose-600">{error || "Finding not found."}</CardContent>
+        <CardContent className="text-sm text-rose-600">
+          {error || "Finding not found."}
+        </CardContent>
       </Card>
     );
   }
+
+  const hasPrimaryDescription = Boolean(finding.description);
+  const hasDistinctCveDescription =
+    Boolean(finding.cveDescription) && finding.cveDescription !== finding.description;
 
   return (
     <div className="flex flex-col gap-4">
@@ -207,49 +231,95 @@ export function FindingDetailPage({
         <CardHeader className="flex-row items-start justify-between space-y-0 gap-3">
           <div className="min-w-0">
             <div className="mb-2 flex flex-wrap items-center gap-2">
-              <Badge kind="band" value={finding.risk_band}>{finding.risk_band}</Badge>
+              <Badge kind="band" value={finding.risk_band}>
+                {finding.risk_band || "Unrated"}
+              </Badge>
               <Badge>{finding.source || "unknown"}</Badge>
               {finding.isKev ? <Badge kind="warn">KEV / Actively Exploited</Badge> : null}
-              {finding.lifecycle_status ? <Badge>{`Lifecycle: ${finding.lifecycle_status}`}</Badge> : null}
-              {finding.disposition && finding.disposition !== "none" ? (
-                <Badge kind="warn">{`Disposition: ${finding.disposition.replaceAll("_", " ")}`}</Badge>
+              {finding.lifecycle_status ? (
+                <Badge>{`Lifecycle: ${finding.lifecycle_status}`}</Badge>
               ) : null}
-              {finding.internet_exposed ? <Badge kind="warn">Internet Exposed</Badge> : <Badge kind="success">Internal</Badge>}
+              {finding.disposition && finding.disposition !== "none" ? (
+                <Badge kind="warn">
+                  {`Disposition: ${finding.disposition.replaceAll("_", " ")}`}
+                </Badge>
+              ) : null}
+              {finding.compliance_status ? (
+                <Badge kind="warn">{finding.compliance_status}</Badge>
+              ) : null}
             </div>
             <CardTitle className="text-lg">
-              {finding.cve_id || "Unspecified vulnerability"}
+              {finding.display_name || finding.cve_id || "Finding"}
             </CardTitle>
             <p className="mt-1 text-sm text-slate-500">
-              Finding {finding.finding_id} on asset {finding.asset_id}
-              {finding.hostname ? ` • ${finding.hostname}` : ""}
-              {finding.ip_address ? ` (${finding.ip_address})` : ""}
+              {finding.uid || `Finding row ${finding.id}`}
+              {finding.target_names ? ` • ${finding.target_names}` : ""}
+              {finding.record_id ? ` • ${finding.record_id}` : ""}
             </p>
           </div>
-          <Button size="sm" variant="outline" onClick={onBack}>Back to Findings</Button>
+          <Button size="sm" variant="outline" onClick={onBack}>
+            Back to Findings
+          </Button>
         </CardHeader>
       </Card>
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-4">
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-xs uppercase tracking-wide text-slate-500">Risk Score</CardTitle></CardHeader>
-          <CardContent><div className="text-2xl font-semibold">{finding.risk_score.toFixed(1)}</div></CardContent>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs uppercase tracking-wide text-slate-500">
+              Display Risk
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-semibold">{formatNumber(finding.risk_score)}</div>
+          </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-xs uppercase tracking-wide text-slate-500">CVSS</CardTitle></CardHeader>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs uppercase tracking-wide text-slate-500">
+              Vendor Risk
+            </CardTitle>
+          </CardHeader>
           <CardContent>
-            <div className="text-2xl font-semibold">{finding.cvss_score.toFixed(1)}</div>
+            <div className="text-2xl font-semibold">
+              {formatNumber(finding.source_risk_score)}
+            </div>
+            <div className="text-xs text-slate-500">
+              {finding.source_risk_rating || finding.source_risk_band || "Unspecified"}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs uppercase tracking-wide text-slate-500">
+              CVSS
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-semibold">{formatNumber(finding.cvss_score)}</div>
             <div className="text-xs text-slate-500">{finding.cvss_severity || "Unspecified"}</div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-xs uppercase tracking-wide text-slate-500">EPSS</CardTitle></CardHeader>
-          <CardContent><div className="text-2xl font-semibold">{finding.epss_score.toFixed(4)}</div></CardContent>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs uppercase tracking-wide text-slate-500">
+              EPSS
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-semibold">{formatNumber(finding.epss_score, 4)}</div>
+            <div className="text-xs text-slate-500">
+              Percentile {formatNumber(finding.epss_percentile, 4)}
+            </div>
+          </CardContent>
         </Card>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm">Remediation / Triage</CardTitle></CardHeader>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Remediation / Triage</CardTitle>
+          </CardHeader>
           <CardContent className="space-y-3">
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="space-y-1 text-sm">
@@ -257,11 +327,15 @@ export function FindingDetailPage({
                 <select
                   className="h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
                   value={dispositionDraft}
-                  onChange={(e) => setDispositionDraft(e.target.value as Exclude<FindingDisposition, "none">)}
+                  onChange={(e) =>
+                    setDispositionDraft(e.target.value as Exclude<FindingDisposition, "none">)
+                  }
                   disabled={savingDisposition}
                 >
                   {DISPOSITION_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
                   ))}
                 </select>
               </label>
@@ -284,7 +358,7 @@ export function FindingDetailPage({
                 value={reasonDraft}
                 onChange={(e) => setReasonDraft(e.target.value)}
                 disabled={savingDisposition}
-                placeholder="e.g. compensating_control"
+                placeholder="e.g. compensating control"
               />
             </label>
             <label className="space-y-1 text-sm">
@@ -296,7 +370,9 @@ export function FindingDetailPage({
                 disabled={savingDisposition}
               />
             </label>
-            {dispositionError ? <div className="text-xs text-rose-600">{dispositionError}</div> : null}
+            {dispositionError ? (
+              <div className="text-xs text-rose-600">{dispositionError}</div>
+            ) : null}
             <div className="flex flex-wrap gap-2">
               <Button size="sm" onClick={handleSaveDisposition} disabled={savingDisposition}>
                 {savingDisposition ? "Saving..." : "Save Disposition"}
@@ -314,31 +390,19 @@ export function FindingDetailPage({
         </Card>
 
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm">Threat / KEV Intel</CardTitle></CardHeader>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Threat / KEV Intel</CardTitle>
+          </CardHeader>
           <CardContent className="divide-y divide-slate-100">
             <DetailRow label="CISA KEV" value={finding.isKev ? "Yes" : "No"} />
-            <DetailRow
-              label="KEV date added"
-              value={finding.kevDateAdded ? new Date(finding.kevDateAdded).toLocaleDateString() : "—"}
-            />
-            <DetailRow
-              label="KEV due date"
-              value={finding.kevDueDate ? new Date(finding.kevDueDate).toLocaleDateString() : "—"}
-            />
-            <DetailRow label="Recommended SLA" value={finding.slaHours ? `${finding.slaHours}h` : "—"} />
+            <DetailRow label="KEV date added" value={formatDate(finding.kevDateAdded)} />
+            <DetailRow label="KEV due date" value={formatDate(finding.kevDueDate)} />
             <DetailRow label="Ransomware use" value={finding.kevRansomwareUse || "—"} />
             <DetailRow label="Vendor / Project" value={finding.kevVendorProject || "—"} />
             <DetailRow label="Product" value={finding.kevProduct || "—"} />
-            <DetailRow label="KEV vulnerability name" value={finding.kevVulnerabilityName || "—"} />
             <DetailRow
-              label="KEV short description"
-              value={
-                finding.kevShortDescription ? (
-                  <span className="whitespace-pre-wrap">{finding.kevShortDescription}</span>
-                ) : (
-                  "—"
-                )
-              }
+              label="KEV vulnerability name"
+              value={finding.kevVulnerabilityName || "—"}
             />
             <DetailRow
               label="Required action"
@@ -354,43 +418,90 @@ export function FindingDetailPage({
         </Card>
       </div>
 
-      {finding.description ? (
+      {hasPrimaryDescription || hasDistinctCveDescription ? (
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm">Description</CardTitle></CardHeader>
-          <CardContent><p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">{finding.description}</p></CardContent>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Description</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {hasPrimaryDescription ? (
+              <div className="space-y-1">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                  Vulnerability Description
+                </p>
+                <p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">
+                  {finding.description}
+                </p>
+              </div>
+            ) : null}
+            {hasDistinctCveDescription ? (
+              <div className="space-y-1 border-t border-slate-100 pt-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                  CVE Record Description
+                </p>
+                <p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">
+                  {finding.cveDescription}
+                </p>
+              </div>
+            ) : null}
+          </CardContent>
         </Card>
       ) : null}
 
       <div className="grid gap-4 xl:grid-cols-2">
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm">Vulnerability Details</CardTitle></CardHeader>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Finding Context</CardTitle>
+          </CardHeader>
           <CardContent className="divide-y divide-slate-100">
-            <DetailRow label="CVE" value={finding.cve_id || "—"} />
-            <DetailRow label="CWE" value={finding.cwe_id || "—"} />
-            <DetailRow label="Attack vector" value={finding.attack_vector || "—"} />
-            <DetailRow label="Privileges" value={finding.privileges_required || "—"} />
-            <DetailRow label="User interaction" value={finding.user_interaction || "—"} />
-            <DetailRow label="Published" value={finding.vuln_published_date || "—"} />
-            <DetailRow label="Age (days)" value={finding.vuln_age_days ?? "—"} />
-            <DetailRow label="Times detected" value={finding.times_detected ?? "—"} />
-            <DetailRow label="Vector" value={finding.vector_string || "—"} />
+            <DetailRow label="UID" value={finding.uid || "—"} />
+            <DetailRow label="Record ID" value={finding.record_id || "—"} />
+            <DetailRow label="Record link" value={finding.record_link || "—"} />
+            <DetailRow label="Targets" value={finding.target_names || "—"} />
+            <DetailRow label="Target IDs" value={finding.target_ids || "—"} />
+            <DetailRow label="Status" value={finding.status || "—"} />
+            <DetailRow label="Status category" value={finding.status_category || "—"} />
+            <DetailRow label="Source status" value={finding.source_status || "—"} />
+            <DetailRow label="Compliance" value={finding.compliance_status || "—"} />
+            <DetailRow label="Severity" value={finding.severity || "—"} />
+            <DetailRow label="Age (days)" value={formatNumber(finding.age_in_days, 0)} />
+            <DetailRow label="Due date" value={formatDate(finding.due_date)} />
+            <DetailRow label="First found" value={formatDate(finding.first_found, true)} />
+            <DetailRow label="Last found" value={formatDate(finding.last_found, true)} />
           </CardContent>
         </Card>
+
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm">Asset & Tracking</CardTitle></CardHeader>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Scoring & Ownership</CardTitle>
+          </CardHeader>
           <CardContent className="divide-y divide-slate-100">
-            <DetailRow label="Source" value={finding.source || "unknown"} />
-            <DetailRow label="Hostname" value={finding.hostname || "—"} />
-            <DetailRow label="IP address" value={finding.ip_address || "—"} />
-            <DetailRow label="Operating system" value={finding.operating_system || "—"} />
-            <DetailRow label="Asset type" value={finding.asset_type || "—"} />
-            <DetailRow label="Port / Service" value={finding.port || finding.service ? `${finding.port ?? "—"}${finding.service ? ` (${finding.service})` : ""}` : "—"} />
-            <DetailRow label="Detection method" value={finding.detection_method || "—"} />
-            <DetailRow label="First detected" value={finding.first_detected || "—"} />
-            <DetailRow label="Last detected" value={finding.last_detected || "—"} />
-            <DetailRow label="Lifecycle status" value={finding.lifecycle_status || "—"} />
-            <DetailRow label="Status changed" value={finding.status_changed_at ? new Date(finding.status_changed_at).toLocaleString() : "—"} />
-            <DetailRow label="Fixed at" value={finding.fixed_at ? new Date(finding.fixed_at).toLocaleString() : "—"} />
+            <DetailRow label="CVE" value={finding.cve_id || "—"} />
+            <DetailRow label="All CVEs" value={finding.cve_ids || "—"} />
+            <DetailRow label="CWEs" value={finding.cwe_ids || "—"} />
+            <DetailRow label="Attack vector" value={finding.attack_vector || "—"} />
+            <DetailRow label="Attack complexity" value={finding.attack_complexity || "—"} />
+            <DetailRow label="ATT&CK patterns" value={finding.attack_pattern_names || "—"} />
+            <DetailRow label="ATT&CK techniques" value={finding.attack_technique_names || "—"} />
+            <DetailRow label="ATT&CK tactics" value={finding.attack_tactic_names || "—"} />
+            <DetailRow label="Risk owner" value={finding.risk_owner_name || "—"} />
+            <DetailRow
+              label="Remediation owner"
+              value={finding.remediation_owner_name || "—"}
+            />
+            <DetailRow
+              label="Remediation status"
+              value={finding.remediation_status || "—"}
+            />
+            <DetailRow
+              label="Remediation due"
+              value={formatDate(finding.remediation_due_date)}
+            />
+            <DetailRow label="Internal notes" value={finding.internal_risk_notes || "—"} />
+            <DetailRow
+              label="Disposition updated"
+              value={formatDate(finding.disposition_created_at, true)}
+            />
           </CardContent>
         </Card>
       </div>

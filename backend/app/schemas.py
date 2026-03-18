@@ -3,51 +3,51 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 
-class ScoredFindingCreate(BaseModel):
-    """
-    Input schema: what the client sends when it wants a finding scored.
-    Note: no id, no risk_score, no risk_band here – those are computed.
-    """
-    source: str = "manual"
-    finding_id: str
-    asset_id: str
-    cvss_score: float
-    epss_score: float
-    internet_exposed: bool
-    asset_criticality: int
-    cve_id: str | None = None
-    is_kev: bool = False
-
-
-class ScoredFindingBase(ScoredFindingCreate):
-    """
-    Base schema shared by output types that include computed fields.
-    """
-    risk_score: float
-    risk_band: str
-
-
-
 class ScoredFindingOut(BaseModel):
     id: int
-
     source: str
-    finding_id: str
-    asset_id: str
-    hostname: str | None = None
-    ip_address: str | None = None
-    operating_system: str | None = None
-    asset_type: str | None = None
 
-    asset_criticality: int
+    uid: str | None = None
+    record_id: str | None = None
+    display_name: str | None = None
+    record_link: str | None = None
+
+    status: str | None = None
+    status_category: str | None = None
+    source_status: str | None = None
+    compliance_status: str | None = None
+    severity: str | None = None
+    lifecycle_status: str | None = None
+
+    age_in_days: float | None = None
+    first_found: datetime | None = None
+    last_found: datetime | None = None
+    due_date: datetime | None = None
+    fixed_at: datetime | None = None
+    status_changed_at: datetime | None = None
+    cisa_due_date_expired: bool | None = None
+
+    target_count: int | None = None
+    target_ids: str | None = None
+    target_names: str | None = None
 
     cve_id: str | None = None
-    cwe_id: str | None = None
-    description: str | None = None
+    cve_ids: str | None = None
+    cve_record_names: str | None = None
+    cwe_ids: str | None = None
+
+    cvss_score: float | None = None
+    cvss_version: str | None = None
+    cvss_severity: str | None = None
+    cvss_vector: str | None = None
+    attack_vector: str | None = None
+    attack_complexity: str | None = None
+    epss_score: float | None = None
+    epss_percentile: float | None = None
+
     is_kev: bool = Field(default=False, serialization_alias="isKev")
     kev_date_added: datetime | None = Field(default=None, serialization_alias="kevDateAdded")
     kev_due_date: datetime | None = Field(default=None, serialization_alias="kevDueDate")
-    sla_hours: int | None = Field(default=None, serialization_alias="slaHours")
     kev_vendor_project: str | None = Field(default=None, serialization_alias="kevVendorProject")
     kev_product: str | None = Field(default=None, serialization_alias="kevProduct")
     kev_vulnerability_name: str | None = Field(
@@ -67,37 +67,63 @@ class ScoredFindingOut(BaseModel):
         serialization_alias="kevRansomwareUse",
     )
 
-    cvss_score: float
-    cvss_severity: str | None = None
-    epss_score: float
+    risk_score: float | None = None
+    risk_band: str | None = None
+    source_risk_score: float | None = None
+    source_risk_band: str | None = None
+    source_risk_rating: str | None = None
+    base_risk_score: float | None = None
+    internal_risk_score: float | None = None
+    internal_risk_band: str | None = None
+    internal_risk_notes: str | None = None
 
-    attack_vector: str | None = None
-    privileges_required: str | None = None
-    user_interaction: str | None = None
-    vector_string: str | None = None
+    asset_criticality: int | None = None
+    context_score: float | None = None
+    risk_factor_names: str | None = None
+    risk_factor_values: str | None = None
+    risk_factor_offset: float | None = None
 
-    vuln_published_date: str | None = None
-    vuln_age_days: int | None = None
-    port: int | None = None
-    service: str | None = None
-    internet_exposed: bool
-    auth_required: bool
-    detection_method: str | None = None
-    first_detected: str | None = None
-    last_detected: str | None = None
-    times_detected: int | None = None
+    summary: str | None = None
+    description: str | None = None
+    cve_description: str | None = Field(default=None, serialization_alias="cveDescription")
+    type_display_name: str | None = None
+    type_id: str | None = None
+    attack_pattern_names: str | None = None
+    attack_technique_names: str | None = None
+    attack_tactic_names: str | None = None
 
-    risk_score: float
-    risk_band: str
+    sla_days: float | None = None
+    sla_level: str | None = None
+    risk_owner_name: str | None = None
+    remediation_owner_name: str | None = None
 
-    finding_key: str | None = None
-    lifecycle_status: str | None = None
-    is_present_in_latest_scan: bool | None = None
-    first_seen_at: datetime | None = None
-    last_seen_at: datetime | None = None
-    fixed_at: datetime | None = None
-    status_changed_at: datetime | None = None
-    last_scan_run_id: int | None = None
+    source_count: int | None = None
+    source_uids: str | None = None
+    source_record_uids: str | None = None
+    source_links: str | None = None
+    connector_names: str | None = None
+    source_connector_names: str | None = None
+    connector_categories: str | None = None
+    data_integration_titles: str | None = None
+    informed_user_names: str | None = None
+    data_model_name: str | None = None
+    created_by: str | None = None
+    updated_by: str | None = None
+    date_created: datetime | None = None
+    last_updated: datetime | None = None
+    risk_scoring_model_name: str | None = None
+    sla_definition_name: str | None = None
+    confidence: str | None = None
+    category_count: int | None = None
+    categories: str | None = None
+
+    remediation_summary: str | None = None
+    remediation_plan: str | None = None
+    remediation_notes: str | None = None
+    remediation_status: str | None = None
+    remediation_due_date: datetime | None = None
+    remediation_updated_at: datetime | None = None
+    remediation_updated_by: str | None = None
 
     disposition: str | None = None
     disposition_state: str | None = None
@@ -107,14 +133,13 @@ class ScoredFindingOut(BaseModel):
     disposition_expires_at: datetime | None = None
     disposition_created_by: str | None = None
 
-    class Config:
-        from_attributes = True
 
 class PaginatedFindings(BaseModel):
     items: list[ScoredFindingOut]
     total: int
     page: int
     page_size: int
+
 
 class RiskBandSummary(BaseModel):
     Critical: int = 0
@@ -162,12 +187,11 @@ class SourceDeleteResult(BaseModel):
 
 
 class RiskWeightsConfig(BaseModel):
-    cvss_weight: float = 0.30
+    cvss_weight: float = 0.40
     epss_weight: float = 0.25
-    internet_exposed_weight: float = 0.20
+    kev_weight: float = 0.25
     asset_criticality_weight: float = 0.15
-    vuln_age_weight: float = 0.10
-    auth_required_weight: float = -0.10
+    context_weight: float = 0.20
 
 
 class RiskWeightsUpdateResult(BaseModel):
@@ -185,7 +209,8 @@ class FindingDispositionUpdateRequest(BaseModel):
 
 class FindingDispositionResult(BaseModel):
     id: int
-    finding_id: str
+    uid: str | None = None
+    record_id: str | None = None
     disposition: str
     disposition_state: str | None = None
     disposition_reason: str | None = None

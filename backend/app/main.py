@@ -1,8 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.core.db import Base, engine, ensure_database_schema
 from app.api import scores as scores_router
+from app.core.db import Base, engine, ensure_database_schema
+from app.core.env import load_backend_env
+from app.epss import get_epss_scores
+
+load_backend_env()
 
 # Create tables on startup (simple academic prototype)
 Base.metadata.create_all(bind=engine)
@@ -36,10 +40,6 @@ def health():
     return {"status": "ok"}
 
 
-# Register routers
-app.include_router(scores_router.router)
-
-from app.epss import get_epss_scores 
 @app.on_event("startup")
 def startup_event():
     try:
@@ -47,3 +47,7 @@ def startup_event():
     except Exception as exc:
         # Keep local dev/tests usable when offline; EPSS can be refreshed later.
         print(f"[startup] EPSS refresh skipped: {exc}")
+
+
+# Register routers
+app.include_router(scores_router.router)
