@@ -1,14 +1,28 @@
-version: "3.8"
-
 services:
   backend:
     build:
       context: .
       dockerfile: docker/backend.Dockerfile
+    container_name: vulncontext-backend
     ports:
       - "8000:8000"
-    volumes:
-      - ./data:/data
     environment:
-      - DB_PATH=/data/vuln_context.db
+      DB_PATH: /data/vulncontext.db
+    volumes:
+      - vulncontext-data:/data
     restart: unless-stopped
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend.Dockerfile
+      args:
+        VITE_API_BASE_URL: http://localhost:8000
+    container_name: vulncontext-frontend
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+    restart: unless-stopped
+
+volumes:
+  vulncontext-data:

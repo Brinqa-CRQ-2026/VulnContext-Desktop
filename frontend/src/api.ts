@@ -126,7 +126,20 @@ export interface ScoredFinding {
   disposition_created_by?: string | null;
 }
 
-const API_BASE_URL = "http://127.0.0.1:8000";
+function getApiBaseUrl(): string {
+  const configured = import.meta.env.VITE_API_BASE_URL?.trim();
+  if (configured) {
+    return configured;
+  }
+
+  if (typeof window !== "undefined" && window.location.protocol.startsWith("http")) {
+    return `${window.location.protocol}//${window.location.hostname}:8000`;
+  }
+
+  return "http://127.0.0.1:8000";
+}
+
+const API_BASE_URL = getApiBaseUrl();
 
 export interface RiskBandSummary {
   Critical: number;

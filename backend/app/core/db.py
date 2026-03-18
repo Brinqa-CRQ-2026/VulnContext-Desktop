@@ -1,7 +1,15 @@
-from sqlalchemy import create_engine, inspect, text
-from sqlalchemy.orm import sessionmaker, declarative_base
+import os
 
-SQLALCHEMY_DATABASE_URL = "sqlite:///./vulncontext.db"
+from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.orm import declarative_base, sessionmaker
+
+
+def _resolve_database_url() -> str:
+    db_path = os.environ.get("DB_PATH", "./vulncontext.db").strip()
+    return f"sqlite:///{db_path}"
+
+
+SQLALCHEMY_DATABASE_URL = _resolve_database_url()
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,

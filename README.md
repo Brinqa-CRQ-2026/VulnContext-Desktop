@@ -186,6 +186,28 @@ cd frontend
 npm run build
 ```
 
+### Docker startup
+
+Bring up the containerized app:
+
+```bash
+make up
+```
+
+Or directly:
+
+```bash
+docker compose up --build
+```
+
+Then open `http://localhost:3000`.
+
+Notes:
+
+- Frontend runs as a browser-served web UI in Docker
+- Backend API runs on `http://localhost:8000`
+- SQLite data persists in the Docker volume `vulncontext-data`
+
 ## Using the App
 
 ### Import findings
