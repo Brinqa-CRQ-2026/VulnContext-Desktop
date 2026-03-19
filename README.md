@@ -1,350 +1,112 @@
 # VulnContext Desktop
 
-VulnContext Desktop is a local-first vulnerability triage app with a FastAPI backend and a React/Electron frontend. It ingests Qualys-style CSV data, computes a context-aware risk score, and provides a findings workflow for filtering, drilling in, and marking manual dispositions (for example: ignored or false positive).
+VulnContext Desktop is a local-first vulnerability triage application for importing scanner findings, adding business context, and helping teams decide what to work on first. It uses a FastAPI backend, a React frontend, SQLite for local storage, and an Electron shell for desktop usage during development.
 
-## What Changed Recently (High Level)
+The goal of the project is straightforward: take raw vulnerability data that is usually noisy and hard to prioritize, enrich it with better context, and present it in a workflow that makes triage faster and more consistent.
 
-The recent updates are mostly additive and focused on triage workflow and UI polish:
+## Current Project Status
 
-- Added manual finding disposition support (`ignored`, `risk_accepted`, `false_positive`, `not_applicable`)
-- Added disposition set/clear API endpoints and stored metadata (reason, comment, expiration, actor, timestamps)
-- Added finding event logging table/model (`FindingEvent`) for audit-style tracking of disposition changes
-- Added lifecycle/status-related fields on findings (groundwork for scan-over-time reconciliation)
-- Added source filtering + source sorting in the findings table
-- Expanded the finding drawer to include disposition controls and richer detail layout
-- Added a separate `Findings` page and a basic dashboard chart (`RiskBandDistributionChart`)
+The project already supports the core end-to-end workflow:
 
-Important: the code now contains lifecycle fields (e.g. `fixed`, `reopened`, `first_seen_at`) but the CSV upload path still appends rows and does not yet reconcile scan runs automatically.
+- Import Qualys-style CSV findings into the local database
+- Enrich findings with EPSS data and cached NVD details
+- Calculate weighted risk scores and map them into risk bands
+- Review findings in a searchable, filterable UI
+- Open detailed finding views for deeper triage
+- Apply manual dispositions such as `ignored`, `risk_accepted`, `false_positive`, and `not_applicable`
+- Track source-level data and manage imported sources
+- Adjust risk scoring weights from the UI
 
-## What "Taken Care Of" Means Right Now
+Today, the app is strongest as a desktop-friendly local triage tool for reviewing imported findings and making manual prioritization decisions.
 
-Today, "taken care of" is implemented as a manual disposition on a finding, not automatic closed/fixed detection from comparing scans.
-
-Implemented now:
-
-- Manual disposition set/clear in the drawer
-- Optional reason/comment/expiration
-- Disposition metadata returned in finding API responses
-- Disposition change events written to `finding_events`
-
-Not fully implemented yet:
-
-- Automatic scan-to-scan deduplication/reconciliation
-- Automatic `new` / `fixed` / `reopened` transitions
-- Scan run history logic using `scan_runs`
-
-## Architecture (Surface Level)
-
-- `backend/`: FastAPI API + SQLite + risk scoring + CSV ingestion
-- `frontend/`: React + TypeScript + Vite renderer (also used by Electron shell)
-- `frontend/electron-main.ts`: Electron main process entry
-- `docker/`: backend container image
-- `docs/`: public project documentation
-
-Data flow:
-
-1. Upload Qualys-style CSV from the UI (`Integrations` page)
-2. Backend parses rows, enriches EPSS, computes risk score/band, inserts into SQLite
-3. Frontend fetches summary + paginated findings
-4. User filters/sorts findings and edits manual dispositions in the drawer
-
-## Architecture (Deeper)
+## What Is Implemented
 
 ### Backend
 
-Key files:
-
-- `backend/app/main.py`: app startup, CORS, router registration, EPSS download on startup
-- `backend/app/api/`: API routers split by resource (`findings.py`, `sources.py`, `risk_weights.py`, `imports.py`, `admin.py`)
-- `backend/app/models.py`: SQLAlchemy models (`ScoredFinding`, `RiskScoringConfig`, `EpssScore`, `FindingEvent`)
-- `backend/app/schemas.py`: response/request schemas including new disposition fields
-- `backend/app/scoring.py`: scoring logic and risk band mapping
-- `backend/app/seed.py`: CSV parsing/validation + row scoring
-- `backend/app/epss.py`: downloads and stores EPSS daily data
+- FastAPI API for findings, imports, sources, risk weights, and admin operations
+- SQLite-backed persistence for findings, scoring configuration, enrichment data, and finding events
+- CSV ingestion flow for staged finding imports
+- Risk scoring pipeline that combines factors like CVSS, EPSS, exposure, age, and asset context
+- Startup and on-demand enrichment support for EPSS and NVD-backed metadata
 
 ### Frontend
 
-Key files:
+- React-based UI for findings review and source management
+- Findings list with sorting, filtering, pagination, and detail navigation
+- Dashboard summary views for risk distribution and top findings
+- Finding detail page with manual disposition controls
+- Source management page for importing, renaming, and deleting source data
+- Editable risk weight configuration in the UI
 
-- `frontend/src/app.tsx`: top-level navigation (`Dashboard`, `Findings`, `Integrations`)
-- `frontend/src/api.ts`: typed API client + findings/source/risk-weight requests
-- `frontend/src/hooks/useScoresData.ts`: summary and paginated findings hooks
-- `frontend/src/components/dashboard/RiskTable.tsx`: findings table with source + band filter + sorting
-- `frontend/src/components/dashboard/VulnerabilityDrawer.tsx`: finding details + disposition actions
-- `frontend/src/components/integrations/IntegrationsPage.tsx`: CSV import and source rename/delete management
+## What We Plan To Improve
 
-## Data Model Notes (Current State)
+The next improvements are mainly about making the app smarter and more operationally useful:
 
-### `scored_findings`
+### Data Integration
 
-Primary record used by the UI. Includes:
+- Direct Brinqa integration through an in-app login flow and authenticated API requests
+- Pulling findings and asset context from Brinqa instead of depending only on manual CSV uploads
+- Broader import support beyond the current CSV-oriented workflow
 
-- Asset/vuln metadata (CVE/CWE, host/IP, exposure, detection fields)
-- Risk scoring output (`risk_score`, `risk_band`)
-- Lifecycle + status fields used in UI (`lifecycle_status`, `fixed_at`, `status_changed_at`)
-- New manual triage fields: `disposition`, `disposition_reason`, `disposition_comment`, `disposition_expires_at`, etc.
+### Storage And Scoring
 
-### `finding_events`
+- Moving toward a lighter local data model that stores scoring outputs, finding identifiers, and related references rather than fully duplicating source data locally
+- Adding overall asset-level risk scoring alongside individual finding-level prioritization
+- Better scan-to-scan reconciliation so repeated imports update existing findings instead of only appending rows
+- Stronger lifecycle tracking for `new`, `fixed`, and `reopened` findings
 
-Audit/event log table for finding changes. The recent work writes disposition changes here.
+### Enrichment And Freshness
 
-## API Overview
+- More enrichment sources and richer vulnerability context
+- Scheduled daily jobs to refresh Brinqa data and keep EPSS, NVD, CVSS, and other enrichment inputs current
 
-Base URL: `http://127.0.0.1:8000`
+### Visibility And Reporting
 
-For the public docs set, see `docs/README.md`.
+- More informational graphs and dashboard views to reflect overall risk posture, vulnerability distribution, trends, and asset exposure at a glance
+- Better history and audit visibility around triage decisions
+- More polished reporting and trend views over time
 
-Core endpoints:
+### Product Experience
 
-- `GET /health`
-- `GET /findings/summary`
-- `GET /findings/top`
-- `GET /findings?page=1&page_size=50&sort_by=risk_score&sort_order=desc&source=Qualys`
-- `GET /findings?risk_band=Critical&page=1&page_size=50&sort_by=source&sort_order=asc&source=Qualys`
-- `GET /findings/{finding_db_id}`
-- `POST /findings/{finding_db_id}/disposition`
-- `POST /findings/{finding_db_id}/disposition/clear`
-- `GET /sources`
-- `PATCH /sources/{source_name}` (rename source)
-- `DELETE /sources/{source_name}` (delete all findings for a source)
-- `GET /risk-weights`
-- `PUT /risk-weights`
-- `POST /imports/findings/csv` (multipart form: `source`, `file`)
-- `POST /admin/enrichment/kev/reload`
-
-Disposition values:
-
-- `ignored`
-- `risk_accepted`
-- `false_positive`
-- `not_applicable`
-- `none` (cleared state, via clear endpoint)
-
-## Risk Scoring Model
-
-The risk score is a weighted blend of:
-
-- CVSS
-- EPSS
-- Internet exposure
-- Asset criticality
-- Vulnerability age
-- Authentication required (negative weight / penalty)
-
-Output:
-
-- `risk_score` in `0-100`
-- `risk_band` in `Critical | High | Medium | Low`
-
-Weights are editable in the UI and persisted in `risk_scoring_config`.
+- Continued UI refinement for faster review at larger finding volumes
 
 ## Quick Start
 
-### Prereqs
+### Prerequisites
 
 - Python 3.9+
 - Node.js 18+
 - npm
 
-### Backend setup
+### Backend
 
 ```bash
 cd backend
 python3 -m pip install -r requirements.txt
-```
-
-Run API:
-
-```bash
-cd backend
 python3 -m uvicorn app.main:app --reload --port 8000
 ```
 
-FastAPI route explorer:
+API docs:
 
 - Swagger UI: `http://localhost:8000/docs`
 - ReDoc: `http://localhost:8000/redoc`
-- OpenAPI JSON: `http://localhost:8000/openapi.json`
 
-Optional seed from local script:
-
-```bash
-cd backend
-python3 -m app.seed
-```
-
-### Frontend setup (Vite + Electron project)
+### Frontend
 
 ```bash
 cd frontend
 npm install
-```
-
-Run renderer + Electron:
-
-```bash
-cd frontend
 npm run dev
 ```
 
-Build:
-
-```bash
-cd frontend
-npm run build
-```
-
-### Docker startup
-
-Bring up the containerized app:
+### Docker
 
 ```bash
 make up
 ```
 
-Or directly:
+This starts the app with Docker Compose. By default, the frontend is served on `http://localhost:3000` and the backend on `http://localhost:8000`.
 
-```bash
-docker compose up --build
-```
+## Documentation
 
-Then open `http://localhost:3000`.
-
-Notes:
-
-- Frontend runs as a browser-served web UI in Docker
-- Backend API runs on `http://localhost:8000`
-- FastAPI route explorer is available at `http://localhost:8000/docs`
-- SQLite data persists in the Docker volume `vulncontext-data`
-
-## Using the App
-
-### Import findings
-
-1. Open `Integrations`
-2. Enter a source name (example: `Qualys-Prod`)
-3. Upload a `.csv`
-4. Import
-
-### Triage a finding
-
-1. Go to `Findings`
-2. Filter by risk band or source
-3. Open a row
-4. In the drawer, set a disposition (ignored / risk accepted / false positive / not applicable)
-5. Optionally add reason/comment/expiration
-
-## How To Review What Changed (Git)
-
-From the repo root:
-
-```bash
-git status --short
-git diff --stat
-git diff
-```
-
-Useful focused diffs for the recent updates:
-
-```bash
-git diff -- backend/app/models.py backend/app/schemas.py backend/app/api
-git diff -- frontend/src/api.ts frontend/src/components/dashboard/RiskTable.tsx frontend/src/components/dashboard/VulnerabilityDrawer.tsx
-git diff -- frontend/package.json
-```
-
-If you want a file-by-file summary before reading code:
-
-```bash
-git diff --stat --compact-summary
-```
-
-## Verification Notes
-
-What was checked locally during this review:
-
-- `frontend`: `npm run build` passes
-- `backend`: tests do not fully run in offline/sandboxed environments because app startup currently downloads EPSS data on startup
-
-Why backend tests fail offline:
-
-- `backend/app/main.py` triggers `get_epss_scores()` at startup
-- `backend/app/epss.py` performs a live HTTP request to `epss.empiricalsecurity.com`
-- In offline/test environments, startup fails before endpoint tests run
-
-## Known Gaps / Caveats
-
-- Lifecycle/over-time fields are present, but scan reconciliation is not implemented yet
-- `scan_runs` model exists but is not used by the CSV upload endpoint yet
-- `finding_events` currently captures disposition changes; broader event coverage is not implemented yet
-- `frontend/package.json` now includes several UI/data-table dependencies that are not obviously used yet (worth pruning later)
-- Docker sets `DB_PATH`, but backend DB config is currently hardcoded in `backend/app/core/db.py`
-
-## Project Structure
-
-```text
-VulnContext-Desktop/
-├── backend/
-│   ├── app/
-│   │   ├── api/
-│   │   ├── core/db.py
-│   │   ├── core/risk_weights.py
-│   │   ├── epss.py
-│   │   ├── main.py
-│   │   ├── models.py
-│   │   ├── schemas.py
-│   │   ├── scoring.py
-│   │   └── seed.py
-│   └── tests/
-├── frontend/
-│   ├── electron-main.ts
-│   ├── src/
-│   │   ├── api.ts
-│   │   ├── app.tsx
-│   │   ├── components/
-│   │   └── hooks/
-│   └── package.json
-├── docker/
-├── docker-compose.yml
-└── README.md
-```
-- Check `/health`
-- Ensure port is free: `lsof -i :8000`
-
-### Database issues
-- SQLite DB is at `data/vulncontext.db`
-- Reset by deleting the file and re-running seed:
-```bash
-rm data/vulncontext.db
-python3 -m app.seed
-```
-
-### Frontend errors
-- Ensure backend is running
-- Check browser DevTools console
-- Verify API base URL in `src/api.ts`
-
-### Pagination / UI errors
-- Ensure shadcn pagination is installed:
-```bash
-npx shadcn@latest add pagination
-```
-
----
-
-## Technologies
-
-- **Backend**: FastAPI, SQLAlchemy, SQLite
-- **Frontend**: React, TypeScript, shadcn/ui, Radix UI
-- **State & Data**: Custom hooks
-- **Infra**: Docker (optional)
-
----
-
-## Future Enhancements
-
-- CSV upload (Qualys-style integration)
-- Editable scoring weights per organization
-- Findings search & advanced filters
-- Auth & multi-tenant support
-- Charts & trend analysis
-- Export & reporting
+Detailed documentation for structure, APIs, frontend behavior, backend details, and testing lives in [docs/README.md](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/README.md).
