@@ -81,7 +81,7 @@ export function RemediationHistogram() {
           Remediation Time Distribution
         </CardTitle>
         <CardDescription className="text-xs">
-          Days to fix resolved vulnerabilities
+          Days to resolve vulnerabilities
         </CardDescription>
       </CardHeader>
       <CardContent className="h-[340px] pt-2">
