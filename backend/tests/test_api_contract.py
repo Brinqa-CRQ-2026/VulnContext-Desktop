@@ -42,7 +42,7 @@ def _seed_finding(
 
 
 def test_get_scores_summary_empty(client):
-    response = client.get("/scores/summary")
+    response = client.get("/findings/summary")
 
     assert response.status_code == 200
     payload = response.json()
@@ -54,6 +54,23 @@ def test_get_scores_summary_empty(client):
         "Low": 0,
     }
     assert payload["kevFindingsTotal"] == 0
+
+
+def test_fastapi_docs_and_openapi_are_available(client):
+    docs_response = client.get("/docs")
+    openapi_response = client.get("/openapi.json")
+
+    assert docs_response.status_code == 200
+    assert "Swagger UI" in docs_response.text
+    assert openapi_response.status_code == 200
+    assert openapi_response.json()["info"]["title"] == "VulnContext Backend"
+
+
+def test_root_health_is_available(client):
+    response = client.get("/health")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
 
 
 def test_get_scores_summary_uses_display_risk_band(client, db_session):
@@ -74,7 +91,7 @@ def test_get_scores_summary_uses_display_risk_band(client, db_session):
     )
     db_session.commit()
 
-    response = client.get("/scores/summary")
+    response = client.get("/findings/summary")
 
     assert response.status_code == 200
     payload = response.json()
@@ -104,7 +121,7 @@ def test_get_top10_orders_by_display_risk_score(client, db_session):
     )
     db_session.commit()
 
-    response = client.get("/scores/top10")
+    response = client.get("/findings/top")
 
     assert response.status_code == 200
     payload = response.json()
@@ -132,7 +149,7 @@ def test_get_all_scores_returns_new_contract_fields(client, db_session):
     finding.compliance_status = "Out of SLA"
     db_session.commit()
 
-    response = client.get("/scores/all?page=1&page_size=10&sort_by=age_in_days&sort_order=asc")
+    response = client.get("/findings?page=1&page_size=10&sort_by=age_in_days&sort_order=asc")
 
     assert response.status_code == 200
     payload = response.json()
@@ -169,7 +186,7 @@ def test_get_scores_by_band_filters_on_display_band(client, db_session):
     )
     db_session.commit()
 
-    response = client.get("/scores/band/Critical?page=1&page_size=10")
+    response = client.get("/findings?risk_band=Critical&page=1&page_size=10")
 
     assert response.status_code == 200
     payload = response.json()
@@ -192,7 +209,7 @@ def test_get_finding_by_id_returns_new_fields(client, db_session):
     finding.target_ids = "asset-6"
     db_session.commit()
 
-    response = client.get(f"/scores/findings/{finding.id}")
+    response = client.get(f"/findings/{finding.id}")
 
     assert response.status_code == 200
     payload = response.json()
@@ -220,7 +237,7 @@ def test_get_finding_by_id_includes_cve_record_description(client, db_session):
     )
     db_session.commit()
 
-    response = client.get(f"/scores/findings/{finding.id}")
+    response = client.get(f"/findings/{finding.id}")
 
     assert response.status_code == 200
     payload = response.json()
@@ -246,7 +263,7 @@ def test_get_sources_summary_groups_by_display_band(client, db_session):
     )
     db_session.commit()
 
-    response = client.get("/scores/sources")
+    response = client.get("/sources")
 
     assert response.status_code == 200
     payload = response.json()
@@ -256,7 +273,7 @@ def test_get_sources_summary_groups_by_display_band(client, db_session):
 
 
 def test_get_risk_weights_returns_current_defaults(client):
-    response = client.get("/scores/weights")
+    response = client.get("/risk-weights")
 
     assert response.status_code == 200
     payload = response.json()
@@ -280,7 +297,7 @@ def test_set_finding_disposition_returns_uid_and_records_event(client, db_sessio
     db_session.commit()
 
     response = client.post(
-        f"/scores/findings/{finding.id}/disposition",
+        f"/findings/{finding.id}/disposition",
         json={
             "disposition": "false_positive",
             "reason": "validated",

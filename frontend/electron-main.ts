@@ -13,6 +13,11 @@ let loginWindow: BrowserWindow | null = null;
 let hasCompletedMfa = false;
 let hasRegisteredMfaCompletionListener = false;
 
+type StoredAuthState = {
+  mfaResponse: string | null;
+  authToken: string | null;
+};
+
 function decodeResponseBody(body: string, base64Encoded: boolean) {
   if (!base64Encoded) {
     return body;
@@ -55,6 +60,22 @@ function buildStorageSnapshotScript() {
   `;
 }
 
+function parseStoredAuthState(rawValue: unknown): StoredAuthState {
+  if (typeof rawValue !== "string") {
+    return { mfaResponse: null, authToken: null };
+  }
+
+  try {
+    const parsed = JSON.parse(rawValue) as Partial<StoredAuthState>;
+    return {
+      mfaResponse: typeof parsed.mfaResponse === "string" ? parsed.mfaResponse : null,
+      authToken: typeof parsed.authToken === "string" ? parsed.authToken : null,
+    };
+  } catch {
+    return { mfaResponse: null, authToken: null };
+  }
+}
+
 function buildDashboardStorageScript(mfaResponseBody: string) {
   const parsedPayload = tryParseJson(mfaResponseBody);
   const extractedToken = extractTokenValue(parsedPayload);
@@ -78,6 +99,46 @@ async function persistMfaDataToDashboard(mfaResponseBody: string) {
 
   const snapshot = await mainWindow.webContents.executeJavaScript(buildStorageSnapshotScript());
   console.log(`[Brinqa MFA] Dashboard localStorage updated: ${String(snapshot)}`);
+}
+
+function loadDashboardUrl(window: BrowserWindow, openDevTools = false) {
+  if (isDev) {
+    window.loadURL("http://localhost:5173");
+    if (openDevTools) {
+      window.webContents.openDevTools();
+    }
+    return;
+  }
+
+  const indexPath = path.join(__dirname, "index.html");
+  window.loadFile(indexPath);
+}
+
+async function readStoredAuthState(): Promise<StoredAuthState> {
+  const bootstrapWindow = new BrowserWindow({
+    show: false,
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+
+  try {
+    loadDashboardUrl(bootstrapWindow, false);
+
+    await new Promise<void>((resolve) => {
+      bootstrapWindow.webContents.once("did-finish-load", () => resolve());
+    });
+
+    const snapshot = await bootstrapWindow.webContents.executeJavaScript(buildStorageSnapshotScript());
+    const authState = parseStoredAuthState(snapshot);
+    console.log(`[Brinqa Startup] Stored auth state: ${JSON.stringify(authState)}`);
+    return authState;
+  } finally {
+    if (!bootstrapWindow.isDestroyed()) {
+      bootstrapWindow.destroy();
+    }
+  }
 }
 
 function transitionToDashboard(mfaResponseBody = "") {
@@ -248,13 +309,7 @@ function createWindow(mfaResponseBody?: string) {
     },
   });
 
-  if (isDev) {
-    mainWindow.loadURL("http://localhost:5173");
-    mainWindow.webContents.openDevTools();
-  } else {
-    const indexPath = path.join(__dirname, "index.html");
-    mainWindow.loadFile(indexPath);
-  }
+  loadDashboardUrl(mainWindow, true);
 
   mainWindow.webContents.once("did-finish-load", () => {
     if (mfaResponseBody) {
@@ -271,10 +326,37 @@ function createWindow(mfaResponseBody?: string) {
 
 app.whenReady().then(() => {
   registerMfaCompletionListener();
-  createLoginWindow();
+
+  void (async () => {
+    const storedAuthState = await readStoredAuthState();
+
+    if (storedAuthState.authToken) {
+      hasCompletedMfa = true;
+      console.log("[Brinqa Startup] Existing auth token found, opening dashboard directly");
+      createWindow(storedAuthState.mfaResponse ?? "");
+      return;
+    }
+
+    console.log("[Brinqa Startup] No saved auth token found, opening login window");
+    createLoginWindow();
+  })();
 
   app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) createLoginWindow();
+    if (BrowserWindow.getAllWindows().length > 0) {
+      return;
+    }
+
+    void (async () => {
+      const storedAuthState = await readStoredAuthState();
+      if (storedAuthState.authToken) {
+        hasCompletedMfa = true;
+        createWindow(storedAuthState.mfaResponse ?? "");
+        return;
+      }
+
+      hasCompletedMfa = false;
+      createLoginWindow();
+    })();
   });
 });
 

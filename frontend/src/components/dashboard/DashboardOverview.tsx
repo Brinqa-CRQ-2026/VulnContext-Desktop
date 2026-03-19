@@ -1,11 +1,4 @@
-import { useEffect, useState } from "react";
-
-import {
-  ScoresSummary,
-  SourceSummary,
-  getScoresSummary,
-  getSourcesSummary,
-} from "../../api";
+import { useDashboardOverviewData } from "../../hooks/dashboard/useDashboardOverviewData";
 import { RiskBandDistributionChart } from "./RiskBandDistributionChart";
 import { SummaryCards } from "./SummaryCards";
 
@@ -14,41 +7,7 @@ interface DashboardOverviewProps {
 }
 
 export function DashboardOverview({ refreshToken }: DashboardOverviewProps) {
-  const [summary, setSummary] = useState<ScoresSummary | null>(null);
-  const [sources, setSources] = useState<SourceSummary[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let isActive = true;
-
-    async function load() {
-      try {
-        setLoading(true);
-        setError(null);
-        const [summaryData, sourceData] = await Promise.all([
-          getScoresSummary(),
-          getSourcesSummary(),
-        ]);
-        if (!isActive) return;
-        setSummary(summaryData);
-        setSources(sourceData);
-      } catch (err) {
-        console.error(err);
-        if (!isActive) return;
-        setError("Failed to load dashboard metrics.");
-      } finally {
-        if (isActive) {
-          setLoading(false);
-        }
-      }
-    }
-
-    load();
-    return () => {
-      isActive = false;
-    };
-  }, [refreshToken]);
+  const { summary, sources, loading, error } = useDashboardOverviewData(refreshToken);
 
   return (
     <section className="space-y-4">

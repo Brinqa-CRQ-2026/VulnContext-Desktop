@@ -48,7 +48,7 @@ uid-3,Seeded Finding,Confirmed active,Open,Active,Medium,record-3,5.0
 """
 
     response = client.post(
-        "/scores/seed/qualys-csv",
+        "/imports/findings/csv",
         data={"source": "Brinqa"},
         files={"file": ("finding_clean_sample.csv", csv_payload, "text/csv")},
     )
@@ -69,14 +69,14 @@ def test_seed_endpoint_auto_applies_epss(client, db_session, monkeypatch):
         )
     )
     db_session.commit()
-    monkeypatch.setattr("app.api.scores.get_epss_scores", lambda: None)
+    monkeypatch.setattr("app.api.imports.get_epss_scores", lambda: None)
 
     csv_payload = """uid,display_name,cve_ids,status,status_category,source_status,risk_rating,id
 uid-9,Seeded With EPSS,CVE-2024-0009,Confirmed active,Open,Active,Medium,record-9
 """
 
     response = client.post(
-        "/scores/seed/qualys-csv",
+        "/imports/findings/csv",
         data={"source": "Brinqa"},
         files={"file": ("finding_clean_sample.csv", csv_payload, "text/csv")},
     )
@@ -106,14 +106,14 @@ def test_seed_endpoint_auto_applies_nvd_cache(client, db_session, monkeypatch):
         )
     )
     db_session.commit()
-    monkeypatch.setattr("app.api.scores.get_epss_scores", lambda: None)
+    monkeypatch.setattr("app.api.imports.get_epss_scores", lambda: None)
 
     csv_payload = """uid,display_name,cve_ids,status,status_category,source_status,risk_rating,id
 uid-10,Seeded With NVD,CVE-2024-0010,Confirmed active,Open,Active,High,record-10
 """
 
     response = client.post(
-        "/scores/seed/qualys-csv",
+        "/imports/findings/csv",
         data={"source": "Brinqa"},
         files={"file": ("finding_clean_sample.csv", csv_payload, "text/csv")},
     )

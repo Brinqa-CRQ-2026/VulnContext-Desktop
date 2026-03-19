@@ -8,10 +8,11 @@ import {
   TableHeader,
   TableRow,
 } from "../ui/table";
-import { ScoredFinding, SourceSummary, getSourcesSummary } from "../../api";
+import { type FindingsSortBy, type RiskBandFilter, type ScoredFinding } from "../../api";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
-import { usePaginatedFindings } from "../../hooks/useScoresData";
+import { usePaginatedFindings } from "../../hooks/findings/usePaginatedFindings";
+import { useSourcesSummary } from "../../hooks/sources/useSourcesSummary";
 import {
   Pagination,
   PaginationContent,
@@ -20,7 +21,7 @@ import {
   PaginationPrevious,
   PaginationLink,
 } from "../ui/pagination";
-import { FindingsSortBy, RiskBandFilter, SortOrder } from "../../api";
+import type { SortOrder } from "../../api";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -85,32 +86,16 @@ export function RiskTable({
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [sourceFilter, setSourceFilter] = useState<string>("All");
   const [showKevOnly, setShowKevOnly] = useState(false);
-  const [sources, setSources] = useState<SourceSummary[]>([]);
+  const { sources } = useSourcesSummary(refreshToken);
 
   useEffect(() => {
-    let isActive = true;
-
-    async function loadSources() {
-      try {
-        const summaries = await getSourcesSummary();
-        if (!isActive) return;
-        setSources(summaries);
-        if (
-          sourceFilter !== "All" &&
-          !summaries.some((item) => item.source === sourceFilter)
-        ) {
-          setSourceFilter("All");
-        }
-      } catch (err) {
-        console.error(err);
-      }
+    if (
+      sourceFilter !== "All" &&
+      !sources.some((item) => item.source === sourceFilter)
+    ) {
+      setSourceFilter("All");
     }
-
-    loadSources();
-    return () => {
-      isActive = false;
-    };
-  }, [refreshToken, sourceFilter]);
+  }, [sourceFilter, sources]);
 
   const { page, pageSize, setPage, data, loading, error } = usePaginatedFindings(
     20,

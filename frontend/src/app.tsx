@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ListFilter, PlugZap } from "lucide-react";
-import { ScoredFinding } from "./api";
+import type { ScoredFinding } from "./api";
 import { Header } from "./components/layout/Header";
 import { DashboardOverview } from "./components/dashboard/DashboardOverview";
 import { RiskTable } from "./components/dashboard/RiskTable";

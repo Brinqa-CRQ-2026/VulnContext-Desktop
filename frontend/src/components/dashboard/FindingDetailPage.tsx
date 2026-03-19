@@ -3,10 +3,10 @@ import {
   clearFindingDisposition,
   FindingDisposition,
   FindingDispositionResult,
-  getFindingById,
   ScoredFinding,
   setFindingDisposition,
 } from "../../api";
+import { useFindingDetails } from "../../hooks/findings/useFindingDetails";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 
@@ -97,9 +97,10 @@ export function FindingDetailPage({
   onBack,
   onDataChanged,
 }: FindingDetailPageProps) {
-  const [finding, setFinding] = useState<ScoredFinding | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { finding, setFinding, loading, error } = useFindingDetails(
+    findingId,
+    refreshToken
+  );
 
   const [dispositionDraft, setDispositionDraft] =
     useState<Exclude<FindingDisposition, "none">>("ignored");
@@ -110,32 +111,14 @@ export function FindingDetailPage({
   const [dispositionError, setDispositionError] = useState<string | null>(null);
 
   useEffect(() => {
-    let active = true;
-    async function loadFinding() {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await getFindingById(findingId);
-        if (!active) return;
-        setFinding(data);
-        const current = data.disposition;
-        setDispositionDraft(current && current !== "none" ? current : "ignored");
-        setReasonDraft(data.disposition_reason ?? "");
-        setCommentDraft(data.disposition_comment ?? "");
-        setExpiresAtDraft(toDateTimeLocalValue(data.disposition_expires_at));
-        setDispositionError(null);
-      } catch (err) {
-        if (!active) return;
-        setError(err instanceof Error ? err.message : "Failed to load finding.");
-      } finally {
-        if (active) setLoading(false);
-      }
-    }
-    loadFinding();
-    return () => {
-      active = false;
-    };
-  }, [findingId, refreshToken]);
+    if (!finding) return;
+    const current = finding.disposition;
+    setDispositionDraft(current && current !== "none" ? current : "ignored");
+    setReasonDraft(finding.disposition_reason ?? "");
+    setCommentDraft(finding.disposition_comment ?? "");
+    setExpiresAtDraft(toDateTimeLocalValue(finding.disposition_expires_at));
+    setDispositionError(null);
+  }, [finding]);
 
   const applyDispositionToLocalFinding = (result: FindingDispositionResult) => {
     setFinding((prev) =>

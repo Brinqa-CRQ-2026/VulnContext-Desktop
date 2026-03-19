@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import {
   deleteSource,
-  getSourcesSummary,
   renameSource,
-  SourceSummary,
 } from "../../api";
+import { useSourcesSummary } from "../../hooks/sources/useSourcesSummary";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -17,31 +16,12 @@ interface IntegrationsPageProps {
 }
 
 export function IntegrationsPage({ refreshToken, onDataChanged }: IntegrationsPageProps) {
-  const [sources, setSources] = useState<SourceSummary[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { sources, loading, error: loadError } = useSourcesSummary(refreshToken);
   const [error, setError] = useState<string | null>(null);
 
   const [editingSource, setEditingSource] = useState<string | null>(null);
   const [editedName, setEditedName] = useState("");
   const [actionBusy, setActionBusy] = useState(false);
-
-  useEffect(() => {
-    async function loadSources() {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await getSourcesSummary();
-        setSources(data);
-      } catch (err) {
-        console.error(err);
-        setError("Failed to load sources.");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadSources();
-  }, [refreshToken]);
 
   const hasSources = sources.length > 0;
 
@@ -112,7 +92,7 @@ export function IntegrationsPage({ refreshToken, onDataChanged }: IntegrationsPa
         </CardContent>
       </Card>
 
-      {error && <p className="text-sm text-rose-600">{error}</p>}
+      {(error || loadError) && <p className="text-sm text-rose-600">{error || loadError}</p>}
 
       {loading && <p className="text-sm text-slate-500">Loading sources…</p>}
 

@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import scores as scores_router
+from app.api import ROUTERS
 from app.core.db import Base, engine, ensure_database_schema
 from app.core.env import load_backend_env
 from app.epss import get_epss_scores
@@ -16,6 +16,9 @@ app = FastAPI(
     title="VulnContext Backend",
     description="Local FastAPI backend for VulnContext Desktop",
     version="0.1.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
 )
 
 # --- CORS SETUP ---
@@ -51,4 +54,5 @@ def startup_event():
 
 
 # Register routers
-app.include_router(scores_router.router)
+for router in ROUTERS:
+    app.include_router(router)

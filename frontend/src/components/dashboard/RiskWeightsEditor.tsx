@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 
 import {
-  getRiskWeights,
   RiskWeightsConfig,
   updateRiskWeights,
 } from "../../api";
+import { useRiskWeightsConfig } from "../../hooks/risk-weights/useRiskWeightsConfig";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Input } from "../ui/input";
@@ -31,39 +31,29 @@ const FIELD_LABELS: Record<keyof RiskWeightsConfig, string> = {
 };
 
 export function RiskWeightsEditor({ refreshToken, onWeightsUpdated }: RiskWeightsEditorProps) {
-  const [weights, setWeights] = useState<RiskWeightsConfig | null>(null);
+  const {
+    weights,
+    setWeights,
+    loading,
+    error: loadError,
+  } = useRiskWeightsConfig(refreshToken);
   const [draft, setDraft] = useState<Record<keyof RiskWeightsConfig, string> | null>(null);
   const [editing, setEditing] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showFormulaModal, setShowFormulaModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    async function load() {
-      try {
-        setLoading(true);
-        setError(null);
-        const current = await getRiskWeights();
-        setWeights(current);
-        setDraft({
-          cvss_weight: String(current.cvss_weight),
-          epss_weight: String(current.epss_weight),
-          kev_weight: String(current.kev_weight),
-          asset_criticality_weight: String(current.asset_criticality_weight),
-          context_weight: String(current.context_weight),
-        });
-      } catch (err) {
-        console.error(err);
-        setError("Failed to load risk weights.");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    load();
-  }, [refreshToken]);
+    if (!weights) return;
+    setDraft({
+      cvss_weight: String(weights.cvss_weight),
+      epss_weight: String(weights.epss_weight),
+      kev_weight: String(weights.kev_weight),
+      asset_criticality_weight: String(weights.asset_criticality_weight),
+      context_weight: String(weights.context_weight),
+    });
+  }, [weights]);
 
   const onStartEdit = () => {
     if (!weights) return;
@@ -213,7 +203,7 @@ export function RiskWeightsEditor({ refreshToken, onWeightsUpdated }: RiskWeight
           </>
         )}
 
-        {error && <p className="mt-2 text-sm text-rose-600">{error}</p>}
+        {(error || loadError) && <p className="mt-2 text-sm text-rose-600">{error || loadError}</p>}
         {message && <p className="mt-2 text-sm text-emerald-600">{message}</p>}
       </CardContent>
 

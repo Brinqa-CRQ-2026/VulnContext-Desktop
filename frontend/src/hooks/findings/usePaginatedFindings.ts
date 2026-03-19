@@ -1,51 +1,12 @@
-// src/hooks/useScoresData.ts
 import { useEffect, useState } from "react";
-import {
-  ScoredFinding,
-  ScoresSummary,
-  getTopScores,
-  getScoresSummary,
-  getAllFindings,
-  getFindingsByRiskBand,
+
+import { getAllFindings, getFindingsByRiskBand } from "../../api/findings";
+import type {
   FindingsSortBy,
   PaginatedFindings,
   RiskBandFilter,
   SortOrder,
-} from "../api";
-
-export function useScoresData(refreshToken: number = 0) {
-  const [findings, setFindings] = useState<ScoredFinding[]>([]);
-  const [summary, setSummary] = useState<ScoresSummary | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    async function loadData() {
-      try {
-        setLoading(true);
-        setError(null);
-
-        // Fetch Top 10 + summary in parallel
-        const [scores, summaryData] = await Promise.all([
-          getTopScores(),
-          getScoresSummary(),
-        ]);
-
-        setFindings(scores);
-        setSummary(summaryData);
-      } catch (err) {
-        console.error(err);
-        setError("Failed to load data from backend.");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadData();
-  }, [refreshToken]);
-
-  return { findings, summary, loading, error };
-}
+} from "../../api/types";
 
 export function usePaginatedFindings(
   initialPageSize: number = 50,
@@ -81,6 +42,7 @@ export function usePaginatedFindings(
           setData(allResult);
           return;
         }
+
         const filteredResult = await getFindingsByRiskBand(
           bandFilter,
           page,
@@ -97,6 +59,7 @@ export function usePaginatedFindings(
         setLoading(false);
       }
     }
+
     load();
   }, [page, pageSize, bandFilter, sortBy, sortOrder, sourceFilter, refreshToken]);
 

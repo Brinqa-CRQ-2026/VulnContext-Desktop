@@ -39,6 +39,7 @@ Not fully implemented yet:
 - `frontend/`: React + TypeScript + Vite renderer (also used by Electron shell)
 - `frontend/electron-main.ts`: Electron main process entry
 - `docker/`: backend container image
+- `docs/`: public project documentation
 
 Data flow:
 
@@ -54,7 +55,7 @@ Data flow:
 Key files:
 
 - `backend/app/main.py`: app startup, CORS, router registration, EPSS download on startup
-- `backend/app/api/scores.py`: main API (summary, pagination, band filtering, source management, disposition updates, CSV seeding)
+- `backend/app/api/`: API routers split by resource (`findings.py`, `sources.py`, `risk_weights.py`, `imports.py`, `admin.py`)
 - `backend/app/models.py`: SQLAlchemy models (`ScoredFinding`, `RiskScoringConfig`, `EpssScore`, `FindingEvent`)
 - `backend/app/schemas.py`: response/request schemas including new disposition fields
 - `backend/app/scoring.py`: scoring logic and risk band mapping
@@ -66,7 +67,7 @@ Key files:
 Key files:
 
 - `frontend/src/app.tsx`: top-level navigation (`Dashboard`, `Findings`, `Integrations`)
-- `frontend/src/api.ts`: typed API client + new disposition/source filter requests
+- `frontend/src/api.ts`: typed API client + findings/source/risk-weight requests
 - `frontend/src/hooks/useScoresData.ts`: summary and paginated findings hooks
 - `frontend/src/components/dashboard/RiskTable.tsx`: findings table with source + band filter + sorting
 - `frontend/src/components/dashboard/VulnerabilityDrawer.tsx`: finding details + disposition actions
@@ -91,24 +92,25 @@ Audit/event log table for finding changes. The recent work writes disposition ch
 
 Base URL: `http://127.0.0.1:8000`
 
-For the complete up-to-date backend route list with payload examples, see `backend/README.md`.
+For the public docs set, see `docs/README.md`.
 
 Core endpoints:
 
 - `GET /health`
-- `GET /scores/health`
-- `GET /scores/summary`
-- `GET /scores/top10`
-- `GET /scores/all?page=1&page_size=50&sort_by=risk_score&sort_order=desc&source=Qualys`
-- `GET /scores/band/{Critical|High|Medium|Low}?page=1&page_size=50&sort_by=source&sort_order=asc&source=Qualys`
-- `GET /scores/sources`
-- `PATCH /scores/sources/{source_name}` (rename source)
-- `DELETE /scores/sources/{source_name}` (delete all findings for a source)
-- `GET /scores/weights`
-- `PUT /scores/weights`
-- `POST /scores/findings/{finding_db_id}/disposition`
-- `POST /scores/findings/{finding_db_id}/disposition/clear`
-- `POST /scores/seed/qualys-csv` (multipart form: `source`, `file`)
+- `GET /findings/summary`
+- `GET /findings/top`
+- `GET /findings?page=1&page_size=50&sort_by=risk_score&sort_order=desc&source=Qualys`
+- `GET /findings?risk_band=Critical&page=1&page_size=50&sort_by=source&sort_order=asc&source=Qualys`
+- `GET /findings/{finding_db_id}`
+- `POST /findings/{finding_db_id}/disposition`
+- `POST /findings/{finding_db_id}/disposition/clear`
+- `GET /sources`
+- `PATCH /sources/{source_name}` (rename source)
+- `DELETE /sources/{source_name}` (delete all findings for a source)
+- `GET /risk-weights`
+- `PUT /risk-weights`
+- `POST /imports/findings/csv` (multipart form: `source`, `file`)
+- `POST /admin/enrichment/kev/reload`
 
 Disposition values:
 
@@ -158,6 +160,12 @@ cd backend
 python3 -m uvicorn app.main:app --reload --port 8000
 ```
 
+FastAPI route explorer:
+
+- Swagger UI: `http://localhost:8000/docs`
+- ReDoc: `http://localhost:8000/redoc`
+- OpenAPI JSON: `http://localhost:8000/openapi.json`
+
 Optional seed from local script:
 
 ```bash
@@ -206,6 +214,7 @@ Notes:
 
 - Frontend runs as a browser-served web UI in Docker
 - Backend API runs on `http://localhost:8000`
+- FastAPI route explorer is available at `http://localhost:8000/docs`
 - SQLite data persists in the Docker volume `vulncontext-data`
 
 ## Using the App
@@ -238,7 +247,7 @@ git diff
 Useful focused diffs for the recent updates:
 
 ```bash
-git diff -- backend/app/models.py backend/app/schemas.py backend/app/api/scores.py
+git diff -- backend/app/models.py backend/app/schemas.py backend/app/api
 git diff -- frontend/src/api.ts frontend/src/components/dashboard/RiskTable.tsx frontend/src/components/dashboard/VulnerabilityDrawer.tsx
 git diff -- frontend/package.json
 ```
@@ -276,7 +285,7 @@ Why backend tests fail offline:
 VulnContext-Desktop/
 ├── backend/
 │   ├── app/
-│   │   ├── api/scores.py
+│   │   ├── api/
 │   │   ├── core/db.py
 │   │   ├── core/risk_weights.py
 │   │   ├── epss.py

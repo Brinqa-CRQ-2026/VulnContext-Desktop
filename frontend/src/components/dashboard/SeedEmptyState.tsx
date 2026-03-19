@@ -1,7 +1,7 @@
 import { type ChangeEvent, useMemo, useState } from "react";
 import { DatabaseZap } from "lucide-react";
 
-import { seedQualysCsv } from "../../api";
+import { seedQualysCsv } from "../../api/imports";
 import { Button } from "../ui/button";
 import {
   Empty,
