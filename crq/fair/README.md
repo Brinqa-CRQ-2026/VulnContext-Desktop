@@ -1,6 +1,6 @@
 # FAIR Monte Carlo Risk Engine
 
-This package implements a probabilistic FAIR (Factor Analysis of Information) model using Monte Carlo simulation.
+This package implements a probabilistic FAIR (Factor Analysis of Information Risk) model using Monte Carlo simulation.
 
 The engine models cyber risk as:
 
