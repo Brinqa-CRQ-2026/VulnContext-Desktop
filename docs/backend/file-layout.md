@@ -63,3 +63,8 @@ This is the lightweight backend file split overview.
 
 - `backend/app/core/risk_weights.py`
   Risk weight defaults and config helpers.
+
+## Script workflow docs
+
+- `docs/backend/asset-pull-workflow.md`
+  Overview of the Brinqa asset pull scripts, source enrichment scripts, data pulled, output CSVs, and how the scripts fit together.
