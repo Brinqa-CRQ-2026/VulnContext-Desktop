@@ -73,6 +73,13 @@ def test_root_health_is_available(client):
     assert response.json() == {"status": "ok"}
 
 
+def test_business_services_frontend_route_is_available(client):
+    response = client.get("/business-services")
+
+    assert response.status_code == 200
+    assert "html" in response.text.lower()
+
+
 def test_get_scores_summary_uses_display_risk_band(client, db_session):
     _seed_finding(
         db_session,

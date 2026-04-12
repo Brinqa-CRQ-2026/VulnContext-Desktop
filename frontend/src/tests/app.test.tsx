@@ -2,11 +2,21 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../components/layout/Header", () => ({
-  Header: ({ page, onNavigate }: { page: string; onNavigate: (page: "findings" | "integrations") => void }) => (
+  Header: ({
+    page,
+    onNavigate,
+  }: {
+    page: string;
+    onNavigate: (page: "findings" | "integrations" | "business-services") => void;
+  }) => (
     <div>
       <div>{`header:${page}`}</div>
+      <a href="#/business-services">header-home</a>
       <button onClick={() => onNavigate("findings")}>header-findings</button>
       <button onClick={() => onNavigate("integrations")}>header-integrations</button>
+      <button onClick={() => onNavigate("business-services")}>
+        header-business-services
+      </button>
     </div>
   ),
 }));
@@ -88,6 +98,36 @@ vi.mock("../components/integrations/IntegrationsPage", () => ({
   ),
 }));
 
+vi.mock("../components/business-services/BusinessServicesOverview", () => ({
+  BusinessServicesOverview: ({
+    onOpenCompanyBusinessUnit,
+  }: {
+    onOpenCompanyBusinessUnit: (service: { slug: string }) => void;
+  }) => (
+    <div>
+      <div>business-services-overview</div>
+      <button onClick={() => onOpenCompanyBusinessUnit({ slug: "virtuon" })}>
+        open-company-view
+      </button>
+    </div>
+  ),
+}));
+
+vi.mock("../components/business-services/BusinessServiceDetailPage", () => ({
+  BusinessServiceDetailPage: ({
+    service,
+    onBack,
+  }: {
+    service: { slug: string } | null;
+    onBack: () => void;
+  }) => (
+    <div>
+      <div>{`business-service-detail:${service?.slug ?? "missing"}`}</div>
+      <button onClick={onBack}>business-service-back</button>
+    </div>
+  ),
+}));
+
 vi.mock("../components/ui/button", () => ({
   Button: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
     <button {...props}>{children}</button>
@@ -101,13 +141,11 @@ describe("App", () => {
     window.location.hash = "";
   });
 
-  it("renders the findings dashboard by default", () => {
+  it("renders the business services overview by default", () => {
     render(<App />);
 
-    expect(screen.getByText("dashboard:0")).toBeInTheDocument();
-    expect(screen.getByText("weights:0")).toBeInTheDocument();
-    expect(screen.getByText("table:0")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Findings" })).toBeInTheDocument();
+    expect(screen.getByText("business-services-overview")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Company Overview" })).toBeInTheDocument();
   });
 
   it("navigates to integrations from header or table actions", async () => {
@@ -122,8 +160,26 @@ describe("App", () => {
     await screen.findByText("integrations:0");
   });
 
+  it("navigates to business services and opens a company detail route", async () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByText("header-business-services"));
+    await screen.findByText("business-services-overview");
+    expect(screen.getByRole("heading", { name: "Company Overview" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("open-company-view"));
+    await screen.findByText("business-service-detail:virtuon");
+    expect(screen.getByRole("heading", { name: "Virtuon" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("business-service-back"));
+    await screen.findByText("business-services-overview");
+  });
+
   it("opens a finding detail route and can navigate back", async () => {
     render(<App />);
+
+    fireEvent.click(screen.getByText("header-findings"));
+    await screen.findByText("table:0");
 
     fireEvent.click(screen.getByText("open-finding"));
     await screen.findByText("detail:42:0");
@@ -135,6 +191,9 @@ describe("App", () => {
 
   it("increments refreshToken when child callbacks report data changes", async () => {
     render(<App />);
+
+    fireEvent.click(screen.getByText("header-findings"));
+    await screen.findByText("dashboard:0");
 
     fireEvent.click(screen.getByText("weights-updated"));
     await screen.findByText("dashboard:1");

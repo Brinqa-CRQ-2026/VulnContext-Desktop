@@ -1,7 +1,7 @@
 import React from "react";
 import { Button } from "../ui/button";
 
-type AppPage = "findings" | "integrations";
+type AppPage = "findings" | "integrations" | "business-services";
 
 interface HeaderProps {
   page: AppPage;
@@ -10,13 +10,17 @@ interface HeaderProps {
 
 export function Header({ page, onNavigate }: HeaderProps) {
   const pageLabel =
-    page === "findings" ? "Findings" : "Sources";
+    page === "findings"
+      ? "Findings"
+      : page === "integrations"
+        ? "Sources"
+        : "Business Services";
 
   return (
     <header className="border-b border-slate-800 bg-slate-950 text-slate-100">
       <div className="flex h-14 w-full items-center justify-between px-4 md:px-6">
         <a
-          href="#"
+          href="/business-services"
           className="text-xs font-semibold tracking-[0.2em] text-slate-200"
         >
           VULNCONTEXT
@@ -34,9 +38,9 @@ export function Header({ page, onNavigate }: HeaderProps) {
             variant="outline"
             size="sm"
             className="border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800 hover:text-white"
-            onClick={() => onNavigate("findings")}
+            onClick={() => onNavigate("business-services")}
           >
-            Findings
+            Business Services
           </Button>
         </div>
       </div>

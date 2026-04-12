@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ListFilter, PlugZap } from "lucide-react";
+import { BriefcaseBusiness, ListFilter, PlugZap } from "lucide-react";
 import type { ScoredFinding } from "./api";
 import { Header } from "./components/layout/Header";
 import { DashboardOverview } from "./components/dashboard/DashboardOverview";
@@ -7,14 +7,49 @@ import { RiskTable } from "./components/dashboard/RiskTable";
 import { RiskWeightsEditor } from "./components/dashboard/RiskWeightsEditor";
 import { FindingDetailPage } from "./components/dashboard/FindingDetailPage";
 import { IntegrationsPage } from "./components/integrations/IntegrationsPage";
+import { BusinessServiceDetailPage } from "./components/business-services/BusinessServiceDetailPage";
+import { BusinessServicesOverview } from "./components/business-services/BusinessServicesOverview";
 import { Button } from "./components/ui/button";
 import { cn } from "./lib/utils";
+import {
+  getCompanyBusinessUnitBySlug,
+  type CompanyBusinessUnitRecord,
+} from "./mocks/businessServices";
 
-type BasePage = "findings" | "integrations";
-type AppRoute = { page: BasePage; findingId: number | null };
+type BasePage = "findings" | "integrations" | "business-services";
+type AppRoute = {
+  page: BasePage;
+  findingId: number | null;
+  companySlug: string | null;
+};
+
+function parsePathRoute(pathname: string): AppRoute | null {
+  const parts = pathname.split("/").filter(Boolean);
+
+  if (parts.length === 0) {
+    return { page: "business-services", findingId: null, companySlug: null };
+  }
+
+  if (parts[0] === "business-services") {
+    return {
+      page: "business-services",
+      findingId: null,
+      companySlug: parts[1] ?? null,
+    };
+  }
+
+  return null;
+}
 
 function parseHashRoute(): AppRoute {
-  const hash = (window.location.hash || "#/findings").replace(/^#/, "");
+  const hash = (window.location.hash || "").replace(/^#/, "");
+  if (!hash) {
+    return parsePathRoute(window.location.pathname) ?? {
+      page: "business-services",
+      findingId: null,
+      companySlug: null,
+    };
+  }
   const parts = hash.split("/").filter(Boolean);
 
   if (parts[0] === "findings") {
@@ -22,26 +57,55 @@ function parseHashRoute(): AppRoute {
     return {
       page: "findings",
       findingId: Number.isInteger(id) && id > 0 ? id : null,
+      companySlug: null,
     };
   }
   if (parts[0] === "integrations") {
-    return { page: "integrations", findingId: null };
+    return { page: "integrations", findingId: null, companySlug: null };
   }
-  return { page: "findings", findingId: null };
+  if (parts[0] === "business-services") {
+    return {
+      page: "business-services",
+      findingId: null,
+      companySlug: parts[1] ?? null,
+    };
+  }
+  return { page: "findings", findingId: null, companySlug: null };
 }
 
 function writeHashRoute(route: AppRoute) {
-  const nextHash =
-    route.page === "findings" && route.findingId
-      ? `#/findings/${route.findingId}`
-      : route.page === "findings"
-        ? "#/findings"
-        : route.page === "integrations"
-          ? "#/integrations"
-          : "#/findings";
+  const useHttpPathRouting =
+    window.location.protocol.startsWith("http") && route.page === "business-services";
+  const nextUrl = (() => {
+    if (useHttpPathRouting) {
+      return route.companySlug
+        ? `/business-services/${route.companySlug}`
+        : "/business-services";
+    }
 
-  if (window.location.hash !== nextHash) {
-    window.location.hash = nextHash;
+    if (route.page === "findings" && route.findingId) {
+      return `/#/findings/${route.findingId}`;
+    }
+    if (route.page === "findings") {
+      return "/#/findings";
+    }
+    if (route.page === "integrations") {
+      return "/#/integrations";
+    }
+    if (route.page === "business-services" && route.companySlug) {
+      return `/#/business-services/${route.companySlug}`;
+    }
+    return "/#/business-services";
+  })();
+
+  const currentUrl = `${window.location.pathname}${window.location.hash}`;
+  if (currentUrl !== nextUrl) {
+    if (window.location.protocol.startsWith("http")) {
+      window.history.pushState(route, "", nextUrl);
+    } else {
+      const hashIndex = nextUrl.indexOf("#");
+      window.location.hash = hashIndex >= 0 ? nextUrl.slice(hashIndex) : "";
+    }
   }
 }
 
@@ -51,12 +115,17 @@ function App() {
 
   useEffect(() => {
     if (!window.location.hash) {
-      writeHashRoute({ page: "findings", findingId: null });
+      writeHashRoute({ page: "business-services", findingId: null, companySlug: null });
     }
     const onHashChange = () => setRoute(parseHashRoute());
+    const onPopState = () => setRoute(parseHashRoute());
     window.addEventListener("hashchange", onHashChange);
+    window.addEventListener("popstate", onPopState);
     onHashChange();
-    return () => window.removeEventListener("hashchange", onHashChange);
+    return () => {
+      window.removeEventListener("hashchange", onHashChange);
+      window.removeEventListener("popstate", onPopState);
+    };
   }, []);
 
   const handleDataChanged = () => {
@@ -64,15 +133,36 @@ function App() {
   };
 
   const navigateTo = (page: BasePage) => {
-    writeHashRoute({ page, findingId: null });
+    const nextRoute = { page, findingId: null, companySlug: null } as AppRoute;
+    writeHashRoute(nextRoute);
+    setRoute(nextRoute);
   };
 
   const openFinding = (finding: ScoredFinding) => {
-    writeHashRoute({ page: "findings", findingId: finding.id });
+    const nextRoute = {
+      page: "findings",
+      findingId: finding.id,
+      companySlug: null,
+    } as AppRoute;
+    writeHashRoute(nextRoute);
+    setRoute(nextRoute);
+  };
+
+  const openBusinessService = (companyRecord: CompanyBusinessUnitRecord) => {
+    const nextRoute = {
+      page: "business-services",
+      findingId: null,
+      companySlug: companyRecord.slug,
+    } as AppRoute;
+    writeHashRoute(nextRoute);
+    setRoute(nextRoute);
   };
 
   const page = route.page;
   const inFindingDetail = page === "findings" && route.findingId !== null;
+  const inBusinessServiceDetail =
+    page === "business-services" && route.companySlug !== null;
+  const selectedBusinessService = getCompanyBusinessUnitBySlug(route.companySlug);
 
   const pageMeta = {
     findings: {
@@ -85,13 +175,22 @@ function App() {
       title: "Sources",
       description: "Review imported sources and the number of findings stored for each.",
     },
+    "business-services": {
+      title: inBusinessServiceDetail
+        ? selectedBusinessService?.company ?? "Company Overview"
+        : "Company Overview",
+      description: inBusinessServiceDetail
+        ? "Company and business-unit specific view of the underlying business services."
+        : "",
+    },
   } as const;
 
   const navItems: Array<{
-    id: "findings" | "integrations";
+    id: "findings" | "integrations" | "business-services";
     label: string;
     icon: typeof ListFilter;
   }> = [
+    { id: "business-services", label: "Business Services", icon: BriefcaseBusiness },
     { id: "findings", label: "Findings", icon: ListFilter },
     { id: "integrations", label: "Sources", icon: PlugZap },
   ];
@@ -134,7 +233,9 @@ function App() {
               <h1 className="text-xl font-semibold tracking-tight text-slate-900">
                 {pageMeta[page].title}
               </h1>
-              <p className="mt-1 text-sm text-slate-500">{pageMeta[page].description}</p>
+              {pageMeta[page].description ? (
+                <p className="mt-1 text-sm text-slate-500">{pageMeta[page].description}</p>
+              ) : null}
             </section>
 
             {page === "findings" ? (
@@ -159,6 +260,17 @@ function App() {
                     onOpenFinding={openFinding}
                   />
                 </>
+              )
+            ) : page === "business-services" ? (
+              inBusinessServiceDetail ? (
+                <BusinessServiceDetailPage
+                  service={selectedBusinessService}
+                  onBack={() => navigateTo("business-services")}
+                />
+              ) : (
+                <BusinessServicesOverview
+                  onOpenCompanyBusinessUnit={openBusinessService}
+                />
               )
             ) : (
               <>
