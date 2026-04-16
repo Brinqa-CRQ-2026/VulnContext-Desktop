@@ -1,9 +1,17 @@
 from collections.abc import Generator
+import os
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
+
+# Force test imports onto SQLite before app.core.db resolves environment settings.
+os.environ.pop("SUPABASE_DB_URL", None)
+os.environ.pop("POSTGRES_DATABASE_URL", None)
+os.environ.pop("DATABASE_URL", None)
+os.environ["DB_PATH"] = "./test-bootstrap.db"
+os.environ["SUPABASE_DB_URL"] = "sqlite:///./test-bootstrap.db"
 
 from app.core.db import Base, get_db
 from app.main import app

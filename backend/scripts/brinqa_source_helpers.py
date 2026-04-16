@@ -9,19 +9,14 @@ BASE_URL = "https://ucsc.brinqa.net"
 RELATED_API_URL = f"{BASE_URL}/api/caasm/bql/related"
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 
-# Paste token here without the "Bearer " prefix if you want to test locally.
-BRINQA_BEARER_TOKEN = ""
-
-BEARER_TOKEN = BRINQA_BEARER_TOKEN.strip() or os.getenv("BRINQA_BEARER_TOKEN", "").strip()
+BEARER_TOKEN = os.getenv("BRINQA_BEARER_TOKEN", "").strip()
 
 if not BEARER_TOKEN:
     raise ValueError(
-        "Set BRINQA_BEARER_TOKEN in the script or export BRINQA_BEARER_TOKEN before running."
+        "Export BRINQA_BEARER_TOKEN before running Brinqa scripts."
     )
 
-COOKIES = {
-    "JSESSIONID": "321FF4D7ED2877EC95AD3EF70DF033CD",
-}
+SESSION_COOKIE = os.getenv("BRINQA_JSESSIONID", "").strip()
 
 RELATED_QUERY = "Find SourceModel as s THAT SOURCED_FROM << Host"
 
@@ -106,7 +101,8 @@ def normalize_record(record: Dict[str, Any]) -> Dict[str, Any]:
 
 def create_session() -> requests.Session:
     session = requests.Session()
-    session.cookies.update(COOKIES)
+    if SESSION_COOKIE:
+        session.cookies.update({"JSESSIONID": SESSION_COOKIE})
     return session
 
 

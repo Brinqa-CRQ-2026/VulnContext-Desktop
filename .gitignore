@@ -88,3 +88,5 @@ backend/data/nvd/*.json.gz
 vulncontext.db
 CODEX.md
 backend/data/import_staging/finding_clean_sample.csv
+backend/data/*.csv
+backend/data/**/*.csv

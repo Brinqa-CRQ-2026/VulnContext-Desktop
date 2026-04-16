@@ -1,200 +1,215 @@
-# app/models.py
-from sqlalchemy import Boolean, Column, DateTime, Float, Integer, String, Text
+"""Runtime ORM models for the Supabase-first backend slice."""
+
+import uuid
+
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
+from sqlalchemy.orm import relationship
+
 from app.core.db import Base
 
 
-class ScoredFinding(Base):
-    __tablename__ = "scored_findings"
+class Company(Base):
+    __tablename__ = "companies"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = Column(String, nullable=False, unique=True, index=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
-    # Import/source label retained for app-level grouping.
-    source = Column(String, nullable=False, default="unknown", index=True)
+    business_units = relationship("BusinessUnit", back_populates="company")
+    assets = relationship("Asset", back_populates="company")
 
-    # Canonical finding identity from the staged Brinqa/Wiz dataset.
-    uid = Column(String, nullable=True, index=True)
-    record_id = Column(String, nullable=True, index=True)
-    display_name = Column(String, nullable=True)
-    cve_id = Column(String, nullable=True, index=True)
-    cwe_ids = Column(Text, nullable=True)
-    cve_ids = Column(Text, nullable=True)
-    cve_record_names = Column(Text, nullable=True)
-    status = Column(String, nullable=True, index=True)
-    status_category = Column(String, nullable=True, index=True)
-    source_status = Column(String, nullable=True, index=True)
-    compliance_status = Column(String, nullable=True, index=True)
-    severity = Column(String, nullable=True, index=True)
-    risk_factor_names = Column(Text, nullable=True)
-    risk_factor_values = Column(Text, nullable=True)
-    age_in_days = Column(Float, nullable=True, index=True)
-    first_found = Column(DateTime, nullable=True)
-    last_found = Column(DateTime, nullable=True)
-    due_date = Column(DateTime, nullable=True, index=True)
-    cisa_due_date_expired = Column(Boolean, nullable=True, index=True)
-    target_count = Column(Integer, nullable=True)
-    target_ids = Column(Text, nullable=True)
-    target_names = Column(Text, nullable=True)
-    asset_criticality = Column(Integer, nullable=True, index=True)
-    context_score = Column(Float, nullable=True)
-    attack_pattern_names = Column(Text, nullable=True)
-    attack_technique_names = Column(Text, nullable=True)
-    attack_tactic_names = Column(Text, nullable=True)
-    cvss_score = Column(Float, nullable=True, index=True)
-    cvss_vector = Column(String, nullable=True)
-    cvss_version = Column(String, nullable=True)
-    cvss_severity = Column(String, nullable=True, index=True)
-    attack_vector = Column(String, nullable=True)
-    attack_complexity = Column(String, nullable=True)
-    epss_score = Column(Float, nullable=True, index=True)
-    epss_percentile = Column(Float, nullable=True)
-    is_kev = Column(Boolean, nullable=False, default=False, index=True)
-    kev_date_added = Column(DateTime, nullable=True)
-    kev_due_date = Column(DateTime, nullable=True)
-    kev_vendor_project = Column(String, nullable=True)
-    kev_product = Column(String, nullable=True)
-    kev_vulnerability_name = Column(String, nullable=True)
-    kev_short_description = Column(Text, nullable=True)
-    kev_required_action = Column(Text, nullable=True)
-    kev_ransomware_use = Column(String, nullable=True)
-    base_risk_score = Column(Float, nullable=True)
-    risk_score = Column(Float, nullable=True, index=True)
-    risk_rating = Column(String, nullable=True, index=True)
-    record_link = Column(String, nullable=True)
-    summary = Column(Text, nullable=True)
+
+class BusinessUnit(Base):
+    __tablename__ = "business_units"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    company_id = Column(String, ForeignKey("companies.id", ondelete="SET NULL"), nullable=True, index=True)
+    uid = Column(String, nullable=True)
+    uuid = Column(String, nullable=True)
+    name = Column(String, nullable=False, index=True)
+    slug = Column(String, nullable=False, unique=True, index=True)
     description = Column(Text, nullable=True)
-    type_display_name = Column(String, nullable=True)
-    type_id = Column(String, nullable=True, index=True)
-    date_created = Column(DateTime, nullable=True)
-    last_updated = Column(DateTime, nullable=True)
-    sla_days = Column(Float, nullable=True)
-    sla_level = Column(String, nullable=True, index=True)
-    risk_owner_name = Column(String, nullable=True)
-    remediation_owner_name = Column(String, nullable=True)
-    source_count = Column(Integer, nullable=True)
-    source_uids = Column(Text, nullable=True)
-    source_record_uids = Column(Text, nullable=True)
-    source_links = Column(Text, nullable=True)
-    connector_names = Column(Text, nullable=True)
-    source_connector_names = Column(Text, nullable=True)
-    connector_categories = Column(Text, nullable=True)
-    data_integration_titles = Column(Text, nullable=True)
-    informed_user_names = Column(Text, nullable=True)
-    data_model_name = Column(String, nullable=True, index=True)
+    owner = Column(String, nullable=True)
+    data_integration = Column(String, nullable=True)
+    connector = Column(String, nullable=True)
+    connector_category = Column(String, nullable=True)
+    data_model = Column(String, nullable=True)
+    last_integration_transaction_id = Column(String, nullable=True)
+    flow_state = Column(String, nullable=True)
     created_by = Column(String, nullable=True)
     updated_by = Column(String, nullable=True)
-    risk_scoring_model_name = Column(String, nullable=True)
-    sla_definition_name = Column(String, nullable=True)
-    confidence = Column(String, nullable=True)
-    risk_factor_offset = Column(Float, nullable=True)
-    category_count = Column(Integer, nullable=True)
-    categories = Column(Text, nullable=True)
+    source_last_modified_at = Column(DateTime(timezone=True), nullable=True)
+    source_last_integrated_at = Column(DateTime(timezone=True), nullable=True)
+    source_created_at = Column(DateTime(timezone=True), nullable=True)
+    source_updated_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
-    # App-owned analyst fields, kept distinct from imported/vendor values.
-    internal_risk_score = Column(Float, nullable=True, index=True)
-    internal_risk_band = Column(String, nullable=True, index=True)
-    internal_risk_notes = Column(Text, nullable=True)
-    remediation_summary = Column(Text, nullable=True)
-    remediation_plan = Column(Text, nullable=True)
-    remediation_notes = Column(Text, nullable=True)
-    remediation_status = Column(String, nullable=True, index=True)
-    remediation_due_date = Column(DateTime, nullable=True, index=True)
-    remediation_updated_at = Column(DateTime, nullable=True)
-    remediation_updated_by = Column(String, nullable=True)
-
-    # Transitional compatibility fields left in place until the API/UI rewrite.
-    risk_band = Column(String, nullable=True, index=True)
-    lifecycle_status = Column(String, nullable=True, index=True)
-    finding_key = Column(String, nullable=True, index=True)
-    is_present_in_latest_scan = Column(Boolean, nullable=False, default=True, index=True)
-    first_seen_at = Column(DateTime, nullable=True)
-    last_seen_at = Column(DateTime, nullable=True)
-    fixed_at = Column(DateTime, nullable=True)
-    status_changed_at = Column(DateTime, nullable=True)
-    last_scan_run_id = Column(Integer, nullable=True, index=True)
-
-    # Manual triage / disposition (phase 1 simple in-table model)
-    disposition = Column(String, nullable=False, default="none", index=True)
-    disposition_state = Column(String, nullable=True)
-    disposition_reason = Column(String, nullable=True)
-    disposition_comment = Column(Text, nullable=True)
-    disposition_created_at = Column(DateTime, nullable=True)
-    disposition_expires_at = Column(DateTime, nullable=True)
-    disposition_created_by = Column(String, nullable=True)
+    company = relationship("Company", back_populates="business_units")
+    business_services = relationship("BusinessService", back_populates="business_unit")
+    assets = relationship("Asset", back_populates="business_unit")
 
 
-class RiskScoringConfig(Base):
-    __tablename__ = "risk_scoring_config"
+class BusinessService(Base):
+    __tablename__ = "business_services"
+    __table_args__ = (
+        UniqueConstraint("business_unit_id", "slug", name="uq_business_services_business_unit_slug"),
+    )
 
-    id = Column(Integer, primary_key=True, index=True)
-    cvss_weight = Column(Float, nullable=False, default=0.30)
-    epss_weight = Column(Float, nullable=False, default=0.25)
-    kev_weight = Column(Float, nullable=False, default=0.25)
-    asset_criticality_weight = Column(Float, nullable=False, default=0.15)
-    context_weight = Column(Float, nullable=False, default=0.05)
-
-class EpssScore(Base):
-    __tablename__ = "epss_scores"
-
-    cve_id = Column(String(32), primary_key=True, index=True)
-    probability = Column(Float, nullable=False)
-    percentile = Column(Float, nullable=False)
-
-
-class NvdCveCache(Base):
-    __tablename__ = "nvd_cve_cache"
-
-    cve_id = Column(String(32), primary_key=True, index=True)
-    source_identifier = Column(String, nullable=True)
-    vuln_status = Column(String, nullable=True)
-    published = Column(DateTime, nullable=True, index=True)
-    last_modified = Column(DateTime, nullable=True, index=True)
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    business_unit_id = Column(
+        String,
+        ForeignKey("business_units.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    uid = Column(String, nullable=True)
+    uuid = Column(String, nullable=True)
+    name = Column(String, nullable=False, index=True)
+    slug = Column(String, nullable=False, index=True)
     description = Column(Text, nullable=True)
-    cwe_ids = Column(Text, nullable=True)
-    reference_urls = Column(Text, nullable=True)
+    criticality_label = Column(String, nullable=True)
+    division = Column(String, nullable=True)
+    manager = Column(String, nullable=True)
+    data_integration = Column(String, nullable=True)
+    connector = Column(String, nullable=True)
+    connector_category = Column(String, nullable=True)
+    data_model = Column(String, nullable=True)
+    last_integration_transaction_id = Column(String, nullable=True)
+    flow_state = Column(String, nullable=True)
+    created_by = Column(String, nullable=True)
+    updated_by = Column(String, nullable=True)
+    source_last_modified_at = Column(DateTime(timezone=True), nullable=True)
+    source_last_integrated_at = Column(DateTime(timezone=True), nullable=True)
+    source_created_at = Column(DateTime(timezone=True), nullable=True)
+    source_updated_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
-    cvss_score = Column(Float, nullable=True, index=True)
-    cvss_vector = Column(String, nullable=True)
-    cvss_version = Column(String, nullable=True)
-    cvss_severity = Column(String, nullable=True, index=True)
-    attack_vector = Column(String, nullable=True)
-    attack_complexity = Column(String, nullable=True)
-
-    cisa_exploit_add = Column(DateTime, nullable=True, index=True)
-    cisa_action_due = Column(DateTime, nullable=True)
-    cisa_required_action = Column(Text, nullable=True)
-    cisa_vulnerability_name = Column(String, nullable=True)
-    has_kev = Column(Boolean, nullable=False, default=False, index=True)
+    business_unit = relationship("BusinessUnit", back_populates="business_services")
+    applications = relationship("Application", back_populates="business_service")
+    assets = relationship("Asset", back_populates="business_service_rel")
 
 
-class ScanRun(Base):
-    __tablename__ = "scan_runs"
+class Application(Base):
+    __tablename__ = "applications"
+    __table_args__ = (
+        UniqueConstraint("business_service_id", "slug", name="uq_applications_business_service_slug"),
+    )
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    business_service_id = Column(
+        String,
+        ForeignKey("business_services.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    name = Column(String, nullable=False, index=True)
+    slug = Column(String, nullable=False, index=True)
+    first_seen_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    business_service = relationship("BusinessService", back_populates="applications")
+    assets = relationship("Asset", back_populates="application_rel")
+
+
+class Asset(Base):
+    __tablename__ = "assets"
+
+    asset_id = Column(String, primary_key=True, index=True)
+    uid = Column(String, nullable=True, index=True)
+    hostname = Column(String, nullable=True, index=True)
+    dnsname = Column(String, nullable=True, index=True)
+    uuid = Column(String, nullable=True, index=True)
+    tracking_method = Column(String, nullable=True)
+    application = Column(String, nullable=True)
+    business_service = Column(String, nullable=True, index=True)
+    owner = Column(String, nullable=True)
+    service_team = Column(String, nullable=True)
+    division = Column(String, nullable=True)
+    it_sme = Column(String, nullable=True)
+    it_director = Column(String, nullable=True)
+    location = Column(String, nullable=True)
+    internal_or_external = Column(String, nullable=True, index=True)
+    device_type = Column(String, nullable=True)
+    category = Column(String, nullable=True)
+    virtual_or_physical = Column(String, nullable=True)
+    status = Column(String, nullable=True, index=True)
+    compliance_status = Column(String, nullable=True, index=True)
+    compliance_flags = Column(Text, nullable=True)
+    pci = Column(Boolean, nullable=True)
+    pii = Column(Boolean, nullable=True)
+    asset_criticality = Column(Integer, nullable=True, index=True)
+    public_ip_addresses = Column(Text, nullable=True)
+    private_ip_addresses = Column(Text, nullable=True)
+    last_authenticated_scan = Column(DateTime, nullable=True)
+    last_scanned = Column(DateTime, nullable=True)
+    qualys_vm_host_id = Column(String, nullable=True, index=True)
+    qualys_vm_host_uid = Column(String, nullable=True)
+    qualys_vm_host_link = Column(String, nullable=True)
+    qualys_vm_host_integration = Column(String, nullable=True)
+    servicenow_host_id = Column(String, nullable=True, index=True)
+    servicenow_host_uid = Column(String, nullable=True)
+    servicenow_host_link = Column(String, nullable=True)
+    servicenow_host_integration = Column(String, nullable=True)
+    company_id = Column(String, ForeignKey("companies.id", ondelete="SET NULL"), nullable=True, index=True)
+    business_unit_id = Column(
+        String,
+        ForeignKey("business_units.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    business_service_id = Column(
+        String,
+        ForeignKey("business_services.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    application_id = Column(
+        String,
+        ForeignKey("applications.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
+    findings = relationship("Finding", back_populates="asset")
+    company = relationship("Company", back_populates="assets")
+    business_unit = relationship("BusinessUnit", back_populates="assets")
+    business_service_rel = relationship("BusinessService", back_populates="assets")
+    application_rel = relationship("Application", back_populates="assets")
+
+
+class Finding(Base):
+    __tablename__ = "findings"
 
     id = Column(Integer, primary_key=True, index=True)
-    source = Column(String, nullable=False, index=True)
-    scanner_type = Column(String, nullable=False, default="qualys", index=True)
-    scanner_run_id = Column(String, nullable=True, index=True)
-    started_at = Column(DateTime, nullable=True)
-    completed_at = Column(DateTime, nullable=True)
-    imported_at = Column(DateTime, nullable=False, index=True)
-    status = Column(String, nullable=False, default="success", index=True)
+    asset_id = Column(String, ForeignKey("assets.asset_id"), nullable=False, index=True)
+    asset_name = Column(String, nullable=True)
+    finding_id = Column(String, nullable=False, index=True)
+    finding_uid = Column(String, nullable=True, index=True)
+    finding_name = Column(String, nullable=True)
+    status = Column(String, nullable=True, index=True)
+    cve_id = Column(String, nullable=True, index=True)
+    cwe_id = Column(String, nullable=True)
+    brinqa_base_risk_score = Column(Float, nullable=True)
+    brinqa_risk_score = Column(Float, nullable=True, index=True)
+    first_found = Column(DateTime, nullable=True)
+    last_found = Column(DateTime, nullable=True)
+    age_in_days = Column(Float, nullable=True, index=True)
+    date_created = Column(DateTime, nullable=True)
+    last_updated = Column(DateTime, nullable=True)
 
-    total_rows_seen = Column(Integer, nullable=False, default=0)
-    total_new = Column(Integer, nullable=False, default=0)
-    total_reopened = Column(Integer, nullable=False, default=0)
-    total_fixed = Column(Integer, nullable=False, default=0)
-    total_active_after = Column(Integer, nullable=False, default=0)
-
-
-class FindingEvent(Base):
-    __tablename__ = "finding_events"
-
-    id = Column(Integer, primary_key=True, index=True)
-    finding_key = Column(String, nullable=False, index=True)
-    scored_finding_id = Column(Integer, nullable=True, index=True)
-    scan_run_id = Column(Integer, nullable=True, index=True)
-    event_type = Column(String, nullable=False, index=True)
-    event_at = Column(DateTime, nullable=False, index=True)
-    old_value = Column(Text, nullable=True)
-    new_value = Column(Text, nullable=True)
-    actor = Column(String, nullable=False, default="system")
-    source = Column(String, nullable=True, index=True)
+    asset = relationship("Asset", back_populates="findings")

@@ -1,13 +1,11 @@
 # Documentation
 
-Public repo documentation is organized by area:
+Repo documentation is organized by area.
 
 ## Backend
 
-- `docs/backend/file-layout.md`
-- `docs/backend/api-endpoints.md`
-- `docs/backend/feature-test-matrix.md`
-- `docs/backend/scoring-model.md`
+- `docs/backend/README.md`
+  Backend docs index. Split into current, planning, legacy, and tracked topology seed sources.
 
 ## Frontend
 
@@ -16,4 +14,4 @@ Public repo documentation is organized by area:
 - `docs/frontend/hooks.md`
 - `docs/frontend/structure.md`
 - `docs/frontend/components.md`
-- `docs/frontend/test-plan.md`
+- `docs/frontend/feature-test-matrix.md`

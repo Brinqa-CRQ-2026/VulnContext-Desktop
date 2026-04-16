@@ -1,32 +1,12 @@
-import json
+from __future__ import annotations
+
 from datetime import datetime
 
 from fastapi import HTTPException
-from sqlalchemy import func, or_
-from sqlalchemy.orm import Session
+from sqlalchemy import case, func
 
 from app import models, schemas
-from app.scoring import compute_risk_assessment
-
-ALLOWED_DISPOSITIONS = {
-    "none",
-    "ignored",
-    "risk_accepted",
-    "false_positive",
-    "not_applicable",
-}
-
-
-def display_risk_score(finding: models.ScoredFinding) -> float | None:
-    if finding.internal_risk_score is not None:
-        return float(finding.internal_risk_score)
-    if finding.risk_score is not None:
-        return float(finding.risk_score)
-    return None
-
-
-def display_risk_band(finding: models.ScoredFinding) -> str | None:
-    return finding.internal_risk_band or finding.risk_band or finding.risk_rating
+from app.services.brinqa_detail import DetailResult
 
 
 def normalize_risk_band(raw_band: str) -> str:
@@ -46,74 +26,51 @@ def normalize_risk_band(raw_band: str) -> str:
     return normalized
 
 
-def normalize_disposition(raw_disposition: str) -> str:
-    candidate = (raw_disposition or "").strip().lower().replace(" ", "_")
-    if candidate not in ALLOWED_DISPOSITIONS:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "Invalid disposition. Use one of: none, ignored, risk_accepted, "
-                "false_positive, not_applicable."
-            ),
-        )
-    return candidate
-
-
-def serialize_json(value: dict | None) -> str | None:
-    if value is None:
+def derive_risk_band(score: float | None) -> str | None:
+    if score is None:
         return None
-    return json.dumps(value, sort_keys=True, default=str)
+    if score >= 9:
+        return "Critical"
+    if score >= 7:
+        return "High"
+    if score >= 4:
+        return "Medium"
+    return "Low"
 
 
-def record_finding_event(
-    db: Session,
-    *,
-    finding: models.ScoredFinding,
-    event_type: str,
-    actor: str,
-    old_value: dict | None = None,
-    new_value: dict | None = None,
-    scan_run_id: int | None = None,
-) -> None:
-    finding_key = (
-        finding.finding_key
-        or f"{finding.source}:{finding.uid or finding.record_id or finding.id}"
-    )
-    db.add(
-        models.FindingEvent(
-            finding_key=finding_key,
-            scored_finding_id=finding.id,
-            scan_run_id=scan_run_id,
-            event_type=event_type,
-            event_at=datetime.utcnow(),
-            old_value=serialize_json(old_value),
-            new_value=serialize_json(new_value),
-            actor=(actor or "system").strip() or "system",
-            source=finding.source,
-        )
-    )
+def derive_lifecycle_status(status: str | None) -> str | None:
+    if not status:
+        return None
+    normalized = status.strip().lower()
+    if any(token in normalized for token in ("fixed", "closed", "resolved")):
+        return "Fixed"
+    if any(token in normalized for token in ("active", "open", "new")):
+        return "Active"
+    return status
 
 
 def resolve_sorting(sort_by: str, sort_order: str):
     sort_by_key = sort_by.strip().lower()
     sort_order_key = sort_order.strip().lower()
 
+    band_weight = case(
+        (models.Finding.brinqa_risk_score >= 9, 4),
+        (models.Finding.brinqa_risk_score >= 7, 3),
+        (models.Finding.brinqa_risk_score >= 4, 2),
+        else_=1,
+    )
+
     sort_columns = {
-        "risk_score": func.coalesce(
-            models.ScoredFinding.internal_risk_score,
-            models.ScoredFinding.risk_score,
-        ),
-        "internal_risk_score": func.coalesce(
-            models.ScoredFinding.internal_risk_score,
-            models.ScoredFinding.risk_score,
-        ),
-        "source_risk_score": models.ScoredFinding.risk_score,
-        "cvss_score": models.ScoredFinding.cvss_score,
-        "epss_score": models.ScoredFinding.epss_score,
-        "age_in_days": models.ScoredFinding.age_in_days,
-        "vuln_age_days": models.ScoredFinding.age_in_days,
-        "due_date": models.ScoredFinding.due_date,
-        "source": func.lower(func.coalesce(models.ScoredFinding.source, "")),
+        "risk_score": models.Finding.brinqa_risk_score,
+        "internal_risk_score": models.Finding.brinqa_risk_score,
+        "source_risk_score": models.Finding.brinqa_risk_score,
+        "cvss_score": models.Finding.brinqa_risk_score,
+        "epss_score": models.Finding.brinqa_risk_score,
+        "age_in_days": models.Finding.age_in_days,
+        "vuln_age_days": models.Finding.age_in_days,
+        "due_date": models.Finding.last_updated,
+        "source": func.lower(func.coalesce(models.Finding.finding_name, "")),
+        "risk_band": band_weight,
     }
 
     column = sort_columns.get(sort_by_key)
@@ -135,205 +92,180 @@ def resolve_sorting(sort_by: str, sort_order: str):
     primary = column.asc() if sort_order_key == "asc" else column.desc()
     if sort_by_key in {"age_in_days", "vuln_age_days", "due_date"}:
         primary = primary.nullslast()
-
-    tie_breaker = models.ScoredFinding.id.desc()
+    tie_breaker = models.Finding.id.desc()
     return primary, tie_breaker
 
 
-def apply_source_filter(query, source: str | None):
-    if source is None:
-        return query
-
-    normalized_source = source.strip()
-    if not normalized_source:
-        return query
-
-    if normalized_source.lower() == "unknown":
-        return query.filter(
-            or_(
-                models.ScoredFinding.source.is_(None),
-                models.ScoredFinding.source == "",
-                func.lower(models.ScoredFinding.source) == "unknown",
-            )
-        )
-
-    return query.filter(models.ScoredFinding.source == normalized_source)
+def summary_band_filter(normalized_band: str):
+    if normalized_band == "Critical":
+        return models.Finding.brinqa_risk_score >= 9
+    if normalized_band == "High":
+        return (models.Finding.brinqa_risk_score >= 7) & (models.Finding.brinqa_risk_score < 9)
+    if normalized_band == "Medium":
+        return (models.Finding.brinqa_risk_score >= 4) & (models.Finding.brinqa_risk_score < 7)
+    return models.Finding.brinqa_risk_score < 4
 
 
-def asset_criticality_label_from_numeric(asset_criticality: int) -> str:
-    mapping = {
-        1: "Low",
-        2: "Medium",
-        3: "High",
-        4: "Critical",
-    }
-    return mapping.get(int(asset_criticality), "Medium")
-
-
-def rescore_finding_in_place(
-    finding: models.ScoredFinding,
-    *,
-    weights: dict,
-) -> None:
-    assessment = compute_risk_assessment(
-        cvss_score=finding.cvss_score,
-        epss_score=finding.epss_score,
-        asset_criticality_label=asset_criticality_label_from_numeric(
-            finding.asset_criticality or 2
-        ),
-        asset_criticality=int(finding.asset_criticality or 2),
-        context_score=finding.context_score,
-        is_kev=bool(getattr(finding, "is_kev", False)),
-        weights=weights,
-    )
-    finding.internal_risk_score = assessment.risk_score
-    finding.internal_risk_band = assessment.risk_band
-
-
-def validate_risk_weights(payload: schemas.RiskWeightsConfig) -> None:
-    non_negative_fields = {
-        "cvss_weight": payload.cvss_weight,
-        "epss_weight": payload.epss_weight,
-        "kev_weight": payload.kev_weight,
-        "asset_criticality_weight": payload.asset_criticality_weight,
-        "context_weight": payload.context_weight,
-    }
-    for field_name, value in non_negative_fields.items():
-        if value < 0:
-            raise HTTPException(
-                status_code=400,
-                detail=f"{field_name} must be >= 0.",
-            )
-        if value > 1:
-            raise HTTPException(
-                status_code=400,
-                detail=f"{field_name} must be <= 1.",
-            )
-
-
-def to_disposition_result(
-    finding: models.ScoredFinding,
-) -> schemas.FindingDispositionResult:
-    return schemas.FindingDispositionResult(
+def to_finding_summary(finding: models.Finding) -> schemas.FindingSummary:
+    asset = finding.asset
+    risk_band = derive_risk_band(finding.brinqa_risk_score)
+    target_name = finding.asset_name or (asset.hostname if asset else None)
+    return schemas.FindingSummary(
         id=finding.id,
-        uid=finding.uid,
-        record_id=finding.record_id,
-        disposition=finding.disposition or "none",
-        disposition_state=finding.disposition_state,
-        disposition_reason=finding.disposition_reason,
-        disposition_comment=finding.disposition_comment,
-        disposition_created_at=finding.disposition_created_at,
-        disposition_expires_at=finding.disposition_expires_at,
-        disposition_created_by=finding.disposition_created_by,
-    )
-
-
-def to_scored_finding_out(
-    finding: models.ScoredFinding,
-    *,
-    cve_description: str | None = None,
-) -> schemas.ScoredFindingOut:
-    return schemas.ScoredFindingOut(
-        id=finding.id,
-        source=finding.source,
-        uid=finding.uid,
-        record_id=finding.record_id,
-        display_name=finding.display_name,
-        record_link=finding.record_link,
+        source="Brinqa",
+        asset_id=finding.asset_id,
+        uid=finding.finding_uid,
+        record_id=finding.finding_id,
+        display_name=finding.finding_name,
         status=finding.status,
-        status_category=finding.status_category,
-        source_status=finding.source_status,
-        compliance_status=finding.compliance_status,
-        severity=finding.severity,
-        lifecycle_status=finding.lifecycle_status,
+        compliance_status=asset.compliance_status if asset else None,
+        lifecycle_status=derive_lifecycle_status(finding.status),
         age_in_days=finding.age_in_days,
         first_found=finding.first_found,
         last_found=finding.last_found,
-        due_date=finding.due_date,
-        fixed_at=finding.fixed_at,
-        status_changed_at=finding.status_changed_at,
-        cisa_due_date_expired=finding.cisa_due_date_expired,
-        target_count=finding.target_count,
-        target_ids=finding.target_ids,
-        target_names=finding.target_names,
         cve_id=finding.cve_id,
-        cve_ids=finding.cve_ids,
-        cve_record_names=finding.cve_record_names,
-        cwe_ids=finding.cwe_ids,
-        cvss_score=finding.cvss_score,
-        cvss_version=finding.cvss_version,
-        cvss_severity=finding.cvss_severity,
-        cvss_vector=finding.cvss_vector,
-        attack_vector=finding.attack_vector,
-        attack_complexity=finding.attack_complexity,
-        epss_score=finding.epss_score,
-        epss_percentile=finding.epss_percentile,
-        is_kev=bool(finding.is_kev),
-        kev_date_added=finding.kev_date_added,
-        kev_due_date=finding.kev_due_date,
-        kev_vendor_project=finding.kev_vendor_project,
-        kev_product=finding.kev_product,
-        kev_vulnerability_name=finding.kev_vulnerability_name,
-        kev_short_description=finding.kev_short_description,
-        kev_required_action=finding.kev_required_action,
-        kev_ransomware_use=finding.kev_ransomware_use,
-        risk_score=display_risk_score(finding),
-        risk_band=display_risk_band(finding),
-        source_risk_score=finding.risk_score,
-        source_risk_band=finding.risk_band,
-        source_risk_rating=finding.risk_rating,
-        base_risk_score=finding.base_risk_score,
-        internal_risk_score=finding.internal_risk_score,
-        internal_risk_band=finding.internal_risk_band,
-        internal_risk_notes=finding.internal_risk_notes,
-        asset_criticality=finding.asset_criticality,
-        context_score=finding.context_score,
-        risk_factor_names=finding.risk_factor_names,
-        risk_factor_values=finding.risk_factor_values,
-        risk_factor_offset=finding.risk_factor_offset,
-        summary=finding.summary,
-        description=finding.description,
-        cve_description=cve_description,
-        type_display_name=finding.type_display_name,
-        type_id=finding.type_id,
-        attack_pattern_names=finding.attack_pattern_names,
-        attack_technique_names=finding.attack_technique_names,
-        attack_tactic_names=finding.attack_tactic_names,
-        sla_days=finding.sla_days,
-        sla_level=finding.sla_level,
-        risk_owner_name=finding.risk_owner_name,
-        remediation_owner_name=finding.remediation_owner_name,
-        source_count=finding.source_count,
-        source_uids=finding.source_uids,
-        source_record_uids=finding.source_record_uids,
-        source_links=finding.source_links,
-        connector_names=finding.connector_names,
-        source_connector_names=finding.source_connector_names,
-        connector_categories=finding.connector_categories,
-        data_integration_titles=finding.data_integration_titles,
-        informed_user_names=finding.informed_user_names,
-        data_model_name=finding.data_model_name,
-        created_by=finding.created_by,
-        updated_by=finding.updated_by,
-        date_created=finding.date_created,
-        last_updated=finding.last_updated,
-        risk_scoring_model_name=finding.risk_scoring_model_name,
-        sla_definition_name=finding.sla_definition_name,
-        confidence=finding.confidence,
-        category_count=finding.category_count,
-        categories=finding.categories,
-        remediation_summary=finding.remediation_summary,
-        remediation_plan=finding.remediation_plan,
-        remediation_notes=finding.remediation_notes,
-        remediation_status=finding.remediation_status,
-        remediation_due_date=finding.remediation_due_date,
-        remediation_updated_at=finding.remediation_updated_at,
-        remediation_updated_by=finding.remediation_updated_by,
-        disposition=finding.disposition,
-        disposition_state=finding.disposition_state,
-        disposition_reason=finding.disposition_reason,
-        disposition_comment=finding.disposition_comment,
-        disposition_created_at=finding.disposition_created_at,
-        disposition_expires_at=finding.disposition_expires_at,
-        disposition_created_by=finding.disposition_created_by,
+        cwe_ids=finding.cwe_id,
+        target_ids=finding.asset_id,
+        target_names=target_name,
+        risk_score=finding.brinqa_risk_score,
+        risk_band=risk_band,
+        source_risk_score=finding.brinqa_risk_score,
+        source_risk_band=risk_band,
+        source_risk_rating=risk_band,
+        base_risk_score=finding.brinqa_base_risk_score,
+        asset_criticality=asset.asset_criticality if asset else None,
+    )
+
+
+def _parse_datetime(value) -> datetime | None:
+    if value in (None, ""):
+        return None
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        try:
+            return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    return None
+
+
+def to_finding_detail(
+    finding: models.Finding,
+    *,
+    detail: DetailResult,
+) -> schemas.FindingDetail:
+    summary = to_finding_summary(finding)
+    asset = finding.asset
+    payload = detail.payload or {}
+    return schemas.FindingDetail(
+        **summary.model_dump(),
+        asset_name=finding.asset_name,
+        summary=payload.get("summary"),
+        description=payload.get("description"),
+        record_link=payload.get("record_link"),
+        source_status=payload.get("source_status"),
+        severity=payload.get("severity"),
+        due_date=_parse_datetime(payload.get("due_date")),
+        cvss_score=payload.get("cvss_score"),
+        cvss_version=payload.get("cvss_version"),
+        cvss_severity=payload.get("cvss_severity"),
+        cvss_vector=payload.get("cvss_vector"),
+        attack_vector=payload.get("attack_vector"),
+        attack_complexity=payload.get("attack_complexity"),
+        epss_score=payload.get("epss_score"),
+        epss_percentile=payload.get("epss_percentile"),
+        is_kev=bool(payload.get("is_kev", False)),
+        kev_date_added=_parse_datetime(payload.get("kev_date_added")),
+        kev_due_date=_parse_datetime(payload.get("kev_due_date")),
+        kev_vendor_project=payload.get("kev_vendor_project"),
+        kev_product=payload.get("kev_product"),
+        kev_vulnerability_name=payload.get("kev_vulnerability_name"),
+        kev_short_description=payload.get("kev_short_description"),
+        kev_required_action=payload.get("kev_required_action"),
+        kev_ransomware_use=payload.get("kev_ransomware_use"),
+        cve_description=payload.get("cve_description"),
+        attack_pattern_names=payload.get("attack_pattern_names"),
+        attack_technique_names=payload.get("attack_technique_names"),
+        attack_tactic_names=payload.get("attack_tactic_names"),
+        risk_owner_name=payload.get("risk_owner_name") or (asset.owner if asset else None),
+        remediation_owner_name=payload.get("remediation_owner_name"),
+        remediation_status=payload.get("remediation_status"),
+        internal_risk_notes=payload.get("internal_risk_notes"),
+        detail_source=detail.source,
+        detail_fetched_at=detail.fetched_at,
+    )
+
+
+def slugify(value: str) -> str:
+    normalized = "".join(char.lower() if char.isalnum() else "-" for char in value.strip())
+    parts = [part for part in normalized.split("-") if part]
+    return "-".join(parts)
+
+
+def to_asset_summary(asset: models.Asset, finding_count: int = 0) -> schemas.AssetSummary:
+    company = asset.__dict__.get("company")
+    business_unit = asset.__dict__.get("business_unit")
+    business_service_rel = asset.__dict__.get("business_service_rel")
+    application_rel = asset.__dict__.get("application_rel")
+
+    company_name = company.name if company else None
+    business_unit_name = business_unit.name if business_unit else None
+    business_service_name = (
+        business_service_rel.name if business_service_rel else asset.business_service
+    )
+    application_name = application_rel.name if application_rel else asset.application
+    return schemas.AssetSummary(
+        asset_id=asset.asset_id,
+        hostname=asset.hostname,
+        company=company_name,
+        business_unit=business_unit_name,
+        application=application_name,
+        business_service=business_service_name,
+        status=asset.status,
+        compliance_status=asset.compliance_status,
+        asset_criticality=asset.asset_criticality,
+        finding_count=finding_count,
+    )
+
+
+def to_asset_detail(
+    asset: models.Asset,
+    *,
+    finding_count: int = 0,
+    detail: DetailResult | None = None,
+) -> schemas.AssetDetail:
+    payload = (detail.payload or {}) if detail else {}
+    return schemas.AssetDetail(
+        **to_asset_summary(asset, finding_count=finding_count).model_dump(),
+        uid=payload.get("uid") or asset.uid,
+        dnsname=payload.get("dnsname") or asset.dnsname,
+        uuid=payload.get("uuid") or asset.uuid,
+        tracking_method=payload.get("tracking_method") or asset.tracking_method,
+        owner=payload.get("owner") or asset.owner,
+        service_team=payload.get("service_team") or asset.service_team,
+        division=payload.get("division") or asset.division,
+        it_sme=payload.get("it_sme") or asset.it_sme,
+        it_director=payload.get("it_director") or asset.it_director,
+        location=payload.get("location") or asset.location,
+        internal_or_external=payload.get("internal_or_external") or asset.internal_or_external,
+        device_type=payload.get("device_type") or asset.device_type,
+        category=payload.get("category") or asset.category,
+        virtual_or_physical=payload.get("virtual_or_physical") or asset.virtual_or_physical,
+        pci=asset.pci,
+        pii=asset.pii,
+        public_ip_addresses=payload.get("public_ip_addresses") or asset.public_ip_addresses,
+        private_ip_addresses=payload.get("private_ip_addresses") or asset.private_ip_addresses,
+        last_authenticated_scan=asset.last_authenticated_scan,
+        last_scanned=asset.last_scanned,
+        qualys_vm_host_id=asset.qualys_vm_host_id,
+        qualys_vm_host_uid=asset.qualys_vm_host_uid,
+        qualys_vm_host_link=asset.qualys_vm_host_link,
+        qualys_vm_host_integration=asset.qualys_vm_host_integration,
+        servicenow_host_id=asset.servicenow_host_id,
+        servicenow_host_uid=asset.servicenow_host_uid,
+        servicenow_host_link=asset.servicenow_host_link,
+        servicenow_host_integration=asset.servicenow_host_integration,
+        detail_source=detail.source if detail else None,
+        detail_fetched_at=detail.fetched_at if detail else None,
     )

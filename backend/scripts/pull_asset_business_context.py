@@ -1,4 +1,5 @@
 import os
+import argparse
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -6,33 +7,22 @@ import pandas as pd
 import requests
 
 # =========================
-# pull_asset_data.py
+# pull_asset_business_context.py
 # =========================
-# Pull Host assets and related business context from Brinqa BQL
+# Pull Host assets and related business context from Brinqa
 # and export them to CSV.
 #
 # Run:
-# python3 backend/scripts/pull_asset_data.py
+# python3 backend/scripts/pull_asset_business_context.py
 
-print("Starting asset + business context pull...")
-
-# =========================
-# CONFIG
-# =========================
 API_URL = "https://ucsc.brinqa.net/api/caasm/bql"
 BASE_URL = "https://ucsc.brinqa.net"
-
 LIMIT = 25
 
-# output path
 SCRIPT_DIR = Path(__file__).resolve().parent
 OUTPUT_CSV = SCRIPT_DIR.parent / "data" / "asset_business_context.csv"
 
-# paste token here without the "Bearer " prefix if you want to test locally
 BRINQA_BEARER_TOKEN = ""
-
-# fallback to env var if the field above is left blank
-# export BRINQA_BEARER_TOKEN="your_token_here"
 BEARER_TOKEN = BRINQA_BEARER_TOKEN.strip() or os.getenv("BRINQA_BEARER_TOKEN", "").strip()
 
 if not BEARER_TOKEN:
@@ -40,13 +30,12 @@ if not BEARER_TOKEN:
         "Set BRINQA_BEARER_TOKEN in the script or export BRINQA_BEARER_TOKEN before running."
     )
 
-# BQL query
-QUERY = '''
+QUERY = """
 FIND Host AS h
 THAT SUPPORTS >> BusinessService AS bs
 AND bs THAT SUPPORTS >> BusinessUnit AS bu
 AND h THAT IS >> AssetType AS at
-'''.strip()
+""".strip()
 
 RETURNING_FIELDS = [
     "complianceStatus",
@@ -76,17 +65,37 @@ HEADERS = {
     "content-type": "application/json;charset=UTF-8",
     "origin": BASE_URL,
     "priority": "u=1, i",
-    "referer": f"{BASE_URL}/caasm/search?bql=FIND%20Host%20AS%20h%0ATHAT%20SUPPORTS%20%3E%3E%20BusinessService%20AS%20bs%0AAND%20bs%20THAT%20SUPPORTS%20%3E%3E%20BusinessUnit%20AS%20bu%0AAND%20h%20THAT%20IS%20%3E%3E%20AssetType%20AS%20at",
+    "referer": (
+        f"{BASE_URL}/caasm/search?bql=FIND%20Host%20AS%20h%0A"
+        "THAT%20SUPPORTS%20%3E%3E%20BusinessService%20AS%20bs%0A"
+        "AND%20bs%20THAT%20SUPPORTS%20%3E%3E%20BusinessUnit%20AS%20bu%0A"
+        "AND%20h%20THAT%20IS%20%3E%3E%20AssetType%20AS%20at"
+    ),
     "sec-ch-ua": '"Chromium";v="146", "Not-A.Brand";v="24", "Google Chrome";v="146"',
     "sec-ch-ua-mobile": "?0",
     "sec-ch-ua-platform": '"macOS"',
     "sec-fetch-dest": "empty",
     "sec-fetch-mode": "cors",
     "sec-fetch-site": "same-origin",
-    "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
+    "user-agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+    ),
     "x-requested-with": "XMLHttpRequest",
     "authorization": f"Bearer {BEARER_TOKEN}",
 }
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Pull Host assets and related business context from Brinqa and export them to CSV."
+    )
+    parser.add_argument(
+        "--output",
+        default=str(OUTPUT_CSV),
+        help=f"Output CSV path. Default: {OUTPUT_CSV}",
+    )
+    return parser.parse_args()
 
 
 def build_payload(skip: int) -> Dict[str, Any]:
@@ -121,10 +130,10 @@ def extract_records(data: Any) -> List[Dict[str, Any]]:
 
 def flatten_value(value: Any) -> Any:
     if isinstance(value, list):
-        flattened_parts = []
+        parts = []
         for item in value:
             if isinstance(item, dict):
-                flattened_parts.append(
+                parts.append(
                     str(
                         item.get("displayName")
                         or item.get("name")
@@ -134,8 +143,8 @@ def flatten_value(value: Any) -> Any:
                     )
                 )
             else:
-                flattened_parts.append(str(item))
-        return " | ".join(flattened_parts)
+                parts.append(str(item))
+        return " | ".join(parts)
 
     if isinstance(value, dict):
         return (
@@ -154,11 +163,9 @@ def normalize_record(record: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def fetch_page(session: requests.Session, skip: int) -> List[Dict[str, Any]]:
-    payload = build_payload(skip)
-    response = session.post(API_URL, json=payload, timeout=60)
+    response = session.post(API_URL, json=build_payload(skip), timeout=60)
     response.raise_for_status()
-    data = response.json()
-    return extract_records(data)
+    return extract_records(response.json())
 
 
 def fetch_all_assets() -> List[Dict[str, Any]]:
@@ -177,39 +184,33 @@ def fetch_all_assets() -> List[Dict[str, Any]]:
             print("No more records found.")
             break
 
-        normalized_page = [normalize_record(r) for r in page_records]
-        all_records.extend(normalized_page)
-
+        all_records.extend(normalize_record(record) for record in page_records)
         print(f"Fetched {len(page_records)} records. Running total: {len(all_records)}")
 
         if len(page_records) < LIMIT:
             break
-
         skip += LIMIT
 
     return all_records
 
 
 def main() -> None:
+    args = parse_args()
+    output_path = Path(args.output)
+    print("Starting asset + business context pull...")
     records = fetch_all_assets()
 
     if not records:
         print("No assets found for this query.")
         return
 
-    df = pd.DataFrame(records)
+    df = pd.DataFrame(records).drop_duplicates()
+    if "id" in df.columns:
+        df = df.drop_duplicates(subset=["id"])
 
-    # drop exact duplicate rows if any
-    df = df.drop_duplicates()
-
-    # if host_id exists, prefer deduping by host_id
-    if "host_id" in df.columns:
-        df = df.drop_duplicates(subset=["host_id"])
-
-    OUTPUT_CSV.parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(OUTPUT_CSV, index=False)
-
-    print(f"Saved {len(df)} unique asset rows to {OUTPUT_CSV}")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(output_path, index=False)
+    print(f"Saved {len(df)} unique asset rows to {output_path}")
 
 
 if __name__ == "__main__":
