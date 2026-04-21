@@ -28,4 +28,4 @@ jobs:
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: |
-          python backend/scripts/sync_weekly.py
+          python backend/scripts/sync_nvd.py
