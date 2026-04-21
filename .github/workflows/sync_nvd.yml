@@ -26,6 +26,5 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: |
-          python backend/scripts/sync_nvd.py
+          python3 backend/scripts/sync_nvd.py
