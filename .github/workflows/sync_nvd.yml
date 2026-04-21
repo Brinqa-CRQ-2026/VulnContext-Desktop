@@ -1,0 +1,31 @@
+name: Weekly Sync (NVD)
+
+on:
+  schedule:
+    - cron: "0 10 * * 1"   # every Monday at 10:00 UTC
+  workflow_dispatch:
+
+jobs:
+  sync-weekly:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          backend/requirements.txt
+
+      - name: Run weekly sync
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        run: |
+          python backend/scripts/sync_weekly.py
