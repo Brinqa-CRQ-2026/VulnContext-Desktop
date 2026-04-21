@@ -5,6 +5,9 @@ on:
     - cron: "0 10 * * 1"   # every Monday at 10:00 UTC
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   sync-weekly:
     runs-on: ubuntu-latest
