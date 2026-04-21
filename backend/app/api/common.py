@@ -229,6 +229,23 @@ def to_asset_summary(asset: models.Asset, finding_count: int = 0) -> schemas.Ass
     )
 
 
+def to_asset_tag_summary(asset: models.Asset) -> list[schemas.AssetTagSummary]:
+    results: list[schemas.AssetTagSummary] = []
+    for assignment in getattr(asset, "tag_assignments", []) or []:
+        tag = assignment.tag
+        if tag is None:
+            continue
+        results.append(
+            schemas.AssetTagSummary(
+                id=tag.id,
+                name=tag.name,
+                score=tag.score,
+            )
+        )
+    results.sort(key=lambda item: (-item.score, item.name.lower()))
+    return results
+
+
 def to_asset_detail(
     asset: models.Asset,
     *,

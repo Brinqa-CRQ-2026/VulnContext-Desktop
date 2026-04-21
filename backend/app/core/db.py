@@ -2,7 +2,7 @@
 
 import os
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 from app.core.env import load_backend_env
@@ -55,3 +55,52 @@ def get_db():
         yield db
     finally:
         db.close()
+def init_db_schema():
+    Base.metadata.create_all(bind=engine)
+    
+def init_asset_tag_schema() -> None:
+    statements = [
+        """
+        CREATE TABLE IF NOT EXISTS asset_tag_definitions (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL UNIQUE,
+            score INTEGER NOT NULL,
+            description TEXT NULL,
+            is_predefined BOOLEAN NOT NULL DEFAULT 0,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS ix_asset_tag_definitions_name
+            ON asset_tag_definitions (name)
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS ix_asset_tag_definitions_score
+            ON asset_tag_definitions (score)
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS asset_tag_assignments (
+            id TEXT PRIMARY KEY,
+            asset_id TEXT NOT NULL,
+            tag_id TEXT NOT NULL,
+            assigned_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            assigned_by TEXT NULL,
+            CONSTRAINT uq_asset_tag_assignments_asset_tag UNIQUE (asset_id, tag_id),
+            FOREIGN KEY(asset_id) REFERENCES assets(asset_id) ON DELETE CASCADE,
+            FOREIGN KEY(tag_id) REFERENCES asset_tag_definitions(id) ON DELETE CASCADE
+        )
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS ix_asset_tag_assignments_asset_id
+            ON asset_tag_assignments (asset_id)
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS ix_asset_tag_assignments_tag_id
+            ON asset_tag_assignments (tag_id)
+        """,
+    ]
+
+    with engine.begin() as conn:
+        for statement in statements:
+            conn.execute(text(statement))

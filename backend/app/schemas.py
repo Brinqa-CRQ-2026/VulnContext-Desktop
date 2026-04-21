@@ -145,6 +145,44 @@ class AssetSummary(BaseModel):
     asset_criticality: int | None = None
     finding_count: int = 0
 
+class AssetTagSummary(BaseModel):
+    id: str
+    name: str
+    score: int
+
+
+class AssetTagDefinitionBase(BaseModel):
+    name: str
+    score: int = Field(ge=1, le=5)
+    description: str | None = None
+    is_predefined: bool = False
+
+class AssetTagDefinitionCreate(AssetTagDefinitionBase):
+    pass
+
+class AssetTagDefinitionUpdate(BaseModel):
+    name: str | None = None
+    score: int | None = Field(default=None, ge=1, le=5)
+    description: str | None = None
+
+
+class AssetTagDefinitionOut(AssetTagDefinitionBase):
+    id: str
+
+class AssetTagAssignmentCreate(BaseModel):
+    tag_ids: list[str]
+
+class AssetCriticalitySummary(BaseModel):
+    asset_id: str
+    asset_criticality: int | None = None
+    tags: list[AssetTagSummary] = []
+    
+class TotalAssetCriticalitySummary(BaseModel):
+    total_assets: int
+    processed_assets: int
+    tagged_assets: int
+    failed_assets: int = 0
+    items: list[AssetCriticalitySummary] = []
 
 class AssetDetail(AssetSummary):
     uid: str | None = None
@@ -175,6 +213,7 @@ class AssetDetail(AssetSummary):
     servicenow_host_uid: str | None = None
     servicenow_host_link: str | None = None
     servicenow_host_integration: str | None = None
+    tags: list[AssetTagSummary] = []
     detail_source: str | None = None
     detail_fetched_at: datetime | None = None
 

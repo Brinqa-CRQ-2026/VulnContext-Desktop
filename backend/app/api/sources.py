@@ -5,7 +5,7 @@ from app import models, schemas
 from app.api.common import derive_risk_band
 from app.core.db import get_db
 
-router = APIRouter(tags=["sources"])
+router = APIRouter(prefix="/api", tags=["sources"])
 
 
 @router.get("/sources", response_model=list[schemas.SourceSummary])

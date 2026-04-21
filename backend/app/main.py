@@ -7,6 +7,8 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api import ROUTERS
 from app.core.env import load_backend_env
+from app.core.db import init_asset_tag_schema, init_db_schema
+from contextlib import asynccontextmanager
 
 load_backend_env()
 
@@ -15,6 +17,13 @@ FRONTEND_DIST_DIR = PROJECT_ROOT / "frontend" / "dist"
 FRONTEND_ASSETS_DIR = FRONTEND_DIST_DIR / "assets"
 FRONTEND_INDEX_FILE = FRONTEND_DIST_DIR / "index.html"
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db_schema()
+    init_asset_tag_schema()
+    yield
+
 app = FastAPI(
     title="VulnContext Backend",
     description="Supabase-first FastAPI backend for VulnContext Desktop",
@@ -22,6 +31,7 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",
+    lifespan=lifespan,
 )
 
 origins = [
@@ -45,12 +55,11 @@ def health():
     return {"status": "ok"}
 
 
-for router in ROUTERS:
-    app.include_router(router)
-
-
 if FRONTEND_ASSETS_DIR.exists():
     app.mount("/assets", StaticFiles(directory=FRONTEND_ASSETS_DIR), name="frontend-assets")
+
+for router in ROUTERS:
+    app.include_router(router)
 
 
 def serve_frontend_app():
@@ -81,3 +90,6 @@ def frontend_index():
 @app.get("/business-units/{service_slug:path}", include_in_schema=False)
 def frontend_business_services(service_slug: str | None = None):
     return serve_frontend_app()
+# @app.on_event("startup")
+# def startup():
+#     init_asset_tag_schema()

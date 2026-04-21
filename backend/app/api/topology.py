@@ -7,11 +7,12 @@ from sqlalchemy import func, inspect, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app import models, schemas
-from app.api.common import to_asset_detail, to_asset_summary, to_finding_summary
+from app.api.common import to_asset_detail, to_asset_summary, to_finding_summary,  to_asset_tag_summary
 from app.core.db import get_db
 from app.services.brinqa_detail import asset_detail_service
+from app.services.asset_criticality import auto_assign_predefined_tags, ensure_predefined_tags, refresh_asset_criticality,replace_asset_tags
 
-router = APIRouter(tags=["topology"])
+router = APIRouter(prefix="/api", tags=["topology"])
 
 REQUIRED_TOPOLOGY_TABLES = (
     "companies",
@@ -54,6 +55,7 @@ def _asset_query_with_topology(db: Session):
         joinedload(models.Asset.business_unit),
         joinedload(models.Asset.business_service_rel),
         joinedload(models.Asset.application_rel),
+        joinedload(models.Asset.tag_assignments).joinedload(models.AssetTagAssignment.tag)
     )
 
 
@@ -486,4 +488,265 @@ def get_asset_findings(asset_id: str, db: Session = Depends(get_db)):
         asset=to_asset_summary(asset, finding_count=len(findings)),
         items=[to_finding_summary(finding) for finding in findings],
         total=len(findings),
+    )
+
+@router.get("/asset-tags", response_model=list[schemas.AssetTagDefinitionOut])
+def list_asset_tags(db: Session = Depends(get_db)):
+    ensure_predefined_tags(db)
+    db.commit()
+    return (
+        db.query(models.AssetTagDefinition)
+        .order_by(func.lower(models.AssetTagDefinition.name))
+        .all()
+    )
+@router.delete("/asset-tags/{tag_id}", status_code=204)
+def delete_asset_tag(tag_id: str, db: Session = Depends(get_db)):
+    tag = (
+        db.query(models.AssetTagDefinition)
+        .filter(models.AssetTagDefinition.id == tag_id)
+        .first()
+    )
+    if tag is None:
+        raise HTTPException(status_code=404, detail="Tag not found.")
+
+    if tag.is_predefined:
+        raise HTTPException(
+            status_code=400,
+            detail="Predefined tags cannot be deleted.",
+        )
+
+    db.delete(tag)
+    db.commit()
+
+@router.post("/asset-tags", response_model=schemas.AssetTagDefinitionOut)
+def create_asset_tag(
+    payload: schemas.AssetTagDefinitionCreate,
+    db: Session = Depends(get_db),
+):
+    existing = (
+        db.query(models.AssetTagDefinition)
+        .filter(func.lower(models.AssetTagDefinition.name) == payload.name.strip().lower())
+        .first()
+    )
+    if existing is not None:
+        raise HTTPException(status_code=400, detail="Tag name already exists.")
+
+    tag = models.AssetTagDefinition(
+        name=payload.name.strip(),
+        score=payload.score,
+        description=payload.description,
+        is_predefined=payload.is_predefined,
+    )
+    db.add(tag)
+    db.commit()
+    db.refresh(tag)
+    return tag
+
+@router.patch("/asset-tags/{tag_id}", response_model=schemas.AssetTagDefinitionOut)
+def update_asset_tag(
+    tag_id: str,
+    payload: schemas.AssetTagDefinitionUpdate,
+    db: Session = Depends(get_db),
+):
+    tag = (
+        db.query(models.AssetTagDefinition)
+        .options(joinedload(models.AssetTagDefinition.assignments).joinedload(models.AssetTagAssignment.asset))
+        .filter(models.AssetTagDefinition.id == tag_id)
+        .first()
+    )
+    if tag is None:
+        raise HTTPException(status_code=404, detail="Tag not found.")
+
+    updates = payload.model_dump(exclude_unset=True)
+    if "name" in updates and updates["name"] is not None:
+        candidate = updates["name"].strip()
+        conflict = (
+            db.query(models.AssetTagDefinition)
+            .filter(
+                func.lower(models.AssetTagDefinition.name) == candidate.lower(),
+                models.AssetTagDefinition.id != tag.id,
+            )
+            .first()
+        )
+        if conflict is not None:
+            raise HTTPException(status_code=400, detail="Tag name already exists.")
+        tag.name = candidate
+
+    if "score" in updates and updates["score"] is not None:
+        tag.score = updates["score"]
+
+    if "description" in updates:
+        tag.description = updates["description"]
+
+    # Recalculate ACS for linked assets if score/name changed.
+    touched_assets = []
+    for assignment in tag.assignments:
+        if assignment.asset is not None:
+            touched_assets.append(assignment.asset)
+
+    for asset in touched_assets:
+        db.refresh(asset)
+
+    db.flush()
+
+    for asset in touched_assets:
+        refreshed_asset = (
+            _asset_query_with_topology(db)
+            .filter(models.Asset.asset_id == asset.asset_id)
+            .first()
+        )
+        if refreshed_asset is not None:
+            refresh_asset_criticality(refreshed_asset)
+    db.commit()
+    db.refresh(tag)
+    return tag
+
+@router.get("/assets/{asset_id}/tags", response_model=schemas.AssetCriticalitySummary)
+def get_asset_tags(asset_id: str, db: Session = Depends(get_db)):
+    asset = (
+        _asset_query_with_topology(db)
+        .filter(models.Asset.asset_id == asset_id)
+        .first()
+    )
+    if asset is None:
+        raise HTTPException(status_code=404, detail="Asset not found.")
+
+    return schemas.AssetCriticalitySummary(
+        asset_id=asset.asset_id,
+        asset_criticality=asset.asset_criticality,
+        tags=to_asset_tag_summary(asset),
+    )
+
+
+@router.put("/assets/{asset_id}/tags", response_model=schemas.AssetCriticalitySummary)
+def set_asset_tags(
+    asset_id: str,
+    payload: schemas.AssetTagAssignmentCreate,
+    db: Session = Depends(get_db),
+):
+    asset = (
+        _asset_query_with_topology(db)
+        .filter(models.Asset.asset_id == asset_id)
+        .first()
+    )
+    if asset is None:
+        raise HTTPException(status_code=404, detail="Asset not found.")
+
+    try:
+        replace_asset_tags(db, asset, payload.tag_ids, assigned_by="user")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    db.flush()
+    db.expire_all()
+
+    refreshed = (
+        _asset_query_with_topology(db)
+        .filter(models.Asset.asset_id == asset_id)
+        .first()
+    )
+    if refreshed is None:
+        raise HTTPException(status_code=404, detail="Asset not found.")
+
+    refresh_asset_criticality(refreshed)
+    db.commit()
+    db.refresh(refreshed)
+
+    return schemas.AssetCriticalitySummary(
+        asset_id=refreshed.asset_id,
+        asset_criticality=refreshed.asset_criticality,
+        tags=to_asset_tag_summary(refreshed),
+    )
+
+
+@router.post("/assets/{asset_id}/tags/auto", response_model=schemas.AssetCriticalitySummary)
+def auto_tag_asset(asset_id: str, db: Session = Depends(get_db)):
+    asset = (
+        _asset_query_with_topology(db)
+        .filter(models.Asset.asset_id == asset_id)
+        .first()
+    )
+    if asset is None:
+        raise HTTPException(status_code=404, detail="Asset not found.")
+
+    auto_assign_predefined_tags(db, asset)
+    db.flush()
+
+    db.expire_all()
+
+    refreshed = (
+        db.query(models.Asset)
+        .options(
+            joinedload(models.Asset.tag_assignments).joinedload(models.AssetTagAssignment.tag)
+        )
+        .filter(models.Asset.asset_id == asset_id)
+        .first()
+    )
+    if refreshed is None:
+        raise HTTPException(status_code=404, detail="Asset not found.")
+
+    refresh_asset_criticality(refreshed)
+    db.commit()
+    db.refresh(refreshed)
+
+    return schemas.AssetCriticalitySummary(
+        asset_id=refreshed.asset_id,
+        asset_criticality=refreshed.asset_criticality,
+        tags=to_asset_tag_summary(refreshed),
+    )
+
+@router.post("/assets/tags/auto-all", response_model=schemas.TotalAssetCriticalitySummary)
+def auto_tag_all_assets(db: Session = Depends(get_db)):
+    assets = db.query(models.Asset).all()
+
+    total_assets = len(assets)
+    processed_assets = 0
+    tagged_assets = 0
+    failed_assets = 0
+    results: list[schemas. AssetCriticalitySummary] = []
+
+    for asset in assets:
+        try:
+            auto_assign_predefined_tags(db, asset)
+
+            db.flush()
+            db.expire_all()
+
+            refreshed = (
+                db.query(models.Asset)
+                .options(
+                    joinedload(models.Asset.tag_assignments).joinedload(models.AssetTagAssignment.tag)
+                )
+                .filter(models.Asset.asset_id == asset.asset_id)
+                .first()
+            )
+            if refreshed is None:
+                failed_assets += 1
+                continue
+
+            refresh_asset_criticality(refreshed)
+
+            processed_assets += 1
+            if refreshed.tag_assignments:
+                tagged_assets += 1
+
+            results.append(
+                schemas.AssetCriticalitySummary(
+                    asset_id=refreshed.asset_id,
+                    asset_criticality=refreshed.asset_criticality,
+                    tags=to_asset_tag_summary(refreshed),
+                )
+            )
+
+        except Exception:
+            failed_assets += 1
+
+    db.commit()
+
+    return schemas.TotalAssetCriticalitySummary(
+        total_assets=total_assets,
+        processed_assets=processed_assets,
+        tagged_assets=tagged_assets,
+        failed_assets=failed_assets,
+        items=results,
     )

@@ -190,6 +190,7 @@ class Asset(Base):
     business_unit = relationship("BusinessUnit", back_populates="assets")
     business_service_rel = relationship("BusinessService", back_populates="assets")
     application_rel = relationship("Application", back_populates="assets")
+    tag_assignments = relationship("AssetTagAssignment", back_populates="asset", cascade="all, delete-orphan")
 
 
 class Finding(Base):
@@ -213,3 +214,29 @@ class Finding(Base):
     last_updated = Column(DateTime, nullable=True)
 
     asset = relationship("Asset", back_populates="findings")
+
+class AssetTagDefinition(Base):
+    __tablename__ = "asset_tag_definitions"
+    
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = Column(String, nullable=False, unique=True, index=True)
+    score = Column(Integer, nullable=False, index=True)
+    description = Column(Text, nullable=True)
+    is_predefined = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    
+    assignments = relationship("AssetTagAssignment", back_populates="tag")
+
+class AssetTagAssignment(Base):
+    __tablename__ = "asset_tag_assignments"
+    
+    __table_args__ = (UniqueConstraint("asset_id", "tag_id", name="uq_asset_tag_assignments_asset_tag"),)
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    asset_id = Column(String, ForeignKey("assets.asset_id", ondelete="CASCADE"), nullable=False, index=True)
+    tag_id = Column(String, ForeignKey("asset_tag_definitions.id", ondelete="CASCADE"),nullable=False, index=True)
+    assigned_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    assigned_by = Column(String, nullable=True)
+    
+    asset = relationship("Asset", back_populates="tag_assignments")
+    tag = relationship("AssetTagDefinition", back_populates="assignments")

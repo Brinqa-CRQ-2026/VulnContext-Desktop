@@ -16,7 +16,8 @@ from app.api.common import (
 from app.core.db import get_db
 from app.services.brinqa_detail import finding_detail_service
 
-router = APIRouter(tags=["findings"])
+# both the frontend static files and backend API were using the /assets path, the static file handler intercepted requests before they reached the API; adding /api separates the routes and removes the conflict, so I can test out the api route in the swagger.
+router = APIRouter(prefix="/api", tags=["findings"])
 
 
 @router.get("/findings/top", response_model=List[schemas.FindingSummary])
