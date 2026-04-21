@@ -110,6 +110,160 @@ def _apply_asset_filters(
     return query
 
 
+@router.get("/topology/companies", response_model=list[schemas.CompanyDetail])
+def get_companies(db: Session = Depends(get_db)):
+    _require_topology_schema(db)
+    companies = (
+        db.query(models.Company)
+        .order_by(func.lower(models.Company.name))
+        .all()
+    )
+
+    # Get counts for each company
+    bu_counts = dict(
+        db.query(models.BusinessUnit.company_id, func.count(models.BusinessUnit.id))
+        .filter(models.BusinessUnit.company_id.is_not(None))
+        .group_by(models.BusinessUnit.company_id)
+        .all()
+    )
+    
+    asset_counts = dict(
+        db.query(models.Asset.company_id, func.count(models.Asset.asset_id))
+        .filter(models.Asset.company_id.is_not(None))
+        .group_by(models.Asset.company_id)
+        .all()
+    )
+    
+    finding_counts = dict(
+        db.query(models.Asset.company_id, func.count(models.Finding.id))
+        .join(models.Finding, models.Finding.asset_id == models.Asset.asset_id)
+        .filter(models.Asset.company_id.is_not(None))
+        .group_by(models.Asset.company_id)
+        .all()
+    )
+
+    return [
+        schemas.CompanyDetail(
+            id=str(company.id),
+            name=company.name,
+            metrics=schemas.TopologyMetrics(
+                total_business_services=int(bu_counts.get(company.id, 0)),
+                total_assets=int(asset_counts.get(company.id, 0)),
+                total_findings=int(finding_counts.get(company.id, 0)),
+            ),
+        )
+        for company in companies
+    ]
+
+
+@router.get("/topology/companies/{company_id}", response_model=schemas.CompanyFullDetail)
+def get_company_detail(company_id: str, db: Session = Depends(get_db)):
+    _require_topology_schema(db)
+    company = db.query(models.Company).filter(models.Company.id == company_id).first()
+    if company is None:
+        raise HTTPException(status_code=404, detail="Company not found.")
+
+    business_units = (
+        db.query(models.BusinessUnit)
+        .filter(models.BusinessUnit.company_id == company_id)
+        .order_by(func.lower(models.BusinessUnit.name))
+        .all()
+    )
+    bu_ids = [bu.id for bu in business_units]
+
+    services_by_bu: dict[str, list[schemas.BusinessServiceSummary]] = {bu.id: [] for bu in business_units}
+    asset_counts_by_bu: dict[str, int] = {}
+    finding_counts_by_bu: dict[str, int] = {}
+    service_counts_by_bu: dict[str, int] = {}
+
+    if bu_ids:
+        services = (
+            db.query(models.BusinessService)
+            .filter(models.BusinessService.business_unit_id.in_(bu_ids))
+            .order_by(func.lower(models.BusinessService.name))
+            .all()
+        )
+        service_ids = [s.id for s in services]
+
+        svc_asset_counts = dict(
+            db.query(models.Asset.business_service_id, func.count(models.Asset.asset_id))
+            .filter(models.Asset.business_service_id.in_(service_ids))
+            .group_by(models.Asset.business_service_id)
+            .all()
+        ) if service_ids else {}
+
+        svc_finding_counts = dict(
+            db.query(models.Asset.business_service_id, func.count(models.Finding.id))
+            .join(models.Finding, models.Finding.asset_id == models.Asset.asset_id)
+            .filter(models.Asset.business_service_id.in_(service_ids))
+            .group_by(models.Asset.business_service_id)
+            .all()
+        ) if service_ids else {}
+
+        svc_app_counts = dict(
+            db.query(models.Application.business_service_id, func.count(models.Application.id))
+            .filter(models.Application.business_service_id.in_(service_ids))
+            .group_by(models.Application.business_service_id)
+            .all()
+        ) if service_ids else {}
+
+        for svc in services:
+            bu_id = svc.business_unit_id
+            services_by_bu.setdefault(bu_id, []).append(
+                schemas.BusinessServiceSummary(
+                    business_service=svc.name,
+                    slug=svc.slug,
+                    metrics=schemas.TopologyMetrics(
+                        total_applications=int(svc_app_counts.get(svc.id, 0)),
+                        total_assets=int(svc_asset_counts.get(svc.id, 0)),
+                        total_findings=int(svc_finding_counts.get(svc.id, 0)),
+                    ),
+                )
+            )
+            service_counts_by_bu[bu_id] = service_counts_by_bu.get(bu_id, 0) + 1
+
+        asset_counts_by_bu = dict(
+            db.query(models.Asset.business_unit_id, func.count(models.Asset.asset_id))
+            .filter(models.Asset.business_unit_id.in_(bu_ids))
+            .group_by(models.Asset.business_unit_id)
+            .all()
+        )
+        finding_counts_by_bu = dict(
+            db.query(models.Asset.business_unit_id, func.count(models.Finding.id))
+            .join(models.Finding, models.Finding.asset_id == models.Asset.asset_id)
+            .filter(models.Asset.business_unit_id.in_(bu_ids))
+            .group_by(models.Asset.business_unit_id)
+            .all()
+        )
+
+    total_assets = sum(int(asset_counts_by_bu.get(bu.id, 0)) for bu in business_units)
+    total_findings = sum(int(finding_counts_by_bu.get(bu.id, 0)) for bu in business_units)
+    total_services = sum(service_counts_by_bu.get(bu.id, 0) for bu in business_units)
+
+    return schemas.CompanyFullDetail(
+        id=str(company.id),
+        name=company.name,
+        metrics=schemas.TopologyMetrics(
+            total_business_services=total_services,
+            total_assets=total_assets,
+            total_findings=total_findings,
+        ),
+        business_units=[
+            schemas.BusinessUnitWithServices(
+                business_unit=bu.name,
+                slug=bu.slug,
+                metrics=schemas.TopologyMetrics(
+                    total_business_services=service_counts_by_bu.get(bu.id, 0),
+                    total_assets=int(asset_counts_by_bu.get(bu.id, 0)),
+                    total_findings=int(finding_counts_by_bu.get(bu.id, 0)),
+                ),
+                business_services=services_by_bu.get(bu.id, []),
+            )
+            for bu in business_units
+        ],
+    )
+
+
 @router.get("/topology/business-units", response_model=list[schemas.BusinessUnitSummary])
 def get_business_units(db: Session = Depends(get_db)):
     _require_topology_schema(db)

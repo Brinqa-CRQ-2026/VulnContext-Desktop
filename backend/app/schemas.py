@@ -114,6 +114,27 @@ class CompanySummary(BaseModel):
     name: str
 
 
+class CompanyDetail(BaseModel):
+    id: str
+    name: str
+    metrics: TopologyMetrics
+
+
+class BusinessUnitWithServices(BaseModel):
+    business_unit: str
+    slug: str
+    metrics: TopologyMetrics
+    business_services: list["BusinessServiceSummary"]
+
+
+class CompanyFullDetail(BaseModel):
+    id: str
+    name: str
+    metrics: TopologyMetrics
+    business_units: list[BusinessUnitWithServices]
+
+
+
 class BusinessUnitSummary(BaseModel):
     company: CompanySummary | None = None
     business_unit: str
