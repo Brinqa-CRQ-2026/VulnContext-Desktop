@@ -42,6 +42,7 @@ def fetch_epss():
     )
 
     df["date"] = score_date
+    df["date_fetched"] = datetime.now(timezone.utc).isoformat()
 
     print(f"Loaded {len(df)} rows")
     return df
