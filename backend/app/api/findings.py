@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app import models, schemas
 from app.api.common import (
+    display_score_expression,
     derive_risk_band,
     normalize_risk_band,
     resolve_sorting,
@@ -24,7 +25,7 @@ def get_top_findings(db: Session = Depends(get_db)):
     findings = (
         db.query(models.Finding)
         .options(joinedload(models.Finding.asset))
-        .order_by(models.Finding.brinqa_risk_score.desc(), models.Finding.id.desc())
+        .order_by(display_score_expression().desc(), models.Finding.id.desc())
         .limit(10)
         .all()
     )
@@ -33,18 +34,33 @@ def get_top_findings(db: Session = Depends(get_db)):
 
 @router.get("/findings/summary", response_model=schemas.ScoresSummary)
 def get_scores_summary(db: Session = Depends(get_db)):
-    findings = db.query(models.Finding.id, models.Finding.brinqa_risk_score).all()
+    findings = (
+        db.query(
+            models.Finding.id,
+            models.Finding.crq_score,
+            models.Finding.brinqa_risk_score,
+            models.Finding.crq_is_kev,
+        )
+        .all()
+    )
     band_counts = {"Critical": 0, "High": 0, "Medium": 0, "Low": 0}
-    for _, score in findings:
+    kev_band_counts = {"Critical": 0, "High": 0, "Medium": 0, "Low": 0}
+    kev_total = 0
+    for _, crq_score, brinqa_risk_score, crq_is_kev in findings:
+        score = crq_score if crq_score is not None else brinqa_risk_score
         band = derive_risk_band(score)
         if band in band_counts:
             band_counts[band] += 1
+            if crq_is_kev:
+                kev_band_counts[band] += 1
+        if crq_is_kev:
+            kev_total += 1
 
     return schemas.ScoresSummary(
         total_findings=len(findings),
         risk_bands=schemas.RiskBandSummary(**band_counts),
-        kev_findings_total=0,
-        kev_risk_bands=schemas.RiskBandSummary(),
+        kev_findings_total=kev_total,
+        kev_risk_bands=schemas.RiskBandSummary(**kev_band_counts),
     )
 
 
@@ -89,16 +105,16 @@ def get_findings(
     )
 
 
-@router.get("/findings/{finding_db_id}", response_model=schemas.FindingDetail)
-def get_finding_by_id(finding_db_id: int, db: Session = Depends(get_db)):
+@router.get("/findings/{finding_id}", response_model=schemas.FindingDetail)
+def get_finding_by_id(finding_id: str, db: Session = Depends(get_db)):
     finding = (
         db.query(models.Finding)
         .options(joinedload(models.Finding.asset))
-        .filter(models.Finding.id == finding_db_id)
+        .filter(models.Finding.finding_id == finding_id)
         .first()
     )
     if finding is None:
         raise HTTPException(status_code=404, detail="Finding not found.")
 
-    detail = finding_detail_service.get_detail(finding)
+    detail = finding_detail_service.get_detail(db, finding)
     return to_finding_detail(finding, detail=detail)

@@ -6,7 +6,7 @@ export type FindingDisposition =
   | "not_applicable";
 
 export interface ScoredFinding {
-  id: number;
+  id: string;
   source: string;
 
   uid?: string | null;
@@ -63,9 +63,21 @@ export interface ScoredFinding {
   source_risk_band?: string | null;
   source_risk_rating?: string | null;
   base_risk_score?: number | null;
+  score_source?: string | null;
+  crq_score_version?: string | null;
+  crq_scored_at?: string | null;
   internal_risk_score?: number | null;
   internal_risk_band?: string | null;
   internal_risk_notes?: string | null;
+  crq_cvss_score?: number | null;
+  crq_epss_score?: number | null;
+  crq_epss_percentile?: number | null;
+  crq_epss_multiplier?: number | null;
+  crq_is_kev?: boolean | null;
+  crq_kev_bonus?: number | null;
+  crq_age_days?: number | null;
+  crq_age_bonus?: number | null;
+  crq_notes?: string | null;
 
   asset_criticality?: number | null;
   context_score?: number | null;
@@ -144,6 +156,13 @@ export type FindingsSortBy =
   | "source";
 
 export type SortOrder = "asc" | "desc";
+export type ScopedFindingSortBy = "risk_score" | "age_in_days" | "status";
+export type AssetListSortBy =
+  | "name"
+  | "asset_id"
+  | "asset_criticality"
+  | "status"
+  | "finding_count";
 
 export interface ScoresSummary {
   total_findings: number;
@@ -183,6 +202,140 @@ export interface SourceDeleteResult {
   total_findings_remaining: number;
 }
 
+export interface TopologyMetrics {
+  total_business_services: number;
+  total_applications: number;
+  total_assets: number;
+  total_findings: number;
+}
+
+export interface CompanySummary {
+  name: string;
+}
+
+export interface BusinessUnitSummary {
+  company: CompanySummary | null;
+  business_unit: string;
+  slug: string;
+  metrics: TopologyMetrics;
+}
+
+export interface BusinessServiceSummary {
+  business_service: string;
+  slug: string;
+  metrics: TopologyMetrics;
+}
+
+export interface ApplicationSummary {
+  application: string;
+  slug: string;
+  metrics: TopologyMetrics;
+}
+
+export interface AssetSummary {
+  asset_id: string;
+  hostname?: string | null;
+  company?: string | null;
+  business_unit?: string | null;
+  application?: string | null;
+  business_service?: string | null;
+  status?: string | null;
+  compliance_status?: string | null;
+  asset_criticality?: number | null;
+  exposure_score?: number | null;
+  business_criticality_score?: number | null;
+  data_sensitivity_score?: number | null;
+  asset_type_weight?: number | null;
+  is_public_facing?: boolean | null;
+  has_sensitive_data?: boolean | null;
+  crown_jewel_flag?: boolean | null;
+  internet_exposed_flag?: boolean | null;
+  finding_count: number;
+}
+
+export interface BusinessUnitDetail {
+  company: CompanySummary | null;
+  business_unit: string;
+  slug: string;
+  uid?: string | null;
+  uuid?: string | null;
+  description?: string | null;
+  owner?: string | null;
+  data_integration?: string | null;
+  connector?: string | null;
+  connector_category?: string | null;
+  data_model?: string | null;
+  last_integration_transaction_id?: string | null;
+  flow_state?: string | null;
+  created_by?: string | null;
+  updated_by?: string | null;
+  source_last_modified_at?: string | null;
+  source_last_integrated_at?: string | null;
+  source_created_at?: string | null;
+  source_updated_at?: string | null;
+  metrics: TopologyMetrics;
+  business_services: BusinessServiceSummary[];
+}
+
+export interface BusinessServiceDetail {
+  company: CompanySummary | null;
+  business_unit: string;
+  business_service: string;
+  slug: string;
+  uid?: string | null;
+  uuid?: string | null;
+  description?: string | null;
+  criticality_label?: string | null;
+  division?: string | null;
+  manager?: string | null;
+  data_integration?: string | null;
+  connector?: string | null;
+  connector_category?: string | null;
+  data_model?: string | null;
+  last_integration_transaction_id?: string | null;
+  flow_state?: string | null;
+  created_by?: string | null;
+  updated_by?: string | null;
+  source_last_modified_at?: string | null;
+  source_last_integrated_at?: string | null;
+  source_created_at?: string | null;
+  source_updated_at?: string | null;
+  metrics: TopologyMetrics;
+  applications: ApplicationSummary[];
+  direct_assets: AssetSummary[];
+}
+
+export interface ApplicationDetail {
+  company: CompanySummary | null;
+  business_unit: string;
+  business_service: string;
+  application: string;
+  slug: string;
+  first_seen_at?: string | null;
+  metrics: TopologyMetrics;
+  assets: AssetSummary[];
+}
+
+export interface AssetFindingsPage {
+  asset: AssetSummary;
+  items: ScoredFinding[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface FindingRouteOrigin {
+  mode: "global" | "asset";
+  businessUnitSlug?: string | null;
+  businessUnitLabel?: string | null;
+  businessServiceSlug?: string | null;
+  businessServiceLabel?: string | null;
+  applicationSlug?: string | null;
+  applicationLabel?: string | null;
+  assetId?: string | null;
+  assetLabel?: string | null;
+}
+
 export interface RiskWeightsConfig {
   cvss_weight: number;
   epss_weight: number;
@@ -205,7 +358,7 @@ export interface FindingDispositionUpdateRequest {
 }
 
 export interface FindingDispositionResult {
-  id: number;
+  id: string;
   uid?: string | null;
   record_id?: string | null;
   disposition: FindingDisposition;

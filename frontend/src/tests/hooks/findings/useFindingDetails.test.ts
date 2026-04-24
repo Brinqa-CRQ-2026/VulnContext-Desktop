@@ -17,47 +17,47 @@ describe("useFindingDetails", () => {
   });
 
   it("loads finding details on mount", async () => {
-    getFindingById.mockResolvedValue({ id: 42, source: "Qualys" });
+    getFindingById.mockResolvedValue({ id: "finding-42", source: "Qualys" });
 
-    const { result } = renderHook(() => useFindingDetails(42, 0));
+    const { result } = renderHook(() => useFindingDetails("finding-42", 0));
 
     expect(result.current.loading).toBe(true);
 
     await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(getFindingById).toHaveBeenCalledWith(42);
-    expect(result.current.finding?.id).toBe(42);
+    expect(getFindingById).toHaveBeenCalledWith("finding-42");
+    expect(result.current.finding?.id).toBe("finding-42");
     expect(result.current.error).toBeNull();
   });
 
   it("stores the thrown error message", async () => {
     getFindingById.mockRejectedValue(new Error("not found"));
 
-    const { result } = renderHook(() => useFindingDetails(42, 0));
+    const { result } = renderHook(() => useFindingDetails("finding-42", 0));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.error).toBe("not found");
   });
 
   it("reloads when the finding id changes", async () => {
-    getFindingById.mockResolvedValue({ id: 42, source: "Qualys" });
+    getFindingById.mockResolvedValue({ id: "finding-42", source: "Qualys" });
 
     const { rerender } = renderHook(
       ({ id, refreshToken }) => useFindingDetails(id, refreshToken),
-      { initialProps: { id: 42, refreshToken: 0 } }
+      { initialProps: { id: "finding-42", refreshToken: 0 } }
     );
 
-    await waitFor(() => expect(getFindingById).toHaveBeenCalledWith(42));
+    await waitFor(() => expect(getFindingById).toHaveBeenCalledWith("finding-42"));
 
-    rerender({ id: 100, refreshToken: 0 });
+    rerender({ id: "finding-100", refreshToken: 0 });
 
-    await waitFor(() => expect(getFindingById).toHaveBeenCalledWith(100));
+    await waitFor(() => expect(getFindingById).toHaveBeenCalledWith("finding-100"));
   });
 
   it("reloads when refreshToken changes", async () => {
-    getFindingById.mockResolvedValue({ id: 42, source: "Qualys" });
+    getFindingById.mockResolvedValue({ id: "finding-42", source: "Qualys" });
 
     const { rerender } = renderHook(
-      ({ refreshToken }) => useFindingDetails(42, refreshToken),
+      ({ refreshToken }) => useFindingDetails("finding-42", refreshToken),
       { initialProps: { refreshToken: 0 } }
     );
 

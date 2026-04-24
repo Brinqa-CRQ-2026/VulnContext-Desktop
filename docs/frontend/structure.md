@@ -24,6 +24,9 @@ This is the brief frontend structure overview.
 - `frontend/src/components/dashboard/`
   Findings and dashboard UI.
 
+- `frontend/src/components/business-services/`
+  Topology drill-down UI for business units, business services, applications, assets, and asset findings.
+
 - `frontend/src/components/integrations/`
   Source/import management UI.
 
@@ -40,6 +43,9 @@ This is the brief frontend structure overview.
 
 - `frontend/src/hooks/findings/`
   Findings table and detail hooks.
+
+- `frontend/src/hooks/topology/`
+  Topology drill-down and paginated asset/finding hooks.
 
 - `frontend/src/hooks/sources/`
   Source-summary hooks.
@@ -63,3 +69,18 @@ Examples:
 - `index.html`
 
 These are important for app setup and builds, but they are not part of the day-to-day feature folder structure.
+
+## Current high-traffic flows
+
+- Dashboard flow:
+  - summary cards
+  - main findings table
+  - finding detail
+
+- Topology flow:
+  - business units
+  - business service
+  - optional application
+  - asset
+  - asset findings
+  - finding detail with breadcrumb-aware return path

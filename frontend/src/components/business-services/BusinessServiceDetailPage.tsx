@@ -1,123 +1,232 @@
-import { type CompanyBusinessUnitRecord } from "../../mocks/businessServices";
+import { Layers3, Network, ShieldAlert } from "lucide-react";
+import { useState } from "react";
+
+import { useBusinessServiceDetail } from "../../hooks/topology/useBusinessServiceDetail";
+import type { ApplicationSummary, AssetSummary } from "../../api/types";
+import {
+  type ApplicationSortKey,
+  ApplicationsDrillDownTable,
+  type SortState,
+} from "./DrillDownTables";
+import { AssetInventoryPanel } from "./AssetInventoryPanel";
+import {
+  formatSlugLabel,
+  TopologyBreadcrumbs,
+  TopologyPageSkeleton,
+} from "./TopologyChrome";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyIcon,
+  EmptyTitle,
+} from "../ui/empty";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 
 interface BusinessServiceDetailPageProps {
-  service: CompanyBusinessUnitRecord | null;
+  businessUnitSlug: string | null;
+  businessServiceSlug: string | null;
+  refreshToken: number;
   onBack: () => void;
+  onOpenOverview: () => void;
+  onOpenBusinessUnit: () => void;
+  onOpenApplication: (application: ApplicationSummary) => void;
+  onOpenAssetFindings: (asset: AssetSummary) => void;
 }
 
 export function BusinessServiceDetailPage({
-  service,
+  businessUnitSlug,
+  businessServiceSlug,
+  refreshToken,
   onBack,
+  onOpenOverview,
+  onOpenBusinessUnit,
+  onOpenApplication,
+  onOpenAssetFindings,
 }: BusinessServiceDetailPageProps) {
-  if (!service) {
+  const [applicationSort, setApplicationSort] = useState<SortState<ApplicationSortKey>>({
+    key: "finding_count",
+    order: "desc",
+  });
+  const { businessService, loading, error } = useBusinessServiceDetail(
+    businessUnitSlug,
+    businessServiceSlug,
+    refreshToken
+  );
+
+  if (loading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Company view not found</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-slate-500">
-            The requested company or business-unit view does not exist in the current
-            mocked dataset.
-          </p>
-          <Button variant="outline" onClick={onBack}>
-            Back to Business Services Overview
-          </Button>
-        </CardContent>
-      </Card>
+      <TopologyPageSkeleton
+        breadcrumbs={[
+          { label: "Business Units", onClick: onOpenOverview },
+          {
+            label: formatSlugLabel(businessUnitSlug, "Business Unit"),
+            onClick: onOpenBusinessUnit,
+          },
+          { label: formatSlugLabel(businessServiceSlug, "Business Service") },
+        ]}
+        title="Loading business service"
+        backLabel="Back to Business Unit"
+        statCount={3}
+        tableColumns={6}
+      />
+    );
+  }
+
+  if (error || !businessService) {
+    return (
+      <DetailEmptyState
+        title={
+          isTopologyUnavailable(error)
+            ? "Topology schema not initialized"
+            : "Business service not found"
+        }
+        description={
+          error ?? "The selected business service does not exist in the live topology."
+        }
+        onBack={onBack}
+      />
     );
   }
 
   return (
     <Card>
-      <CardHeader className="gap-3">
+      <CardHeader className="gap-4">
+        <TopologyBreadcrumbs
+          items={[
+            { label: "Business Units", onClick: onOpenOverview },
+            { label: businessService.business_unit, onClick: onOpenBusinessUnit },
+            { label: businessService.business_service },
+          ]}
+        />
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <CardTitle className="text-base">{service.company}</CardTitle>
-            <p className="text-sm text-slate-500">
-              Business unit: {service.businessUnits.join(", ")}
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+              {businessService.company?.name ?? "Unassigned company"}
+            </p>
+            <CardTitle className="mt-1 text-base">
+              {businessService.business_service}
+            </CardTitle>
+            <p className="mt-1 text-sm text-slate-500">
+              Business unit: {businessService.business_unit}
             </p>
           </div>
           <Button variant="outline" onClick={onBack}>
-            Back to Business Services Overview
+            Back to Business Unit
           </Button>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-6">
         <dl className="grid gap-4 md:grid-cols-3">
-          <DetailStat label="Business services" value={String(service.services.length)} />
           <DetailStat
-            label="Affected assets"
-            value={service.totalAffectedAssets.toLocaleString()}
+            icon={Layers3}
+            label="Applications"
+            value={businessService.metrics.total_applications}
           />
           <DetailStat
-            label="Open findings"
-            value={service.totalOpenFindings.toLocaleString()}
+            icon={Network}
+            label="Assets"
+            value={businessService.metrics.total_assets}
+          />
+          <DetailStat
+            icon={ShieldAlert}
+            label="Findings"
+            value={businessService.metrics.total_findings}
           />
         </dl>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          {service.services.map((businessService) => (
-            <article
-              key={businessService.id}
-              className="rounded-2xl border border-slate-800 bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 p-6 text-center text-white shadow-lg shadow-slate-950/20"
-            >
-              <div className="flex min-h-[320px] flex-col items-center justify-center">
-                <div className="text-3xl font-semibold tracking-tight md:text-4xl">
-                  {businessService.businessService}
-                </div>
-                <div className="mt-3 text-lg text-slate-200 md:text-xl">
-                  {businessService.businessUnit}
-                </div>
-                <div className="mt-8 grid w-full grid-cols-2 gap-4">
-                  <InlineMetric
-                    value={businessService.affectedAssets.toLocaleString()}
-                    label="Affected assets"
-                  />
-                  <InlineMetric
-                    value={businessService.openFindings.toLocaleString()}
-                    label="Open findings"
-                  />
-                </div>
-              </div>
-            </article>
-          ))}
-        </div>
+        <section className="space-y-3">
+          <div>
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+              Applications
+            </h2>
+          </div>
+          {businessService.applications.length === 0 ? (
+            <Empty className="min-h-[12rem]">
+              <EmptyHeader>
+                <EmptyTitle>No applications</EmptyTitle>
+                <EmptyDescription>
+                  This business service currently has no application drill-down rows.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          ) : (
+            <ApplicationsDrillDownTable
+              applications={businessService.applications}
+              sort={applicationSort}
+              onSortChange={setApplicationSort}
+              onOpenApplication={onOpenApplication}
+            />
+          )}
+        </section>
+
+        <section className="space-y-3">
+          <div>
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+              Direct assets
+            </h2>
+          </div>
+          <AssetInventoryPanel
+            businessUnit={businessService.business_unit}
+            businessService={businessService.business_service}
+            directOnly
+            refreshToken={refreshToken}
+            onOpenAsset={onOpenAssetFindings}
+          />
+        </section>
       </CardContent>
     </Card>
   );
 }
 
-interface DetailStatProps {
+function DetailStat({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof Layers3;
   label: string;
-  value: string;
-}
-
-function DetailStat({ label, value }: DetailStatProps) {
+  value: number;
+}) {
   return (
     <div className="rounded-lg border border-slate-200 p-4">
-      <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-        {label}
-      </dt>
-      <dd className="mt-2 text-lg font-semibold text-slate-900">{value}</dd>
-    </div>
-  );
-}
-
-interface InlineMetricProps {
-  value: string;
-  label: string;
-}
-
-function InlineMetric({ value, label }: InlineMetricProps) {
-  return (
-    <div className="flex flex-col items-center justify-center">
-      <div className="text-2xl font-bold text-white md:text-3xl">{value}</div>
-      <div className="mt-1 text-center text-xs uppercase tracking-wide text-slate-200 md:text-sm">
-        {label}
+      <div className="flex items-center gap-2 text-slate-500">
+        <Icon className="h-4 w-4" />
+        <dt className="text-xs font-semibold uppercase tracking-wide">{label}</dt>
       </div>
+      <dd className="mt-2 text-lg font-semibold text-slate-900">
+        {value.toLocaleString()}
+      </dd>
     </div>
   );
+}
+
+function DetailEmptyState({
+  title,
+  description,
+  onBack,
+}: {
+  title: string;
+  description: string;
+  onBack: () => void;
+}) {
+  return (
+    <Empty>
+      <EmptyIcon>
+        <Layers3 className="h-5 w-5" />
+      </EmptyIcon>
+      <EmptyHeader>
+        <EmptyTitle>{title}</EmptyTitle>
+        <EmptyDescription>{description}</EmptyDescription>
+      </EmptyHeader>
+      <Button variant="outline" onClick={onBack}>
+        Back to Business Unit
+      </Button>
+    </Empty>
+  );
+}
+
+function isTopologyUnavailable(message: string | null) {
+  return (message ?? "").toLowerCase().includes("normalized topology");
 }

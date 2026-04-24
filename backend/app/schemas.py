@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 
 
 class FindingSummary(BaseModel):
-    id: int
+    id: str
     source: str = "Brinqa"
     asset_id: str
 
@@ -21,12 +21,20 @@ class FindingSummary(BaseModel):
     cwe_ids: str | None = None
     target_ids: str | None = None
     target_names: str | None = None
+    cvss_score: float | None = None
+    cvss_severity: str | None = None
+    epss_score: float | None = None
+    epss_percentile: float | None = None
+    is_kev: bool = Field(default=False, serialization_alias="isKev")
     risk_score: float | None = None
     risk_band: str | None = None
     source_risk_score: float | None = None
     source_risk_band: str | None = None
     source_risk_rating: str | None = None
     base_risk_score: float | None = None
+    score_source: str | None = None
+    crq_score_version: str | None = None
+    crq_scored_at: datetime | None = None
     asset_criticality: int | None = None
 
 
@@ -75,6 +83,15 @@ class FindingDetail(FindingSummary):
     remediation_owner_name: str | None = None
     remediation_status: str | None = None
     internal_risk_notes: str | None = None
+    crq_cvss_score: float | None = None
+    crq_epss_score: float | None = None
+    crq_epss_percentile: float | None = None
+    crq_epss_multiplier: float | None = None
+    crq_is_kev: bool = False
+    crq_kev_bonus: float | None = None
+    crq_age_days: float | None = None
+    crq_age_bonus: float | None = None
+    crq_notes: str | None = None
     detail_source: str | None = None
     detail_fetched_at: datetime | None = None
 
@@ -143,6 +160,14 @@ class AssetSummary(BaseModel):
     status: str | None = None
     compliance_status: str | None = None
     asset_criticality: int | None = None
+    exposure_score: float | None = None
+    business_criticality_score: float | None = None
+    data_sensitivity_score: float | None = None
+    asset_type_weight: float | None = None
+    is_public_facing: bool | None = None
+    has_sensitive_data: bool | None = None
+    crown_jewel_flag: bool | None = None
+    internet_exposed_flag: bool | None = None
     finding_count: int = 0
 
 
@@ -168,13 +193,7 @@ class AssetDetail(AssetSummary):
     last_authenticated_scan: datetime | None = None
     last_scanned: datetime | None = None
     qualys_vm_host_id: str | None = None
-    qualys_vm_host_uid: str | None = None
-    qualys_vm_host_link: str | None = None
-    qualys_vm_host_integration: str | None = None
     servicenow_host_id: str | None = None
-    servicenow_host_uid: str | None = None
-    servicenow_host_link: str | None = None
-    servicenow_host_integration: str | None = None
     detail_source: str | None = None
     detail_fetched_at: datetime | None = None
 
@@ -190,6 +209,8 @@ class AssetFindingsPage(BaseModel):
     asset: AssetSummary
     items: list[FindingSummary]
     total: int
+    page: int
+    page_size: int
 
 
 class BusinessUnitDetail(BaseModel):

@@ -244,13 +244,11 @@ def seed_asset(
         db_session.add(
             models.Finding(
                 asset_id=asset_id,
-                asset_name=hostname,
                 finding_id=f"{asset_id}-finding-{idx}",
                 finding_uid=f"{asset_id}-uid-{idx}",
                 finding_name=f"Finding {asset_id}-{idx}",
                 status="Confirmed active",
                 cve_id=f"CVE-2024-{idx:04d}",
-                cwe_id="CWE-79",
                 brinqa_base_risk_score=max(0.0, risk - 1),
                 brinqa_risk_score=risk,
                 first_found=datetime(2024, 1, 1, tzinfo=timezone.utc),
@@ -518,13 +516,20 @@ def test_assets_routes_preserve_legacy_filters_and_asset_findings_after_fk_expan
     assert {item["asset_id"] for item in payload["items"]} == {"asset-20", "asset-21"}
 
     filtered = client.get(
-        "/assets?business_unit=Online%20Store&business_service=Digital%20Media&application=Inventory%20Manager"
+        "/assets?business_unit=Online%20Store&business_service=Digital%20Media&application=Inventory%20Manager&search=asset-20&sort_by=finding_count&sort_order=desc"
     )
     assert filtered.status_code == 200
     filtered_payload = filtered.json()
     assert filtered_payload["total"] == 1
     assert filtered_payload["items"][0]["asset_id"] == "asset-20"
     assert filtered_payload["items"][0]["finding_count"] == 2
+
+    direct_only = client.get(
+        "/assets?business_service=Digital%20Media&direct_only=true"
+    )
+    assert direct_only.status_code == 200
+    assert direct_only.json()["total"] == 1
+    assert direct_only.json()["items"][0]["asset_id"] == "asset-21"
 
     detail = client.get("/assets/asset-20")
     assert detail.status_code == 200
@@ -537,12 +542,15 @@ def test_assets_routes_preserve_legacy_filters_and_asset_findings_after_fk_expan
     assert detail_payload["dnsname"] is None
     assert detail_payload["detail_source"] is None
 
-    findings = client.get("/assets/asset-20/findings")
+    findings = client.get("/assets/asset-20/findings?page=1&page_size=1&sort_by=risk_score&sort_order=desc")
     assert findings.status_code == 200
     findings_payload = findings.json()
     assert findings_payload["asset"]["asset_id"] == "asset-20"
     assert findings_payload["asset"]["business_service"] == "Digital Media"
     assert findings_payload["total"] == 2
+    assert findings_payload["page"] == 1
+    assert findings_payload["page_size"] == 1
+    assert len(findings_payload["items"]) == 1
     assert all(item["asset_id"] == "asset-20" for item in findings_payload["items"])
 
 

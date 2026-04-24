@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { getFindingById } from "../../api/findings";
 import type { ScoredFinding } from "../../api/types";
 
-export function useFindingDetails(findingId: number, refreshToken: number) {
+export function useFindingDetails(findingId: string, refreshToken: number) {
   const [finding, setFinding] = useState<ScoredFinding | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

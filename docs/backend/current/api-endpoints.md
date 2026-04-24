@@ -137,6 +137,11 @@ Inputs:
   - `business_unit`
   - `business_service`
   - `application`
+  - `status`
+  - `search`
+  - `direct_only`
+  - `sort_by`
+  - `sort_order`
 
 Output:
 - JSON object:
@@ -174,16 +179,28 @@ Use:
 Inputs:
 - Path param:
   - `asset_id`
+- Query params:
+  - `page`
+  - `page_size`
+  - `sort_by`
+  - `sort_order`
+  - `risk_band`
+  - `kev_only`
+  - `source`
+  - `search`
 
 Output:
 - JSON object:
   - `asset`
   - `items`
   - `total`
+  - `page`
+  - `page_size`
 
 Data source:
 - Reads the asset from `assets`.
 - Reads child findings from `findings` filtered by `asset_id`.
+- Applies server-side paging, sorting, band filtering, KEV filtering, and text search.
 
 ## Findings
 
@@ -206,7 +223,7 @@ Output:
 
 Data source:
 - Reads from Supabase-backed `findings`.
-- Derives risk bands from `brinqa_risk_score`.
+- Uses `crq_score` when present, otherwise falls back to `brinqa_risk_score`.
 
 ### `GET /findings/top`
 
@@ -222,7 +239,7 @@ Output:
 
 Data source:
 - Reads from Supabase-backed `findings`.
-- Orders by `brinqa_risk_score`.
+- Orders by display score: `crq_score` first, `brinqa_risk_score` fallback.
 
 ### `GET /findings`
 
@@ -249,7 +266,9 @@ Output:
 
 Data source:
 - Reads from Supabase-backed `findings`.
-- Uses `brinqa_risk_score` for default sorting and derived band filtering.
+- Uses display score for default sorting and derived band filtering.
+- Finding summary rows expose CRQ-first score fields, with enrichment fallback for CVSS, EPSS, and KEV data when available.
+- Keeps `source_risk_score` as the Brinqa comparison score.
 
 ### `GET /findings/{finding_db_id}`
 

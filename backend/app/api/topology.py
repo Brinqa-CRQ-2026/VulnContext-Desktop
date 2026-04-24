@@ -7,7 +7,14 @@ from sqlalchemy import func, inspect, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app import models, schemas
-from app.api.common import to_asset_detail, to_asset_summary, to_finding_summary
+from app.api.common import (
+    normalize_risk_band,
+    resolve_sorting,
+    summary_band_filter,
+    to_asset_detail,
+    to_asset_summary,
+    to_finding_summary,
+)
 from app.core.db import get_db
 from app.services.brinqa_detail import asset_detail_service
 
@@ -76,6 +83,9 @@ def _apply_asset_filters(
     business_unit: str | None = None,
     business_service: str | None = None,
     application: str | None = None,
+    status: str | None = None,
+    search: str | None = None,
+    direct_only: bool = False,
 ):
     if business_unit is not None:
         if not topology_ready:
@@ -107,7 +117,49 @@ def _apply_asset_filters(
             )
         else:
             query = query.filter(models.Asset.application == application)
+    if status is not None and status.strip():
+        query = query.filter(models.Asset.status == status.strip())
+    if search is not None and search.strip():
+        term = f"%{search.strip()}%"
+        query = query.filter(
+            or_(models.Asset.asset_id.ilike(term), models.Asset.hostname.ilike(term))
+        )
+    if direct_only:
+        query = query.filter(
+            or_(
+                models.Asset.application_id.is_(None),
+                models.Asset.application.is_(None),
+                models.Asset.application == "",
+            )
+        )
     return query
+
+
+def _sort_assets(assets: list[models.Asset], finding_counts: dict[str, int], sort_by: str, sort_order: str):
+    sort_by_key = sort_by.strip().lower()
+    reverse = sort_order.strip().lower() == "desc"
+
+    def asset_name(asset: models.Asset) -> str:
+        return (asset.hostname or asset.asset_id or "").lower()
+
+    key_map = {
+        "name": lambda asset: asset_name(asset),
+        "asset_id": lambda asset: (asset.asset_id or "").lower(),
+        "asset_criticality": lambda asset: asset.asset_criticality if asset.asset_criticality is not None else -1,
+        "status": lambda asset: (asset.status or "").lower(),
+        "finding_count": lambda asset: finding_counts.get(asset.asset_id, 0),
+    }
+    key_fn = key_map.get(sort_by_key)
+    if key_fn is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid asset sort_by. Use one of: name, asset_id, asset_criticality, status, finding_count.",
+        )
+    return sorted(
+        assets,
+        key=lambda asset: (key_fn(asset), asset_name(asset), asset.asset_id),
+        reverse=reverse,
+    )
 
 
 @router.get("/topology/business-units", response_model=list[schemas.BusinessUnitSummary])
@@ -404,6 +456,11 @@ def get_assets(
     business_unit: str | None = Query(None),
     business_service: str | None = Query(None),
     application: str | None = Query(None),
+    status: str | None = Query(None),
+    search: str | None = Query(None),
+    direct_only: bool = Query(False),
+    sort_by: str = Query("name"),
+    sort_order: str = Query("asc"),
     db: Session = Depends(get_db),
 ):
     topology_ready = _has_topology_schema(db)
@@ -413,31 +470,24 @@ def get_assets(
         business_unit=business_unit,
         business_service=business_service,
         application=application,
-    )
-    count_query = _apply_asset_filters(
-        db.query(func.count(func.distinct(models.Asset.asset_id))),
-        topology_ready=topology_ready,
-        business_unit=business_unit,
-        business_service=business_service,
-        application=application,
+        status=status,
+        search=search,
+        direct_only=direct_only,
     )
 
-    total = count_query.scalar() or 0
+    assets = query.all()
+    finding_counts = _finding_counts_for_asset_ids(db, [asset.asset_id for asset in assets])
+    sorted_assets = _sort_assets(assets, finding_counts, sort_by, sort_order)
+    total = len(sorted_assets)
     if total == 0:
         return schemas.PaginatedAssets(items=[], total=0, page=page, page_size=page_size)
 
     offset = (page - 1) * page_size
-    assets = (
-        query.order_by(func.lower(func.coalesce(models.Asset.hostname, models.Asset.asset_id)))
-        .offset(offset)
-        .limit(page_size)
-        .all()
-    )
-    finding_counts = _finding_counts_for_asset_ids(db, [asset.asset_id for asset in assets])
+    page_assets = sorted_assets[offset : offset + page_size]
     return schemas.PaginatedAssets(
         items=[
             to_asset_summary(asset, finding_count=int(finding_counts.get(asset.asset_id, 0)))
-            for asset in assets
+            for asset in page_assets
         ],
         total=int(total),
         page=page,
@@ -466,7 +516,18 @@ def get_asset_detail(asset_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/assets/{asset_id}/findings", response_model=schemas.AssetFindingsPage)
-def get_asset_findings(asset_id: str, db: Session = Depends(get_db)):
+def get_asset_findings(
+    asset_id: str,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=200),
+    sort_by: str = Query("risk_score"),
+    sort_order: str = Query("desc"),
+    risk_band: str | None = Query(None),
+    kev_only: bool = Query(False),
+    source: str | None = Query(None),
+    search: str | None = Query(None),
+    db: Session = Depends(get_db),
+):
     asset = (
         _asset_query_with_topology(db)
         .filter(models.Asset.asset_id == asset_id)
@@ -475,15 +536,53 @@ def get_asset_findings(asset_id: str, db: Session = Depends(get_db)):
     if asset is None:
         raise HTTPException(status_code=404, detail="Asset not found.")
 
-    findings = (
+    if source is not None and source.strip() and source.strip().lower() != "brinqa":
+        return schemas.AssetFindingsPage(
+            asset=to_asset_summary(asset, finding_count=0),
+            items=[],
+            total=0,
+            page=page,
+            page_size=page_size,
+        )
+
+    sort_primary, sort_tie_breaker = resolve_sorting(sort_by, sort_order)
+    query = (
         db.query(models.Finding)
         .options(joinedload(models.Finding.asset))
         .filter(models.Finding.asset_id == asset.asset_id)
-        .order_by(models.Finding.brinqa_risk_score.desc(), models.Finding.id.desc())
+    )
+    count_query = db.query(func.count(models.Finding.id)).filter(
+        models.Finding.asset_id == asset.asset_id
+    )
+    if risk_band is not None:
+        band_filter = summary_band_filter(normalize_risk_band(risk_band))
+        query = query.filter(band_filter)
+        count_query = count_query.filter(band_filter)
+    if kev_only:
+        kev_filter = models.Finding.crq_is_kev.is_(True)
+        query = query.filter(kev_filter)
+        count_query = count_query.filter(kev_filter)
+    if search is not None and search.strip():
+        term = f"%{search.strip()}%"
+        search_filter = or_(
+            models.Finding.finding_name.ilike(term),
+            models.Finding.cve_id.ilike(term),
+            models.Finding.finding_id.ilike(term),
+        )
+        query = query.filter(search_filter)
+        count_query = count_query.filter(search_filter)
+
+    total = int(count_query.scalar() or 0)
+    findings = (
+        query.order_by(sort_primary, sort_tie_breaker)
+        .offset((page - 1) * page_size)
+        .limit(page_size)
         .all()
     )
     return schemas.AssetFindingsPage(
-        asset=to_asset_summary(asset, finding_count=len(findings)),
+        asset=to_asset_summary(asset, finding_count=total),
         items=[to_finding_summary(finding) for finding in findings],
-        total=len(findings),
+        total=total,
+        page=page,
+        page_size=page_size,
     )
