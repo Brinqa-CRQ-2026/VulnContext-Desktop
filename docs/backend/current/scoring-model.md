@@ -1,11 +1,18 @@
 # Scoring Model
 
-The current backend does not implement an app-owned scoring model.
+The current backend supports a persisted app-owned finding score: CRQ v4.
 
-## What the runtime does today
+## Runtime behavior
 
-- reads `brinqa_risk_score` from `public.findings`
-- derives display risk bands directly from that vendor score
+- prefers `findings.crq_score` as the display `risk_score` when present
+- falls back to `findings.brinqa_risk_score` when CRQ has not been run yet
+- keeps Brinqa visible as `source_risk_score` for comparison
+- derives display risk bands from the active display score
+- keeps finding-level metric labels simple in the API and UI:
+  - `CVSS`
+  - `EPSS`
+  - `KEV`
+  while sourcing them from CRQ fields first
 
 Current thresholds:
 
@@ -14,11 +21,29 @@ Current thresholds:
 - `>= 4.0` => `Medium`
 - `< 4.0` => `Low`
 
-## What the runtime does not do
+## CRQ v4
 
-- no persisted internal score
-- no risk-weight configuration
-- no EPSS/NVD/KEV rescoring pipeline
-- no analyst override scoring model
+- local enrichment only
+- no Brinqa score input in the formula
+- manual-run only
+- requires the tracked Supabase migration before the scorer writes data
+- age is persisted for reference only and is excluded from the score
+- EPSS contributes a small bounded negative or positive adjustment
+- CVSS remains the primary driver through a fixed `0.88` weight
 
-If richer scoring returns later, use the legacy scoring docs as reference only and reintroduce it intentionally rather than assuming the previous model is still active.
+## Summary and Detail Exposure
+
+Finding summaries and finding detail now expose CRQ-first metric fields for:
+
+- `risk_score`
+- `cvss_score`
+- `epss_score`
+- `isKev`
+
+Fallback order:
+
+1. persisted `crq_*` fields on `findings`
+2. local enrichment tables by `cve_id`
+3. raw source fields when no app-owned value exists
+
+Full formula, join sources, persisted fields, and run instructions live in [crq-scoring-v4.md](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/crq-scoring-v4.md).

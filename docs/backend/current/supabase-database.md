@@ -2,7 +2,7 @@
 
 This document describes the live Supabase database currently connected to the project and the topology expansion staged in the repo for the next schema pass.
 
-Snapshot date: 2026-04-15
+Snapshot date: 2026-04-22
 Supabase project URL: `https://nlcvpwhdukskonswryno.supabase.co`
 Observed schema: `public`
 
@@ -47,7 +47,10 @@ Observed row counts on 2026-04-15:
 - `public.assets`: 350 rows
 - `public.findings`: 12,246 rows
 
-No Supabase migrations were visible through the connected MCP session at the time of inspection.
+Tracked Supabase migrations visible through the connected MCP session:
+
+- `20260423051633_thin_assets_and_findings_for_scoring_backend`
+- `20260423051739_secure_enrichment_tables_and_add_fk_indexes`
 
 ## Table: `public.assets`
 
@@ -111,13 +114,11 @@ Columns:
 
 - `id` `bigint` not null default `nextval('findings_id_seq'::regclass)`
 - `asset_id` `text` not null
-- `asset_name` `text`
 - `finding_id` `text` not null
 - `finding_uid` `text`
 - `finding_name` `text`
 - `status` `text`
 - `cve_id` `text`
-- `cwe_id` `text`
 - `brinqa_base_risk_score` `double precision`
 - `brinqa_risk_score` `double precision`
 - `first_found` `timestamptz`
@@ -130,7 +131,8 @@ Notes:
 
 - This is a thin findings table aligned to imported vendor/source data.
 - `asset_id` is stored as the external text asset identifier, not as a foreign key to a local integer `assets.id`.
-- The live table currently stores only a small subset of the fields expected by the backend API and scoring pipeline.
+- The live table does not yet include any `crq_*` fields.
+- Those fields are staged in the repo via [20260423053000_add_crq_fields_to_findings.sql](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/supabase/migrations/20260423053000_add_crq_fields_to_findings.sql) and must be applied before the CRQ scorer can persist results.
 
 ## Current Data Shape
 
@@ -149,6 +151,23 @@ The active backend now matches the thin live runtime model:
 - `findings` remains attached to `asset_id`
 - topology browsing is moving to normalized lookup tables above assets
 - legacy `assets.business_service` and `assets.application` stay in place during transition
+
+## Current Finding Summary Behavior
+
+The backend summary serializer now treats CRQ as the primary app-owned score source when fields are present:
+
+- display `risk_score` prefers `findings.crq_score`
+- `cvss_score` prefers `findings.crq_cvss_score`
+- `epss_score` prefers `findings.crq_epss_score`
+- `isKev` prefers `findings.crq_is_kev`
+
+When CRQ enrichment fields are absent, the backend falls back by `cve_id` to local enrichment tables for:
+
+- NVD CVSS
+- EPSS score and percentile
+- KEV presence
+
+The live note above still applies: if the connected database has not yet received the staged `crq_*` migration, those persisted fields will remain unavailable until the migration is applied.
 
 The FK backfill strategy is exact-name matching only:
 

@@ -1,8 +1,6 @@
 # Frontend API Layer
 
-This is the lightweight frontend API client overview.
-
-The frontend API layer is now split by backend route group instead of keeping every request in one file.
+This is the frontend API client overview.
 
 ## Purpose
 
@@ -42,6 +40,15 @@ The frontend API layer is now split by backend route group instead of keeping ev
   - load current weights
   - update weights
 
+- `frontend/src/api/topology.ts`
+  Topology and asset-drill-down API calls:
+  - business unit list
+  - business unit detail
+  - business service detail
+  - application detail
+  - paginated asset list
+  - paginated asset findings list
+
 - `frontend/src/api/index.ts`
   Barrel export so components can import from one frontend API entry when that is more convenient.
 
@@ -70,6 +77,23 @@ Main functions:
 - `getFindingById`
 - `setFindingDisposition`
 - `clearFindingDisposition`
+
+### Topology
+
+Used by:
+- business-unit overview
+- business-service drill-down
+- application drill-down
+- asset inventory panels
+- asset findings page
+
+Main functions:
+- `getBusinessUnits`
+- `getBusinessUnitDetail`
+- `getBusinessServiceDetail`
+- `getApplicationDetail`
+- `getAssetsPage`
+- `getAssetFindingsPage`
 
 ### Sources
 
@@ -100,9 +124,11 @@ Main functions:
 - `getRiskWeights`
 - `updateRiskWeights`
 
-## Design notes
+## Current contract notes
 
 - `client.ts` is the only place that should know how the frontend derives the backend base URL.
 - `parseJsonOrThrow` keeps API error handling consistent so hooks and components can surface clean messages.
-- `types.ts` is intentionally broad because the finding detail and findings table use many of the same fields.
+- `types.ts` is intentionally broad because the findings list, finding detail, and asset findings table share many fields.
+- Topology routes now return enough context for breadcrumb reconstruction and drill-down metrics.
+- Asset findings uses the paged topology endpoint directly instead of loading one page and slicing locally in the component.
 - This layer should stay focused on request/response work only. UI state and refresh coordination belong in hooks.
