@@ -8,6 +8,8 @@ pydantic-settings
 python-multipart
 requests
 pandas
+supabase
+python-dotenv
 
 # Test dependencies
 pytest
