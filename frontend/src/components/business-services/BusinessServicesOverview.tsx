@@ -1,86 +1,112 @@
-import { useMemo } from "react";
+import { Building2, Network, ShieldAlert } from "lucide-react";
 
+import { useBusinessUnits } from "../../hooks/topology/useBusinessUnits";
+import type { BusinessUnitSummary } from "../../api/types";
 import {
-  businessServicesMockData,
-  getCompanyBusinessUnitRecords,
-  type CompanyBusinessUnitRecord,
-} from "../../mocks/businessServices";
+  Empty,
+  EmptyActions,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyIcon,
+  EmptyTitle,
+} from "../ui/empty";
+import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { TopologyBreadcrumbs, TopologyOverviewSkeleton } from "./TopologyChrome";
 
 interface BusinessServicesOverviewProps {
-  onOpenCompanyBusinessUnit: (companyRecord: CompanyBusinessUnitRecord) => void;
+  refreshToken: number;
+  onOpenBusinessUnit: (businessUnit: BusinessUnitSummary) => void;
 }
 
 export function BusinessServicesOverview({
-  onOpenCompanyBusinessUnit,
+  refreshToken,
+  onOpenBusinessUnit,
 }: BusinessServicesOverviewProps) {
-  const filteredServices = businessServicesMockData;
+  const { businessUnits, loading, error } = useBusinessUnits(refreshToken);
 
-  const totals = useMemo(() => {
-    const companies = new Set(filteredServices.map((service) => service.company));
+  if (loading) {
+    return <TopologyOverviewSkeleton />;
+  }
 
-    return {
-      totalCompanies: companies.size,
-      totalAffectedAssets: filteredServices.reduce(
-        (sum, service) => sum + service.affectedAssets,
-        0
-      ),
-      totalOpenFindings: filteredServices.reduce(
-        (sum, service) => sum + service.openFindings,
-        0
-      ),
-    };
-  }, [filteredServices]);
+  if (error) {
+    return (
+      <TopologyEmptyState
+        title={isTopologyUnavailable(error) ? "Topology schema not initialized" : "Unable to load business units"}
+        description={
+          isTopologyUnavailable(error)
+            ? error
+            : "The business-unit overview could not be loaded from the backend."
+        }
+      />
+    );
+  }
 
-  const companyCards = useMemo(
-    () => getCompanyBusinessUnitRecords(filteredServices),
-    [filteredServices]
+  if (businessUnits.length === 0) {
+    return (
+      <TopologyEmptyState
+        title="No business units found"
+        description="The topology endpoints are live, but the backend returned no business units."
+      />
+    );
+  }
+
+  const totals = businessUnits.reduce(
+    (acc, businessUnit) => ({
+      totalBusinessUnits: acc.totalBusinessUnits + 1,
+      totalBusinessServices:
+        acc.totalBusinessServices + businessUnit.metrics.total_business_services,
+      totalFindings: acc.totalFindings + businessUnit.metrics.total_findings,
+    }),
+    { totalBusinessUnits: 0, totalBusinessServices: 0, totalFindings: 0 }
   );
 
   return (
     <section className="space-y-4">
+      <TopologyBreadcrumbs items={[{ label: "Business Units" }]} />
+
       <div className="grid gap-4 md:grid-cols-3">
+        <SummaryCard label="Business units" value={totals.totalBusinessUnits} />
         <SummaryCard
-          label="Total companies"
-          value={totals.totalCompanies}
+          label="Business services"
+          value={totals.totalBusinessServices}
         />
-        <SummaryCard
-          label="Affected assets"
-          value={totals.totalAffectedAssets}
-        />
-        <SummaryCard
-          label="Open findings"
-          value={totals.totalOpenFindings}
-        />
+        <SummaryCard label="Open findings" value={totals.totalFindings} />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        {companyCards.map((companyRecord) => (
+        {businessUnits.map((businessUnit) => (
           <button
-            key={companyRecord.slug}
+            key={businessUnit.slug}
             type="button"
-            onClick={() => onOpenCompanyBusinessUnit(companyRecord)}
-            className="min-h-[700px] rounded-2xl border border-slate-800 bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 p-6 text-center text-white shadow-lg shadow-slate-950/20 transition hover:scale-[1.01] hover:border-blue-400/40"
+            onClick={() => onOpenBusinessUnit(businessUnit)}
+            className="rounded-2xl border border-slate-200 bg-white p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"
           >
-            <div className="flex h-full flex-col items-center justify-center">
-              <div className="text-3xl font-semibold tracking-tight md:text-4xl">
-                {companyRecord.company}
+            <div className="flex h-full flex-col gap-6">
+              <div className="space-y-2">
+                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                  {businessUnit.company?.name ?? "Unassigned company"}
+                </div>
+                <div className="text-2xl font-semibold tracking-tight text-slate-950">
+                  {businessUnit.business_unit}
+                </div>
               </div>
-              <div className="mt-3 text-lg text-slate-200 md:text-xl">
-                {companyRecord.businessUnits.join(", ")}
-              </div>
-              <div className="mt-8 grid w-full grid-cols-3 gap-4">
+
+              <div className="grid gap-3 md:grid-cols-3">
                 <InlineMetric
-                  value={companyRecord.services.length.toLocaleString()}
+                  icon={Building2}
+                  value={businessUnit.metrics.total_business_services}
                   label="Business services"
                 />
                 <InlineMetric
-                  value={companyRecord.totalAffectedAssets.toLocaleString()}
-                  label="Affected assets"
+                  icon={Network}
+                  value={businessUnit.metrics.total_assets}
+                  label="Assets"
                 />
                 <InlineMetric
-                  value={companyRecord.totalOpenFindings.toLocaleString()}
-                  label="Open findings"
+                  icon={ShieldAlert}
+                  value={businessUnit.metrics.total_findings}
+                  label="Findings"
                 />
               </div>
             </div>
@@ -113,18 +139,53 @@ function SummaryCard({ label, value }: SummaryCardProps) {
   );
 }
 
-interface InlineMetricProps {
-  value: string;
+function InlineMetric({
+  icon: Icon,
+  value,
+  label,
+}: {
+  icon: typeof Building2;
+  value: number;
   label: string;
-}
-
-function InlineMetric({ value, label }: InlineMetricProps) {
+}) {
   return (
-    <div className="flex flex-col items-center justify-center">
-      <div className="text-2xl font-bold text-white md:text-3xl">{value}</div>
-      <div className="mt-1 text-center text-xs uppercase tracking-wide text-slate-200 md:text-sm">
-        {label}
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+      <div className="flex items-center gap-2 text-slate-500">
+        <Icon className="h-4 w-4" />
+        <span className="text-xs font-semibold uppercase tracking-wide">{label}</span>
+      </div>
+      <div className="mt-3 text-2xl font-semibold text-slate-950">
+        {value.toLocaleString()}
       </div>
     </div>
   );
+}
+
+function TopologyEmptyState({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <Empty>
+      <EmptyIcon>
+        <Building2 className="h-5 w-5" />
+      </EmptyIcon>
+      <EmptyHeader>
+        <EmptyTitle>{title}</EmptyTitle>
+        <EmptyDescription>{description}</EmptyDescription>
+      </EmptyHeader>
+      <EmptyActions>
+        <Button variant="outline" disabled>
+          Live topology only
+        </Button>
+      </EmptyActions>
+    </Empty>
+  );
+}
+
+function isTopologyUnavailable(message: string) {
+  return message.toLowerCase().includes("normalized topology");
 }

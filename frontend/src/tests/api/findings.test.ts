@@ -56,13 +56,13 @@ describe("api/findings", () => {
 
   it("calls GET /findings/{id}", async () => {
     const { getFindingById } = await loadFindingsApi();
-    await getFindingById(42);
-    expect(getFetchMock()).toHaveBeenCalledWith("https://api.example.com/findings/42");
+    await getFindingById("finding-42");
+    expect(getFetchMock()).toHaveBeenCalledWith("https://api.example.com/findings/finding-42");
   });
 
   it("posts disposition updates as JSON", async () => {
     const { setFindingDisposition } = await loadFindingsApi();
-    await setFindingDisposition(7, {
+    await setFindingDisposition("finding-7", {
       disposition: "false_positive",
       reason: "dup",
       comment: "ignore",
@@ -70,7 +70,7 @@ describe("api/findings", () => {
     });
 
     expect(getFetchMock()).toHaveBeenCalledWith(
-      "https://api.example.com/findings/7/disposition",
+      "https://api.example.com/findings/finding-7/disposition",
       expect.objectContaining({
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -86,20 +86,20 @@ describe("api/findings", () => {
 
   it("posts clear disposition without actor when omitted", async () => {
     const { clearFindingDisposition } = await loadFindingsApi();
-    await clearFindingDisposition(9);
+    await clearFindingDisposition("finding-9");
 
     expect(getFetchMock()).toHaveBeenCalledWith(
-      "https://api.example.com/findings/9/disposition/clear",
+      "https://api.example.com/findings/finding-9/disposition/clear",
       { method: "POST" }
     );
   });
 
   it("includes the actor query param for clear disposition when provided", async () => {
     const { clearFindingDisposition } = await loadFindingsApi();
-    await clearFindingDisposition(9, " analyst ");
+    await clearFindingDisposition("finding-9", " analyst ");
 
     expect(getFetchMock()).toHaveBeenCalledWith(
-      "https://api.example.com/findings/9/disposition/clear?actor=analyst",
+      "https://api.example.com/findings/finding-9/disposition/clear?actor=analyst",
       { method: "POST" }
     );
   });

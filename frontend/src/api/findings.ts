@@ -73,8 +73,8 @@ export async function getFindingsByRiskBand(
   );
 }
 
-export async function getFindingById(findingDbId: number): Promise<ScoredFinding> {
-  const res = await fetch(buildApiUrl(`/findings/${findingDbId}`));
+export async function getFindingById(findingId: string): Promise<ScoredFinding> {
+  const res = await fetch(buildApiUrl(`/findings/${encodeURIComponent(findingId)}`));
   return parseJsonOrThrow(
     res,
     `Failed to fetch finding: ${res.status} ${res.statusText}`
@@ -82,10 +82,10 @@ export async function getFindingById(findingDbId: number): Promise<ScoredFinding
 }
 
 export async function setFindingDisposition(
-  findingDbId: number,
+  findingId: string,
   payload: FindingDispositionUpdateRequest
 ): Promise<FindingDispositionResult> {
-  const res = await fetch(buildApiUrl(`/findings/${findingDbId}/disposition`), {
+  const res = await fetch(buildApiUrl(`/findings/${encodeURIComponent(findingId)}/disposition`), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -99,7 +99,7 @@ export async function setFindingDisposition(
 }
 
 export async function clearFindingDisposition(
-  findingDbId: number,
+  findingId: string,
   actor?: string | null
 ): Promise<FindingDispositionResult> {
   const params = new URLSearchParams();
@@ -108,7 +108,7 @@ export async function clearFindingDisposition(
   }
 
   const res = await fetch(
-    buildApiUrl(`/findings/${findingDbId}/disposition/clear`, params),
+    buildApiUrl(`/findings/${encodeURIComponent(findingId)}/disposition/clear`, params),
     { method: "POST" }
   );
   return parseJsonOrThrow(

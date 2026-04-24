@@ -1,41 +1,118 @@
 import { useEffect, useState } from "react";
 import { BriefcaseBusiness, ListFilter, PlugZap } from "lucide-react";
-import type { ScoredFinding } from "./api";
 import { Header } from "./components/layout/Header";
 import { DashboardOverview } from "./components/dashboard/DashboardOverview";
 import { RiskTable } from "./components/dashboard/RiskTable";
 import { RiskWeightsEditor } from "./components/dashboard/RiskWeightsEditor";
 import { FindingDetailPage } from "./components/dashboard/FindingDetailPage";
 import { IntegrationsPage } from "./components/integrations/IntegrationsPage";
+import { ApplicationDetailPage } from "./components/business-services/ApplicationDetailPage";
+import { AssetFindingsPage } from "./components/business-services/AssetFindingsPage";
 import { BusinessServiceDetailPage } from "./components/business-services/BusinessServiceDetailPage";
+import { BusinessUnitDetailPage } from "./components/business-services/BusinessUnitDetailPage";
 import { BusinessServicesOverview } from "./components/business-services/BusinessServicesOverview";
 import { Button } from "./components/ui/button";
 import { cn } from "./lib/utils";
-import {
-  getCompanyBusinessUnitBySlug,
-  type CompanyBusinessUnitRecord,
-} from "./mocks/businessServices";
+import type {
+  ApplicationSummary,
+  AssetSummary,
+  BusinessServiceSummary,
+  BusinessUnitSummary,
+  FindingRouteOrigin,
+  ScoredFinding,
+} from "./api";
+import { formatSlugLabel } from "./components/business-services/TopologyChrome";
 
 type BasePage = "findings" | "integrations" | "business-services";
 type AppRoute = {
   page: BasePage;
-  findingId: number | null;
-  companySlug: string | null;
+  findingId: string | null;
+  findingOrigin: FindingRouteOrigin | null;
+  businessUnitSlug: string | null;
+  businessServiceSlug: string | null;
+  applicationSlug: string | null;
+  assetId: string | null;
 };
+
+function getEmptyRoute(page: BasePage): AppRoute {
+  return {
+    page,
+    findingId: null,
+    findingOrigin: null,
+    businessUnitSlug: null,
+    businessServiceSlug: null,
+    applicationSlug: null,
+    assetId: null,
+  };
+}
+
+function readHistoryFindingOrigin(): FindingRouteOrigin | null {
+  const state = window.history.state;
+  if (!state || typeof state !== "object" || !("findingOrigin" in state)) {
+    return null;
+  }
+
+  const origin = (state as { findingOrigin?: unknown }).findingOrigin;
+  if (!origin || typeof origin !== "object") {
+    return null;
+  }
+
+  const mode = (origin as { mode?: unknown }).mode;
+  if (mode !== "global" && mode !== "asset") {
+    return null;
+  }
+
+  return origin as FindingRouteOrigin;
+}
 
 function parsePathRoute(pathname: string): AppRoute | null {
   const parts = pathname.split("/").filter(Boolean);
 
   if (parts.length === 0) {
-    return { page: "business-services", findingId: null, companySlug: null };
+    return getEmptyRoute("business-services");
   }
 
   if (parts[0] === "business-services") {
-    return {
-      page: "business-services",
-      findingId: null,
-      companySlug: parts[1] ?? null,
-    };
+    const baseRoute = getEmptyRoute("business-services");
+
+    if (parts.length === 1) {
+      return baseRoute;
+    }
+    if (parts.length === 2) {
+      return { ...baseRoute, businessUnitSlug: parts[1] };
+    }
+    if (parts.length === 3) {
+      return {
+        ...baseRoute,
+        businessUnitSlug: parts[1],
+        businessServiceSlug: parts[2],
+      };
+    }
+    if (parts.length === 6 && parts[3] === "assets" && parts[5] === "findings") {
+      return {
+        ...baseRoute,
+        businessUnitSlug: parts[1],
+        businessServiceSlug: parts[2],
+        assetId: parts[4],
+      };
+    }
+    if (parts.length === 4) {
+      return {
+        ...baseRoute,
+        businessUnitSlug: parts[1],
+        businessServiceSlug: parts[2],
+        applicationSlug: parts[3],
+      };
+    }
+    if (parts.length === 7 && parts[4] === "assets" && parts[6] === "findings") {
+      return {
+        ...baseRoute,
+        businessUnitSlug: parts[1],
+        businessServiceSlug: parts[2],
+        applicationSlug: parts[3],
+        assetId: parts[5],
+      };
+    }
   }
 
   return null;
@@ -44,33 +121,22 @@ function parsePathRoute(pathname: string): AppRoute | null {
 function parseHashRoute(): AppRoute {
   const hash = (window.location.hash || "").replace(/^#/, "");
   if (!hash) {
-    return parsePathRoute(window.location.pathname) ?? {
-      page: "business-services",
-      findingId: null,
-      companySlug: null,
-    };
+    return parsePathRoute(window.location.pathname) ?? getEmptyRoute("business-services");
   }
   const parts = hash.split("/").filter(Boolean);
 
   if (parts[0] === "findings") {
-    const id = Number(parts[1]);
+    const id = parts[1]?.trim() || null;
     return {
-      page: "findings",
-      findingId: Number.isInteger(id) && id > 0 ? id : null,
-      companySlug: null,
+      ...getEmptyRoute("findings"),
+      findingId: id,
+      findingOrigin: readHistoryFindingOrigin(),
     };
   }
   if (parts[0] === "integrations") {
-    return { page: "integrations", findingId: null, companySlug: null };
+    return getEmptyRoute("integrations");
   }
-  if (parts[0] === "business-services") {
-    return {
-      page: "business-services",
-      findingId: null,
-      companySlug: parts[1] ?? null,
-    };
-  }
-  return { page: "findings", findingId: null, companySlug: null };
+  return parsePathRoute(`/${hash}`) ?? getEmptyRoute("findings");
 }
 
 function writeHashRoute(route: AppRoute) {
@@ -78,34 +144,55 @@ function writeHashRoute(route: AppRoute) {
     window.location.protocol.startsWith("http") && route.page === "business-services";
   const nextUrl = (() => {
     if (useHttpPathRouting) {
-      return route.companySlug
-        ? `/business-services/${route.companySlug}`
-        : "/business-services";
+      const segments = ["business-services"];
+      if (route.businessUnitSlug) {
+        segments.push(route.businessUnitSlug);
+      }
+      if (route.businessServiceSlug) {
+        segments.push(route.businessServiceSlug);
+      }
+      if (route.applicationSlug) {
+        segments.push(route.applicationSlug);
+      }
+      if (route.assetId) {
+        segments.push("assets", route.assetId, "findings");
+      }
+      return `/${segments.join("/")}`;
     }
 
     if (route.page === "findings" && route.findingId) {
-      return `/#/findings/${route.findingId}`;
+      return `#/findings/${route.findingId}`;
     }
     if (route.page === "findings") {
-      return "/#/findings";
+      return "#/findings";
     }
     if (route.page === "integrations") {
-      return "/#/integrations";
+      return "#/integrations";
     }
-    if (route.page === "business-services" && route.companySlug) {
-      return `/#/business-services/${route.companySlug}`;
+    if (route.page === "business-services") {
+      const segments = ["business-services"];
+      if (route.businessUnitSlug) {
+        segments.push(route.businessUnitSlug);
+      }
+      if (route.businessServiceSlug) {
+        segments.push(route.businessServiceSlug);
+      }
+      if (route.applicationSlug) {
+        segments.push(route.applicationSlug);
+      }
+      if (route.assetId) {
+        segments.push("assets", route.assetId, "findings");
+      }
+      return `#/${segments.join("/")}`;
     }
-    return "/#/business-services";
+    return "#/findings";
   })();
 
-  const currentUrl = `${window.location.pathname}${window.location.hash}`;
+  const currentUrl = useHttpPathRouting
+    ? window.location.pathname
+    : window.location.hash || "";
   if (currentUrl !== nextUrl) {
-    if (window.location.protocol.startsWith("http")) {
-      window.history.pushState(route, "", nextUrl);
-    } else {
-      const hashIndex = nextUrl.indexOf("#");
-      window.location.hash = hashIndex >= 0 ? nextUrl.slice(hashIndex) : "";
-    }
+    window.history.pushState(route, "", nextUrl);
   }
 }
 
@@ -114,8 +201,8 @@ function App() {
   const [refreshToken, setRefreshToken] = useState(0);
 
   useEffect(() => {
-    if (!window.location.hash) {
-      writeHashRoute({ page: "business-services", findingId: null, companySlug: null });
+    if (!window.location.hash && !parsePathRoute(window.location.pathname)) {
+      writeHashRoute(getEmptyRoute("business-services"));
     }
     const onHashChange = () => setRoute(parseHashRoute());
     const onPopState = () => setRoute(parseHashRoute());
@@ -132,37 +219,149 @@ function App() {
     setRefreshToken((prev) => prev + 1);
   };
 
+  const updateRoute = (nextRoute: AppRoute) => {
+    writeHashRoute(nextRoute);
+    setRoute(nextRoute);
+  };
+
   const navigateTo = (page: BasePage) => {
-    const nextRoute = { page, findingId: null, companySlug: null } as AppRoute;
-    writeHashRoute(nextRoute);
-    setRoute(nextRoute);
+    updateRoute(getEmptyRoute(page));
   };
 
-  const openFinding = (finding: ScoredFinding) => {
+  const openFinding = (
+    finding: ScoredFinding,
+    origin: FindingRouteOrigin | null = { mode: "global" }
+  ) => {
     const nextRoute = {
-      page: "findings",
+      ...getEmptyRoute("findings"),
       findingId: finding.id,
-      companySlug: null,
+      findingOrigin: origin,
     } as AppRoute;
-    writeHashRoute(nextRoute);
-    setRoute(nextRoute);
+    updateRoute(nextRoute);
   };
 
-  const openBusinessService = (companyRecord: CompanyBusinessUnitRecord) => {
+  const openBusinessUnit = (businessUnit: BusinessUnitSummary) => {
     const nextRoute = {
-      page: "business-services",
-      findingId: null,
-      companySlug: companyRecord.slug,
+      ...getEmptyRoute("business-services"),
+      businessUnitSlug: businessUnit.slug,
     } as AppRoute;
-    writeHashRoute(nextRoute);
-    setRoute(nextRoute);
+    updateRoute(nextRoute);
   };
+
+  const openBusinessService = (businessService: BusinessServiceSummary) => {
+    const nextRoute = {
+      ...getEmptyRoute("business-services"),
+      businessUnitSlug: route.businessUnitSlug,
+      businessServiceSlug: businessService.slug,
+    } as AppRoute;
+    updateRoute(nextRoute);
+  };
+
+  const openApplication = (application: ApplicationSummary) => {
+    const nextRoute = {
+      ...getEmptyRoute("business-services"),
+      businessUnitSlug: route.businessUnitSlug,
+      businessServiceSlug: route.businessServiceSlug,
+      applicationSlug: application.slug,
+    } as AppRoute;
+    updateRoute(nextRoute);
+  };
+
+  const openAssetFindings = (asset: AssetSummary) => {
+    const nextRoute = {
+      ...getEmptyRoute("business-services"),
+      businessUnitSlug: route.businessUnitSlug,
+      businessServiceSlug: route.businessServiceSlug,
+      applicationSlug: route.applicationSlug,
+      assetId: asset.asset_id,
+    } as AppRoute;
+    updateRoute(nextRoute);
+  };
+
+  const findingBackLabel =
+    route.findingOrigin?.mode === "asset" ? "Back to Asset Findings" : "Back to Findings";
+  const findingBreadcrumbs =
+    route.findingOrigin?.mode === "asset"
+      ? [
+          { label: "Business Units", onClick: () => navigateTo("business-services") },
+          {
+            label: route.findingOrigin.businessUnitLabel
+              ?? formatSlugLabel(route.findingOrigin.businessUnitSlug ?? null, "Business Unit"),
+            onClick: () =>
+              updateRoute({
+                ...getEmptyRoute("business-services"),
+                businessUnitSlug: route.findingOrigin?.businessUnitSlug ?? null,
+              }),
+          },
+          {
+            label: route.findingOrigin.businessServiceLabel
+              ?? formatSlugLabel(
+                route.findingOrigin.businessServiceSlug ?? null,
+                "Business Service"
+              ),
+            onClick: () =>
+              updateRoute({
+                ...getEmptyRoute("business-services"),
+                businessUnitSlug: route.findingOrigin?.businessUnitSlug ?? null,
+                businessServiceSlug: route.findingOrigin?.businessServiceSlug ?? null,
+              }),
+          },
+          ...(route.findingOrigin.applicationSlug
+            ? [
+                {
+                  label: route.findingOrigin.applicationLabel
+                    ?? formatSlugLabel(route.findingOrigin.applicationSlug, "Application"),
+                  onClick: () =>
+                    updateRoute({
+                      ...getEmptyRoute("business-services"),
+                      businessUnitSlug: route.findingOrigin?.businessUnitSlug ?? null,
+                      businessServiceSlug: route.findingOrigin?.businessServiceSlug ?? null,
+                      applicationSlug: route.findingOrigin?.applicationSlug ?? null,
+                    }),
+                },
+              ]
+            : []),
+          {
+            label:
+              route.findingOrigin.assetLabel
+              ?? route.findingOrigin.assetId
+              ?? "Asset Findings",
+            onClick: () =>
+              updateRoute({
+                ...getEmptyRoute("business-services"),
+                businessUnitSlug: route.findingOrigin?.businessUnitSlug ?? null,
+                businessServiceSlug: route.findingOrigin?.businessServiceSlug ?? null,
+                applicationSlug: route.findingOrigin?.applicationSlug ?? null,
+                assetId: route.findingOrigin?.assetId ?? null,
+              }),
+          },
+          { label: "Finding" },
+        ]
+      : [
+          { label: "Findings", onClick: () => navigateTo("findings") },
+          { label: "Finding" },
+        ];
 
   const page = route.page;
   const inFindingDetail = page === "findings" && route.findingId !== null;
+  const inAssetFindings =
+    page === "business-services" && route.assetId !== null && route.businessUnitSlug !== null;
+  const inApplicationDetail =
+    page === "business-services" &&
+    route.businessUnitSlug !== null &&
+    route.businessServiceSlug !== null &&
+    route.applicationSlug !== null &&
+    route.assetId === null;
   const inBusinessServiceDetail =
-    page === "business-services" && route.companySlug !== null;
-  const selectedBusinessService = getCompanyBusinessUnitBySlug(route.companySlug);
+    page === "business-services" &&
+    route.businessUnitSlug !== null &&
+    route.businessServiceSlug !== null &&
+    route.applicationSlug === null &&
+    route.assetId === null;
+  const inBusinessUnitDetail =
+    page === "business-services" &&
+    route.businessUnitSlug !== null &&
+    route.businessServiceSlug === null;
 
   const pageMeta = {
     findings: {
@@ -176,12 +375,24 @@ function App() {
       description: "Review imported sources and the number of findings stored for each.",
     },
     "business-services": {
-      title: inBusinessServiceDetail
-        ? selectedBusinessService?.company ?? "Company Overview"
-        : "Company Overview",
-      description: inBusinessServiceDetail
-        ? "Company and business-unit specific view of the underlying business services."
-        : "",
+      title: inAssetFindings
+        ? "Asset Findings"
+        : inApplicationDetail
+          ? "Application Detail"
+          : inBusinessServiceDetail
+            ? "Business Service Detail"
+            : inBusinessUnitDetail
+              ? "Business Unit Detail"
+              : "Business Unit Overview",
+      description: inAssetFindings
+        ? "Read-only drill-down for all findings attached to the selected asset."
+        : inApplicationDetail
+          ? "Assets directly attached to the selected application."
+          : inBusinessServiceDetail
+            ? "Applications and direct assets under the selected business service."
+            : inBusinessUnitDetail
+              ? "Business services and current counts for the selected business unit."
+              : "Live topology landing page using business units as the top-level entry point.",
     },
   } as const;
 
@@ -243,7 +454,22 @@ function App() {
                 <FindingDetailPage
                   findingId={route.findingId}
                   refreshToken={refreshToken}
-                  onBack={() => navigateTo("findings")}
+                  origin={route.findingOrigin}
+                  breadcrumbs={findingBreadcrumbs}
+                  backLabel={findingBackLabel}
+                  onBack={() => {
+                    if (route.findingOrigin?.mode === "asset") {
+                      updateRoute({
+                        ...getEmptyRoute("business-services"),
+                        businessUnitSlug: route.findingOrigin.businessUnitSlug ?? null,
+                        businessServiceSlug: route.findingOrigin.businessServiceSlug ?? null,
+                        applicationSlug: route.findingOrigin.applicationSlug ?? null,
+                        assetId: route.findingOrigin.assetId ?? null,
+                      });
+                      return;
+                    }
+                    navigateTo("findings");
+                  }}
                   onDataChanged={handleDataChanged}
                 />
               ) : (
@@ -262,14 +488,113 @@ function App() {
                 </>
               )
             ) : page === "business-services" ? (
-              inBusinessServiceDetail ? (
+              inAssetFindings ? (
+                <AssetFindingsPage
+                  businessUnitSlug={route.businessUnitSlug}
+                  businessServiceSlug={route.businessServiceSlug}
+                  applicationSlug={route.applicationSlug}
+                  assetId={route.assetId}
+                  refreshToken={refreshToken}
+                  onBack={() => {
+                    updateRoute({
+                      ...getEmptyRoute("business-services"),
+                      businessUnitSlug: route.businessUnitSlug,
+                      businessServiceSlug: route.businessServiceSlug,
+                      applicationSlug: route.applicationSlug,
+                      assetId: null,
+                    });
+                  }}
+                  onOpenOverview={() => navigateTo("business-services")}
+                  onOpenBusinessUnit={() => {
+                    updateRoute({
+                      ...getEmptyRoute("business-services"),
+                      businessUnitSlug: route.businessUnitSlug,
+                    });
+                  }}
+                  onOpenBusinessService={() => {
+                    updateRoute({
+                      ...getEmptyRoute("business-services"),
+                      businessUnitSlug: route.businessUnitSlug,
+                      businessServiceSlug: route.businessServiceSlug,
+                    });
+                  }}
+                  onOpenApplication={
+                    route.applicationSlug
+                      ? () => {
+                          updateRoute({
+                            ...getEmptyRoute("business-services"),
+                            businessUnitSlug: route.businessUnitSlug,
+                            businessServiceSlug: route.businessServiceSlug,
+                            applicationSlug: route.applicationSlug,
+                          });
+                        }
+                      : undefined
+                  }
+                  onOpenFinding={openFinding}
+                />
+              ) : inApplicationDetail ? (
+                <ApplicationDetailPage
+                  businessUnitSlug={route.businessUnitSlug}
+                  businessServiceSlug={route.businessServiceSlug}
+                  applicationSlug={route.applicationSlug}
+                  refreshToken={refreshToken}
+                  onBack={() => {
+                    updateRoute({
+                      ...getEmptyRoute("business-services"),
+                      businessUnitSlug: route.businessUnitSlug,
+                      businessServiceSlug: route.businessServiceSlug,
+                      applicationSlug: null,
+                    });
+                  }}
+                  onOpenOverview={() => navigateTo("business-services")}
+                  onOpenBusinessUnit={() => {
+                    updateRoute({
+                      ...getEmptyRoute("business-services"),
+                      businessUnitSlug: route.businessUnitSlug,
+                    });
+                  }}
+                  onOpenBusinessService={() => {
+                    updateRoute({
+                      ...getEmptyRoute("business-services"),
+                      businessUnitSlug: route.businessUnitSlug,
+                      businessServiceSlug: route.businessServiceSlug,
+                    });
+                  }}
+                  onOpenAssetFindings={openAssetFindings}
+                />
+              ) : inBusinessServiceDetail ? (
                 <BusinessServiceDetailPage
-                  service={selectedBusinessService}
+                  businessUnitSlug={route.businessUnitSlug}
+                  businessServiceSlug={route.businessServiceSlug}
+                  refreshToken={refreshToken}
+                  onBack={() => {
+                    updateRoute({
+                      ...getEmptyRoute("business-services"),
+                      businessUnitSlug: route.businessUnitSlug,
+                    });
+                  }}
+                  onOpenOverview={() => navigateTo("business-services")}
+                  onOpenBusinessUnit={() => {
+                    updateRoute({
+                      ...getEmptyRoute("business-services"),
+                      businessUnitSlug: route.businessUnitSlug,
+                    });
+                  }}
+                  onOpenApplication={openApplication}
+                  onOpenAssetFindings={openAssetFindings}
+                />
+              ) : inBusinessUnitDetail ? (
+                <BusinessUnitDetailPage
+                  businessUnitSlug={route.businessUnitSlug}
+                  refreshToken={refreshToken}
                   onBack={() => navigateTo("business-services")}
+                  onOpenOverview={() => navigateTo("business-services")}
+                  onOpenBusinessService={openBusinessService}
                 />
               ) : (
                 <BusinessServicesOverview
-                  onOpenCompanyBusinessUnit={openBusinessService}
+                  refreshToken={refreshToken}
+                  onOpenBusinessUnit={openBusinessUnit}
                 />
               )
             ) : (
