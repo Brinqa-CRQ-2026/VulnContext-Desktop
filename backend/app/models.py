@@ -130,41 +130,18 @@ class Asset(Base):
     __tablename__ = "assets"
 
     asset_id = Column(String, primary_key=True, index=True)
-    uid = Column(String, nullable=True, index=True)
     hostname = Column(String, nullable=True, index=True)
-    dnsname = Column(String, nullable=True, index=True)
-    uuid = Column(String, nullable=True, index=True)
-    tracking_method = Column(String, nullable=True)
     application = Column(String, nullable=True)
     business_service = Column(String, nullable=True, index=True)
-    owner = Column(String, nullable=True)
-    service_team = Column(String, nullable=True)
-    division = Column(String, nullable=True)
-    it_sme = Column(String, nullable=True)
-    it_director = Column(String, nullable=True)
-    location = Column(String, nullable=True)
     internal_or_external = Column(String, nullable=True, index=True)
-    device_type = Column(String, nullable=True)
     category = Column(String, nullable=True)
-    virtual_or_physical = Column(String, nullable=True)
     status = Column(String, nullable=True, index=True)
     compliance_status = Column(String, nullable=True, index=True)
-    compliance_flags = Column(Text, nullable=True)
     pci = Column(Boolean, nullable=True)
     pii = Column(Boolean, nullable=True)
     asset_criticality = Column(Integer, nullable=True, index=True)
-    public_ip_addresses = Column(Text, nullable=True)
-    private_ip_addresses = Column(Text, nullable=True)
-    last_authenticated_scan = Column(DateTime, nullable=True)
-    last_scanned = Column(DateTime, nullable=True)
     qualys_vm_host_id = Column(String, nullable=True, index=True)
-    qualys_vm_host_uid = Column(String, nullable=True)
-    qualys_vm_host_link = Column(String, nullable=True)
-    qualys_vm_host_integration = Column(String, nullable=True)
     servicenow_host_id = Column(String, nullable=True, index=True)
-    servicenow_host_uid = Column(String, nullable=True)
-    servicenow_host_link = Column(String, nullable=True)
-    servicenow_host_integration = Column(String, nullable=True)
     company_id = Column(String, ForeignKey("companies.id", ondelete="SET NULL"), nullable=True, index=True)
     business_unit_id = Column(
         String,
@@ -184,6 +161,14 @@ class Asset(Base):
         nullable=True,
         index=True,
     )
+    exposure_score = Column(Float, nullable=True)
+    business_criticality_score = Column(Float, nullable=True)
+    data_sensitivity_score = Column(Float, nullable=True)
+    asset_type_weight = Column(Float, nullable=True)
+    is_public_facing = Column(Boolean, nullable=True)
+    has_sensitive_data = Column(Boolean, nullable=True)
+    crown_jewel_flag = Column(Boolean, nullable=True)
+    internet_exposed_flag = Column(Boolean, nullable=True)
 
     findings = relationship("Finding", back_populates="asset")
     company = relationship("Company", back_populates="assets")
@@ -197,13 +182,11 @@ class Finding(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     asset_id = Column(String, ForeignKey("assets.asset_id"), nullable=False, index=True)
-    asset_name = Column(String, nullable=True)
     finding_id = Column(String, nullable=False, index=True)
     finding_uid = Column(String, nullable=True, index=True)
     finding_name = Column(String, nullable=True)
     status = Column(String, nullable=True, index=True)
     cve_id = Column(String, nullable=True, index=True)
-    cwe_id = Column(String, nullable=True)
     brinqa_base_risk_score = Column(Float, nullable=True)
     brinqa_risk_score = Column(Float, nullable=True, index=True)
     first_found = Column(DateTime, nullable=True)
@@ -211,5 +194,49 @@ class Finding(Base):
     age_in_days = Column(Float, nullable=True, index=True)
     date_created = Column(DateTime, nullable=True)
     last_updated = Column(DateTime, nullable=True)
+    crq_score = Column(Float, nullable=True, index=True)
+    crq_risk_band = Column(String, nullable=True, index=True)
+    crq_scored_at = Column(DateTime(timezone=True), nullable=True)
+    crq_score_version = Column(String, nullable=True)
+    crq_cvss_score = Column(Float, nullable=True)
+    crq_epss_score = Column(Float, nullable=True)
+    crq_epss_percentile = Column(Float, nullable=True)
+    crq_epss_multiplier = Column(Float, nullable=True)
+    crq_is_kev = Column(Boolean, nullable=True)
+    crq_kev_bonus = Column(Float, nullable=True)
+    crq_age_days = Column(Float, nullable=True)
+    crq_age_bonus = Column(Float, nullable=True)
+    crq_notes = Column(Text, nullable=True)
 
     asset = relationship("Asset", back_populates="findings")
+
+
+class EPSSScore(Base):
+    __tablename__ = "epss_scores"
+
+    cve = Column(String, primary_key=True)
+    epss = Column(Float, nullable=True)
+    percentile = Column(Float, nullable=True)
+    date = Column(String, nullable=True)
+    is_kev = Column(Boolean, nullable=True)
+    date_fetched = Column(DateTime(timezone=True), nullable=True)
+
+
+class KevRecord(Base):
+    __tablename__ = "kev"
+
+    cve = Column(String, primary_key=True)
+    date_added = Column(String, nullable=True)
+    due_date = Column(String, nullable=True)
+    vendor_project = Column(String, nullable=True)
+    product = Column(String, nullable=True)
+    vulnerability_name = Column(String, nullable=True)
+    short_description = Column(Text, nullable=True)
+
+
+class NvdRecord(Base):
+    __tablename__ = "nvd"
+
+    cve = Column(String, primary_key=True)
+    cvss_score = Column(Float, nullable=True)
+    cvss_severity = Column(String, nullable=True)

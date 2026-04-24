@@ -14,13 +14,11 @@ OUTPUT_CSV = DATA_DIR / "findings_for_supabase.csv"
 
 FINAL_COLUMNS = [
     "asset_id",
-    "asset_name",
     "finding_id",
     "finding_uid",
     "finding_name",
     "status",
     "cve_id",
-    "cwe_id",
     "brinqa_base_risk_score",
     "brinqa_risk_score",
     "first_found",
@@ -113,9 +111,6 @@ def _fetch_findings_for_asset(
     except requests.RequestException as exc:
         print(f"Skipping asset_id={asset_id}: finding pull failed: {exc}")
         return idx, []
-
-    for finding in findings:
-        finding["asset_name"] = asset_name
 
     return idx, findings
 
