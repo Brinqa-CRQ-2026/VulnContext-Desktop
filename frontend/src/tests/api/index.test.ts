@@ -12,5 +12,7 @@ describe("api/index", () => {
   it("re-exports shared types through the module boundary", () => {
     expect(api).toHaveProperty("getFindingById");
     expect(api).toHaveProperty("getAssetFindingsPage");
+    expect(api).toHaveProperty("getAssetDetail");
+    expect(api).toHaveProperty("getAssetEnrichment");
   });
 });

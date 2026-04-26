@@ -1,22 +1,23 @@
 import { app, BrowserWindow, session } from "electron";
 import path from "path";
+import {
+  buildDashboardLogoutScript,
+  buildDashboardStorageScript,
+  buildStorageSnapshotScript,
+  describeToken,
+  parseStoredAuthState,
+} from "./src/auth/brinqaAuth";
+import type { StoredAuthState } from "./src/auth/brinqaAuth";
 
 const isDev = process.env.NODE_ENV === "development";
 const loginUrl = "https://ucsc.brinqa.net/auth/login";
 const mfaUrlPrefix = "https://ucsc.brinqa.net/api/auth/mfa";
 const mfaUrlPattern = "https://ucsc.brinqa.net/api/auth/mfa*";
-const mfaResponseStorageKey = "brinqaMfaResponse";
-const brinqaTokenStorageKey = "brinqaAuthToken";
 
 let mainWindow: BrowserWindow | null = null;
 let loginWindow: BrowserWindow | null = null;
 let hasCompletedMfa = false;
 let hasRegisteredMfaCompletionListener = false;
-
-type StoredAuthState = {
-  mfaResponse: string | null;
-  authToken: string | null;
-};
 
 function decodeResponseBody(body: string, base64Encoded: boolean) {
   if (!base64Encoded) {
@@ -24,70 +25,6 @@ function decodeResponseBody(body: string, base64Encoded: boolean) {
   }
 
   return Buffer.from(body, "base64").toString("utf8");
-}
-
-function tryParseJson(body: string) {
-  try {
-    return JSON.parse(body) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-}
-
-function extractTokenValue(payload: Record<string, unknown> | null) {
-  if (!payload) {
-    return null;
-  }
-
-  const candidateKeys = ["token", "access_token", "accessToken", "id_token", "idToken"];
-
-  for (const key of candidateKeys) {
-    const value = payload[key];
-    if (typeof value === "string" && value.length > 0) {
-      return value;
-    }
-  }
-
-  return null;
-}
-
-function buildStorageSnapshotScript() {
-  return `
-    JSON.stringify({
-      mfaResponse: window.localStorage.getItem(${JSON.stringify(mfaResponseStorageKey)}),
-      authToken: window.localStorage.getItem(${JSON.stringify(brinqaTokenStorageKey)})
-    });
-  `;
-}
-
-function parseStoredAuthState(rawValue: unknown): StoredAuthState {
-  if (typeof rawValue !== "string") {
-    return { mfaResponse: null, authToken: null };
-  }
-
-  try {
-    const parsed = JSON.parse(rawValue) as Partial<StoredAuthState>;
-    return {
-      mfaResponse: typeof parsed.mfaResponse === "string" ? parsed.mfaResponse : null,
-      authToken: typeof parsed.authToken === "string" ? parsed.authToken : null,
-    };
-  } catch {
-    return { mfaResponse: null, authToken: null };
-  }
-}
-
-function buildDashboardStorageScript(mfaResponseBody: string) {
-  const parsedPayload = tryParseJson(mfaResponseBody);
-  const extractedToken = extractTokenValue(parsedPayload);
-
-  return `
-    window.localStorage.setItem(${JSON.stringify(mfaResponseStorageKey)}, ${JSON.stringify(mfaResponseBody)});
-    ${
-      extractedToken
-        ? `window.localStorage.setItem(${JSON.stringify(brinqaTokenStorageKey)}, ${JSON.stringify(extractedToken)});`
-        : ""
-    }
-  `;
 }
 
 async function persistMfaDataToDashboard(mfaResponseBody: string) {
@@ -99,6 +36,16 @@ async function persistMfaDataToDashboard(mfaResponseBody: string) {
 
   const snapshot = await mainWindow.webContents.executeJavaScript(buildStorageSnapshotScript());
   console.log(`[Brinqa MFA] Dashboard localStorage updated: ${String(snapshot)}`);
+}
+
+async function clearStoredAuthState(window: BrowserWindow) {
+  if (window.isDestroyed()) {
+    return;
+  }
+
+  await window.webContents.executeJavaScript(buildDashboardLogoutScript());
+  const snapshot = await window.webContents.executeJavaScript(buildStorageSnapshotScript());
+  console.log(`[Brinqa Startup] Cleared stored auth state: ${String(snapshot)}`);
 }
 
 function loadDashboardUrl(window: BrowserWindow, openDevTools = false) {
@@ -114,7 +61,7 @@ function loadDashboardUrl(window: BrowserWindow, openDevTools = false) {
   window.loadFile(indexPath);
 }
 
-async function readStoredAuthState(): Promise<StoredAuthState> {
+async function readValidatedAuthState(): Promise<StoredAuthState> {
   const bootstrapWindow = new BrowserWindow({
     show: false,
     webPreferences: {
@@ -130,9 +77,27 @@ async function readStoredAuthState(): Promise<StoredAuthState> {
       bootstrapWindow.webContents.once("did-finish-load", () => resolve());
     });
 
-    const snapshot = await bootstrapWindow.webContents.executeJavaScript(buildStorageSnapshotScript());
-    const authState = parseStoredAuthState(snapshot);
-    console.log(`[Brinqa Startup] Stored auth state: ${JSON.stringify(authState)}`);
+    const authState = parseStoredAuthState(
+      await bootstrapWindow.webContents.executeJavaScript(buildStorageSnapshotScript())
+    );
+    const tokenInfo = describeToken(authState.authToken);
+
+    console.log(
+      `[Brinqa Startup] Token inspection: ${JSON.stringify({
+        format: tokenInfo.format,
+        expiresAt:
+          typeof tokenInfo.expiresAt === "number"
+            ? new Date(tokenInfo.expiresAt).toISOString()
+            : null,
+        expired: tokenInfo.expired,
+      })}`
+    );
+
+    if (tokenInfo.expired) {
+      await clearStoredAuthState(bootstrapWindow);
+      return { mfaResponse: null, authToken: null };
+    }
+
     return authState;
   } finally {
     if (!bootstrapWindow.isDestroyed()) {
@@ -328,7 +293,7 @@ app.whenReady().then(() => {
   registerMfaCompletionListener();
 
   void (async () => {
-    const storedAuthState = await readStoredAuthState();
+    const storedAuthState = await readValidatedAuthState();
 
     if (storedAuthState.authToken) {
       hasCompletedMfa = true;
@@ -347,7 +312,7 @@ app.whenReady().then(() => {
     }
 
     void (async () => {
-      const storedAuthState = await readStoredAuthState();
+      const storedAuthState = await readValidatedAuthState();
       if (storedAuthState.authToken) {
         hasCompletedMfa = true;
         createWindow(storedAuthState.mfaResponse ?? "");

@@ -1,7 +1,9 @@
-import { buildApiUrl, parseJsonOrThrow } from "./client";
+import { buildApiUrl, buildBrinqaEnrichmentRequestInit, parseJsonOrThrow } from "./client";
 import type {
   AssetListSortBy,
   ApplicationDetail,
+  AssetDetail,
+  AssetEnrichment,
   AssetFindingsPage,
   BusinessServiceDetail,
   BusinessUnitDetail,
@@ -57,6 +59,25 @@ export async function getApplicationDetail(
   return parseJsonOrThrow(
     res,
     `Failed to fetch application detail: ${res.status} ${res.statusText}`
+  );
+}
+
+export async function getAssetDetail(assetId: string): Promise<AssetDetail> {
+  const res = await fetch(buildApiUrl(`/assets/${assetId}`));
+  return parseJsonOrThrow(
+    res,
+    `Failed to fetch asset detail: ${res.status} ${res.statusText}`
+  );
+}
+
+export async function getAssetEnrichment(assetId: string): Promise<AssetEnrichment> {
+  const res = await fetch(
+    buildApiUrl(`/assets/${assetId}/enrichment`),
+    buildBrinqaEnrichmentRequestInit()
+  );
+  return parseJsonOrThrow(
+    res,
+    `Failed to fetch asset enrichment: ${res.status} ${res.statusText}`
   );
 }
 

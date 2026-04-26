@@ -2,16 +2,50 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { AssetFindingsPage } from "../../../components/business-services/AssetFindingsPage";
+import { useAssetDetail } from "../../../hooks/topology/useAssetDetail";
+import { useAssetEnrichment } from "../../../hooks/topology/useAssetEnrichment";
 import { useAssetFindings } from "../../../hooks/topology/useAssetFindings";
 
 vi.mock("../../../hooks/topology/useAssetFindings", () => ({
   useAssetFindings: vi.fn(),
 }));
+vi.mock("../../../hooks/topology/useAssetDetail", () => ({
+  useAssetDetail: vi.fn(),
+}));
+vi.mock("../../../hooks/topology/useAssetEnrichment", () => ({
+  useAssetEnrichment: vi.fn(),
+}));
 
 const mockedUseAssetFindings = vi.mocked(useAssetFindings);
+const mockedUseAssetDetail = vi.mocked(useAssetDetail);
+const mockedUseAssetEnrichment = vi.mocked(useAssetEnrichment);
+
+function seedAssetProbeHooks() {
+  mockedUseAssetDetail.mockReturnValue({
+    assetDetail: {
+      asset_id: "asset-10",
+      hostname: "identity-verify-01",
+      business_unit: "Online Store",
+      business_service: "Digital Storefront",
+      application: "Identity Verify",
+      finding_count: 2,
+      detail_source: null,
+      detail_fetched_at: null,
+    },
+    loading: false,
+    error: null,
+  });
+  mockedUseAssetEnrichment.mockReturnValue({
+    enrichment: null,
+    loading: false,
+    error: null,
+    run: vi.fn(),
+  });
+}
 
 describe("AssetFindingsPage", () => {
   it("renders asset findings in a table and opens a finding", () => {
+    seedAssetProbeHooks();
     mockedUseAssetFindings.mockReturnValue({
       assetFindings: {
         asset: {
@@ -98,6 +132,7 @@ describe("AssetFindingsPage", () => {
   });
 
   it("shows the findings table rows in the server-provided order", () => {
+    seedAssetProbeHooks();
     mockedUseAssetFindings.mockReturnValue({
       assetFindings: {
         asset: {

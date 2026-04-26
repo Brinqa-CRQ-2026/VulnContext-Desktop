@@ -1,8 +1,13 @@
 import { ArrowDown, ArrowUp, ChevronDown, ShieldAlert } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
+import { describeToken, readStoredAuthStateFromLocalStorage } from "../../auth/brinqaAuth";
 import { useAssetFindings } from "../../hooks/topology/useAssetFindings";
+import { useAssetDetail } from "../../hooks/topology/useAssetDetail";
+import { useAssetEnrichment } from "../../hooks/topology/useAssetEnrichment";
 import type {
+  AssetDetail,
+  AssetEnrichment,
   FindingRouteOrigin,
   FindingsSortBy,
   RiskBandFilter,
@@ -83,6 +88,7 @@ export function AssetFindingsPage({
   const [sourceFilter, setSourceFilter] = useState("All");
   const [searchDraft, setSearchDraft] = useState("");
   const [search, setSearch] = useState<string | null>(null);
+  const [storedAuthState, setStoredAuthState] = useState(() => readStoredAuthStateFromLocalStorage());
   const { assetFindings, loading, error, page, setPage, pageSize } = useAssetFindings(assetId, {
     pageSize: 10,
     bandFilter,
@@ -93,6 +99,17 @@ export function AssetFindingsPage({
     search,
     refreshToken,
   });
+  const {
+    assetDetail,
+    loading: assetDetailLoading,
+    error: assetDetailError,
+  } = useAssetDetail(assetId, refreshToken);
+  const {
+    enrichment,
+    loading: enrichmentLoading,
+    error: enrichmentError,
+    run: runEnrichment,
+  } = useAssetEnrichment(assetId, refreshToken);
 
   const findings = assetFindings?.items ?? [];
   const sources = Array.from(new Set(findings.map((finding) => finding.source).filter(Boolean))) as string[];
@@ -102,6 +119,9 @@ export function AssetFindingsPage({
       setSourceFilter("All");
     }
   }, [sourceFilter, sources]);
+  useEffect(() => {
+    setStoredAuthState(readStoredAuthStateFromLocalStorage());
+  }, [refreshToken]);
   const total = assetFindings?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const visibleFindings = findings;
@@ -199,6 +219,7 @@ export function AssetFindingsPage({
     if (value === null || value === undefined || Number.isNaN(value)) return "—";
     return value.toFixed(digits);
   };
+  const tokenDetails = describeToken(storedAuthState.authToken);
 
   return (
     <Card>
@@ -245,6 +266,18 @@ export function AssetFindingsPage({
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
+        <AssetProbeSection
+          assetId={assetId}
+          assetDetail={assetDetail}
+          assetDetailLoading={assetDetailLoading}
+          assetDetailError={assetDetailError}
+          enrichment={enrichment}
+          enrichmentLoading={enrichmentLoading}
+          enrichmentError={enrichmentError}
+          onRunEnrichment={() => void runEnrichment()}
+          tokenState={tokenDetails}
+        />
+
         <dl className="grid gap-4 md:grid-cols-2">
           <DetailStat label="Findings" value={assetFindings.total} />
           <DetailStat
@@ -547,6 +580,150 @@ export function AssetFindingsPage({
       </CardContent>
     </Card>
   );
+}
+
+function AssetProbeSection({
+  assetId,
+  assetDetail,
+  assetDetailLoading,
+  assetDetailError,
+  enrichment,
+  enrichmentLoading,
+  enrichmentError,
+  onRunEnrichment,
+  tokenState,
+}: {
+  assetId: string | null;
+  assetDetail: AssetDetail | null;
+  assetDetailLoading: boolean;
+  assetDetailError: string | null;
+  enrichment: AssetEnrichment | null;
+  enrichmentLoading: boolean;
+  enrichmentError: string | null;
+  onRunEnrichment: () => void;
+  tokenState: ReturnType<typeof describeToken>;
+}) {
+  return (
+    <div className="grid gap-4 lg:grid-cols-2">
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm">Local Asset Detail</CardTitle>
+          <p className="text-xs text-slate-500">DB-backed request to `/assets/{'{asset_id}'}`.</p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {assetDetailLoading ? (
+            <p className="text-sm text-slate-500">Loading local asset detail…</p>
+          ) : assetDetailError ? (
+            <p className="text-sm text-rose-600">{assetDetailError}</p>
+          ) : assetDetail ? (
+            <DetailGrid
+              items={[
+                ["Asset ID", assetDetail.asset_id],
+                ["Hostname", assetDetail.hostname],
+                ["Business Unit", assetDetail.business_unit],
+                ["Business Service", assetDetail.business_service],
+                ["Application", assetDetail.application],
+                ["Status", assetDetail.status],
+                ["Environment", assetDetail.environment],
+                ["Detail Source", assetDetail.detail_source],
+                ["Detail Fetched", assetDetail.detail_fetched_at],
+              ]}
+            />
+          ) : (
+            <p className="text-sm text-slate-500">No local detail available.</p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm">Brinqa Enrichment Probe</CardTitle>
+          <p className="text-xs text-slate-500">
+            Separate request to `/assets/{'{asset_id}'}/enrichment` using the stored Brinqa token.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <DetailGrid
+            items={[
+              ["Selected Asset", assetId],
+              ["Token Format", tokenState.format],
+              [
+                "Token Expires",
+                typeof tokenState.expiresAt === "number"
+                  ? new Date(tokenState.expiresAt).toLocaleString()
+                  : "—",
+              ],
+              ["Token Expired", tokenState.expired ? "Yes" : "No"],
+            ]}
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onRunEnrichment}
+              disabled={enrichmentLoading || tokenState.format === "missing"}
+            >
+              {enrichmentLoading ? "Running enrichment…" : "Run Brinqa enrichment"}
+            </Button>
+            {tokenState.format === "missing" ? (
+              <span className="text-xs text-amber-700">Log in through the Brinqa shell first.</span>
+            ) : null}
+          </div>
+          {enrichmentError ? <p className="text-sm text-rose-600">{enrichmentError}</p> : null}
+          {enrichment ? (
+            <DetailGrid
+              items={[
+                ["Status", enrichment.status],
+                ["Reason", enrichment.reason],
+                ["Source", enrichment.detail_source],
+                ["Fetched", enrichment.detail_fetched_at],
+                ["Owner", enrichment.owner],
+                ["Service Team", enrichment.service_team],
+                ["Location", enrichment.location],
+                ["Division", enrichment.division],
+                ["IT SME", enrichment.it_sme],
+                ["IT Director", enrichment.it_director],
+                ["Device Type", enrichment.device_type],
+                ["Category", enrichment.category],
+                ["Internal/External", enrichment.internal_or_external],
+                ["Virtual/Physical", enrichment.virtual_or_physical],
+                ["Compliance Flags", enrichment.compliance_flags],
+                ["DNS Name", enrichment.dnsname],
+                ["MAC Addresses", enrichment.mac_addresses],
+                ["Tracking Method", enrichment.tracking_method],
+                ["Last Scanned", enrichment.last_scanned],
+                ["Last Authenticated Scan", enrichment.last_authenticated_scan],
+              ]}
+            />
+          ) : (
+            <p className="text-sm text-slate-500">
+              Run the enrichment request to inspect Brinqa-returned fields separately from the DB response.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function DetailGrid({ items }: { items: Array<[string, string | number | null | undefined]> }) {
+  return (
+    <dl className="grid gap-3 sm:grid-cols-2">
+      {items.map(([label, value]) => (
+        <div key={label} className="rounded-lg border border-slate-200 bg-slate-50/70 p-3">
+          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</dt>
+          <dd className="mt-2 break-words text-sm text-slate-900">{formatProbeValue(value)}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function formatProbeValue(value: string | number | null | undefined) {
+  if (value === null || value === undefined || value === "") {
+    return "—";
+  }
+  return String(value);
 }
 
 function DetailStat({ label, value }: { label: string; value: number }) {

@@ -12,6 +12,7 @@ async function loadTopologyApi() {
 describe("api/topology", () => {
   beforeEach(() => {
     vi.stubEnv("VITE_API_BASE_URL", "https://api.example.com");
+    window.localStorage.clear();
     getFetchMock().mockResolvedValue(new Response(JSON.stringify({ ok: true })));
   });
 
@@ -42,10 +43,19 @@ describe("api/topology", () => {
     );
   });
 
-  it("calls GET application detail and asset findings endpoints", async () => {
-    const { getApplicationDetail, getAssetFindings, getAssetFindingsPage, getAssetsPage } =
-      await loadTopologyApi();
+  it("calls GET application detail, asset detail, enrichment, and asset findings endpoints", async () => {
+    window.localStorage.setItem("brinqaAuthToken", "token-123");
+    const {
+      getApplicationDetail,
+      getAssetDetail,
+      getAssetEnrichment,
+      getAssetFindings,
+      getAssetFindingsPage,
+      getAssetsPage,
+    } = await loadTopologyApi();
     getFetchMock()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true })))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true })))
       .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true })))
       .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true })))
       .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true })))
@@ -56,6 +66,8 @@ describe("api/topology", () => {
       "digital-storefront",
       "identity-verify"
     );
+    await getAssetDetail("asset-10");
+    await getAssetEnrichment("asset-10");
     await getAssetFindings("asset-10");
     await getAssetFindingsPage("asset-10", {
       page: 2,
@@ -82,15 +94,33 @@ describe("api/topology", () => {
     );
     expect(getFetchMock()).toHaveBeenNthCalledWith(
       2,
-      "https://api.example.com/assets/asset-10/findings"
+      "https://api.example.com/assets/asset-10"
     );
     expect(getFetchMock()).toHaveBeenNthCalledWith(
       3,
-      "https://api.example.com/assets/asset-10/findings?page=2&page_size=10&sort_by=age_in_days&sort_order=asc&risk_band=High&kev_only=true"
+      "https://api.example.com/assets/asset-10/enrichment",
+      { headers: { "X-Brinqa-Auth-Token": "token-123" } }
     );
     expect(getFetchMock()).toHaveBeenNthCalledWith(
       4,
+      "https://api.example.com/assets/asset-10/findings"
+    );
+    expect(getFetchMock()).toHaveBeenNthCalledWith(
+      5,
+      "https://api.example.com/assets/asset-10/findings?page=2&page_size=10&sort_by=age_in_days&sort_order=asc&risk_band=High&kev_only=true"
+    );
+    expect(getFetchMock()).toHaveBeenNthCalledWith(
+      6,
       "https://api.example.com/assets?page=1&page_size=10&sort_by=finding_count&sort_order=desc&business_unit=Online+Store&business_service=Digital+Media&search=asset-20&direct_only=true"
     );
+  });
+
+  it("does not attach Brinqa auth headers to the DB-only asset detail route", async () => {
+    window.localStorage.setItem("brinqaAuthToken", "token-123");
+    const { getAssetDetail } = await loadTopologyApi();
+
+    await getAssetDetail("asset-10");
+
+    expect(getFetchMock()).toHaveBeenCalledWith("https://api.example.com/assets/asset-10");
   });
 });

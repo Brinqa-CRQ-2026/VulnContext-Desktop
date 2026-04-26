@@ -207,6 +207,34 @@ class AssetDetail(AssetSummary):
     detail_fetched_at: datetime | None = None
 
 
+class AssetEnrichment(BaseModel):
+    asset_id: str
+    status: str
+    reason: str
+    uid: str | None = None
+    dnsname: str | None = None
+    mac_addresses: str | None = None
+    uuid: str | None = None
+    tracking_method: str | None = None
+    owner: str | None = None
+    service_team: str | None = None
+    division: str | None = None
+    it_sme: str | None = None
+    it_director: str | None = None
+    location: str | None = None
+    internal_or_external: str | None = None
+    device_type: str | None = None
+    category: str | None = None
+    virtual_or_physical: str | None = None
+    compliance_flags: str | None = None
+    pci: bool | None = None
+    pii: bool | None = None
+    last_authenticated_scan: datetime | None = None
+    last_scanned: datetime | None = None
+    detail_source: str | None = None
+    detail_fetched_at: datetime | None = None
+
+
 class PaginatedAssets(BaseModel):
     items: list[AssetSummary]
     total: int

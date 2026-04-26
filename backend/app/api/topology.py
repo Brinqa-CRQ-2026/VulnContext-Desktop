@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy import func, inspect, or_
 from sqlalchemy.orm import Session, joinedload
 
@@ -10,13 +10,14 @@ from app import models, schemas
 from app.api.common import (
     normalize_risk_band,
     resolve_sorting,
+    to_asset_enrichment,
     summary_band_filter,
     to_asset_detail,
     to_asset_summary,
     to_finding_summary,
 )
 from app.core.db import get_db
-from app.services.brinqa_detail import asset_detail_service
+from app.services.brinqa_detail import BrinqaAuthContext, asset_detail_service
 
 router = APIRouter(tags=["topology"])
 
@@ -511,8 +512,44 @@ def get_asset_detail(asset_id: str, db: Session = Depends(get_db)):
         .scalar()
         or 0
     )
-    detail = asset_detail_service.get_detail(asset)
-    return to_asset_detail(asset, finding_count=int(finding_count), detail=detail)
+    return to_asset_detail(asset, finding_count=int(finding_count), detail=None)
+
+
+@router.get("/assets/{asset_id}/enrichment", response_model=schemas.AssetEnrichment)
+def get_asset_enrichment(
+    asset_id: str,
+    db: Session = Depends(get_db),
+    x_brinqa_auth_token: str | None = Header(None, alias="X-Brinqa-Auth-Token"),
+    x_brinqa_session_cookie: str | None = Header(None, alias="X-Brinqa-Session-Cookie"),
+):
+    asset = (
+        _asset_query_with_topology(db)
+        .filter(models.Asset.asset_id == asset_id)
+        .first()
+    )
+    if asset is None:
+        raise HTTPException(status_code=404, detail="Asset not found.")
+
+    if x_brinqa_auth_token is None or not x_brinqa_auth_token.strip():
+        return schemas.AssetEnrichment(
+            asset_id=asset.asset_id,
+            status="missing_token",
+            reason="missing_auth_token",
+        )
+
+    detail = asset_detail_service.get_detail(
+        asset,
+        auth=BrinqaAuthContext(
+            bearer_token=x_brinqa_auth_token.strip(),
+            session_cookie=x_brinqa_session_cookie.strip() if x_brinqa_session_cookie else None,
+        ),
+    )
+    return to_asset_enrichment(
+        asset,
+        detail=detail,
+        status=detail.status or "upstream_error",
+        reason=detail.reason or detail.error or "upstream_request_failed",
+    )
 
 
 @router.get("/assets/{asset_id}/findings", response_model=schemas.AssetFindingsPage)
