@@ -16,6 +16,8 @@
 - `frontend/src/hooks/topology/useApplicationDetail.ts`
 - `frontend/src/hooks/topology/usePaginatedAssets.ts`
 - `frontend/src/hooks/topology/useAssetFindings.ts`
+- `frontend/src/hooks/topology/useAssetEnrichment.ts`
+  Loads Brinqa enrichment and triggers unauthorized recovery when the backend reports `unauthorized_token`.
 
 ## Removed from active surface
 

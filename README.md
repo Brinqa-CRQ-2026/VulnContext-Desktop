@@ -13,7 +13,25 @@ The active runtime is narrower than some older docs and tests in the repo used t
 
 ## Quick Start
 
-### Backend
+### Desktop Runtime
+
+```bash
+make desktop
+```
+
+This is the primary runtime. It starts the local backend, Vite renderer, and Electron app together.
+
+Desktop runtime behavior:
+
+- Electron owns the Brinqa login/logout/reset lifecycle
+- `Log Out` returns the running desktop app to the Brinqa login window
+- `Shut Down` quits Electron and lets the launcher stop backend and renderer
+- normal window close behaves the same as `Shut Down`
+- next startup prompts for a fresh Brinqa login after shutdown cleanup
+
+If Electron does not open, ensure ports `8000` and `5173` are free and rerun from the repo root.
+
+### Backend Only
 
 ```bash
 cd backend
@@ -26,7 +44,7 @@ API docs:
 - `http://localhost:8000/docs`
 - `http://localhost:8000/redoc`
 
-### Frontend
+### Frontend Only
 
 ```bash
 cd frontend
@@ -40,8 +58,12 @@ npm run dev
 make up
 ```
 
+`make up` starts the backend plus a static web frontend served through nginx. It is not the Electron-owned desktop runtime and does not manage the Brinqa login window lifecycle.
+
 ## Current Developer Commands
 
+- `make desktop`
+  Start the primary local desktop runtime.
 - `make score-crq`
   Run the current CRQ scorer against persisted findings.
 - `make score-crq-v4`

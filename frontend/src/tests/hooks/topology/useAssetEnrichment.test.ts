@@ -5,8 +5,16 @@ const { getAssetEnrichment } = vi.hoisted(() => ({
   getAssetEnrichment: vi.fn(),
 }));
 
+const { requestBrinqaSessionReset } = vi.hoisted(() => ({
+  requestBrinqaSessionReset: vi.fn(),
+}));
+
 vi.mock("../../../api/topology", () => ({
   getAssetEnrichment,
+}));
+
+vi.mock("../../../auth/electronBrinqa", () => ({
+  requestBrinqaSessionReset,
 }));
 
 import { useAssetEnrichment } from "../../../hooks/topology/useAssetEnrichment";
@@ -14,6 +22,8 @@ import { useAssetEnrichment } from "../../../hooks/topology/useAssetEnrichment";
 describe("useAssetEnrichment", () => {
   beforeEach(() => {
     getAssetEnrichment.mockReset();
+    requestBrinqaSessionReset.mockReset();
+    requestBrinqaSessionReset.mockResolvedValue(undefined);
   });
 
   it("loads enrichment on mount by default", async () => {
@@ -65,6 +75,24 @@ describe("useAssetEnrichment", () => {
       })
     );
     expect(result.current.error).toBeNull();
+  });
+
+  it("resets auth and reopens login when enrichment is unauthorized", async () => {
+    getAssetEnrichment.mockResolvedValue({
+      asset_id: "asset-10",
+      status: "unauthorized_token",
+      reason: "brinqa_unauthorized",
+    });
+
+    renderHook(() => useAssetEnrichment("asset-10", 0));
+
+    await waitFor(() =>
+      expect(requestBrinqaSessionReset).toHaveBeenCalledWith({
+        reason: "unauthorized",
+        reopenLogin: true,
+        includeRemoteLogout: true,
+      })
+    );
   });
 
   it("can disable auto-load and use manual loading", async () => {

@@ -27,3 +27,4 @@
 - `GET /assets/{asset_id}` is DB-only. `GET /assets/{asset_id}/enrichment` is the only route that forwards the stored Brinqa token.
 - `GET /assets/{asset_id}/findings/analytics` powers the asset-page summary cards and charts for the full filtered result set, independent of table pagination.
 - Asset enrichment returns `status` plus machine-readable `reason`. Status values are `missing_token`, `unauthorized_token`, `no_related_source`, `partial_success`, `success`, and `upstream_error`.
+- The frontend uses `unauthorized_token` as the current recovery signal for Brinqa session reset and relogin.

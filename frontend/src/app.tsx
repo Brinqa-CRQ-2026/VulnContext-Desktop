@@ -10,6 +10,7 @@ import { AssetFindingsPage } from "./components/business-services/AssetFindingsP
 import { BusinessServiceDetailPage } from "./components/business-services/BusinessServiceDetailPage";
 import { BusinessUnitDetailPage } from "./components/business-services/BusinessUnitDetailPage";
 import { BusinessServicesOverview } from "./components/business-services/BusinessServicesOverview";
+import { requestBrinqaSessionReset } from "./auth/electronBrinqa";
 import { Button } from "./components/ui/button";
 import { cn } from "./lib/utils";
 import type {
@@ -198,6 +199,8 @@ function writeHashRoute(route: AppRoute) {
 function App() {
   const [route, setRoute] = useState<AppRoute>(() => parseHashRoute());
   const [refreshToken, setRefreshToken] = useState(0);
+  const [logoutPending, setLogoutPending] = useState(false);
+  const [shutdownPending, setShutdownPending] = useState(false);
 
   useEffect(() => {
     if (!window.location.hash && !parsePathRoute(window.location.pathname)) {
@@ -225,6 +228,35 @@ function App() {
 
   const navigateTo = (page: BasePage) => {
     updateRoute(getEmptyRoute(page));
+  };
+
+  const handleLogout = async () => {
+    setLogoutPending(true);
+
+    try {
+      await requestBrinqaSessionReset({
+        reason: "logout",
+        reopenLogin: true,
+        includeRemoteLogout: true,
+      });
+    } finally {
+      setLogoutPending(false);
+    }
+  };
+
+  const handleShutdown = async () => {
+    setShutdownPending(true);
+
+    try {
+      await requestBrinqaSessionReset({
+        reason: "shutdown",
+        reopenLogin: false,
+        includeRemoteLogout: true,
+        quitApp: true,
+      });
+    } finally {
+      setShutdownPending(false);
+    }
   };
 
   const openFinding = (
@@ -407,7 +439,14 @@ function App() {
 
   return (
     <div className="flex h-screen w-screen flex-col bg-neutral-100 text-slate-900">
-      <Header page={page} onNavigate={navigateTo} />
+      <Header
+        page={page}
+        onNavigate={navigateTo}
+        onLogout={handleLogout}
+        onShutdown={handleShutdown}
+        logoutPending={logoutPending}
+        shutdownPending={shutdownPending}
+      />
       <div className="flex min-h-0 flex-1">
         <aside className="hidden w-64 shrink-0 border-r border-slate-200 bg-neutral-100 p-3 md:block">
           <div className="mb-3 px-2 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500">

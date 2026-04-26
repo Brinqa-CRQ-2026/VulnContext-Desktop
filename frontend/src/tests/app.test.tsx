@@ -1,13 +1,29 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const { requestBrinqaSessionReset } = vi.hoisted(() => ({
+  requestBrinqaSessionReset: vi.fn(),
+}));
+
+vi.mock("../auth/electronBrinqa", () => ({
+  requestBrinqaSessionReset,
+}));
+
 vi.mock("../components/layout/Header", () => ({
   Header: ({
     page,
     onNavigate,
+    onLogout,
+    onShutdown,
+    logoutPending,
+    shutdownPending,
   }: {
     page: string;
     onNavigate: (page: "findings" | "integrations" | "business-services") => void;
+    onLogout: () => void;
+    onShutdown: () => void;
+    logoutPending?: boolean;
+    shutdownPending?: boolean;
   }) => (
     <div>
       <div>{`header:${page}`}</div>
@@ -16,6 +32,12 @@ vi.mock("../components/layout/Header", () => ({
       <button onClick={() => onNavigate("integrations")}>header-integrations</button>
       <button onClick={() => onNavigate("business-services")}>
         header-business-services
+      </button>
+      <button disabled={logoutPending} onClick={onLogout}>
+        header-logout
+      </button>
+      <button disabled={shutdownPending} onClick={onShutdown}>
+        header-shutdown
       </button>
     </div>
   ),
@@ -237,6 +259,8 @@ import App from "../app";
 describe("App", () => {
   beforeEach(() => {
     window.location.hash = "";
+    requestBrinqaSessionReset.mockReset();
+    requestBrinqaSessionReset.mockResolvedValue(undefined);
   });
 
   it("renders the business services overview by default", () => {
@@ -355,5 +379,34 @@ describe("App", () => {
     await screen.findByText("detail:finding-42:0");
     fireEvent.click(screen.getByText("detail-data-changed"));
     await waitFor(() => expect(screen.getByText("detail:finding-42:1")).toBeInTheDocument());
+  });
+
+  it("triggers Brinqa session reset from the logout control", async () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByText("header-logout"));
+
+    await waitFor(() =>
+      expect(requestBrinqaSessionReset).toHaveBeenCalledWith({
+        reason: "logout",
+        reopenLogin: true,
+        includeRemoteLogout: true,
+      })
+    );
+  });
+
+  it("triggers app shutdown through the Brinqa session reset bridge", async () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByText("header-shutdown"));
+
+    await waitFor(() =>
+      expect(requestBrinqaSessionReset).toHaveBeenCalledWith({
+        reason: "shutdown",
+        reopenLogin: false,
+        includeRemoteLogout: true,
+        quitApp: true,
+      })
+    );
   });
 });

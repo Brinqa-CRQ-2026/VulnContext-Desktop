@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { getAssetEnrichment } from "../../api/topology";
 import type { AssetEnrichment } from "../../api/types";
+import { requestBrinqaSessionReset } from "../../auth/electronBrinqa";
 
 export function useAssetEnrichment(
   assetId: string | null,
@@ -31,6 +32,13 @@ export function useAssetEnrichment(
       setError(null);
       const next = await getAssetEnrichment(assetId);
       setEnrichment(next);
+      if (next.status === "unauthorized_token") {
+        void requestBrinqaSessionReset({
+          reason: "unauthorized",
+          reopenLogin: true,
+          includeRemoteLogout: true,
+        });
+      }
     } catch (err) {
       setEnrichment(null);
       setError(err instanceof Error ? err.message : "Failed to load asset enrichment.");

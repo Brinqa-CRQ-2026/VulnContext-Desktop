@@ -9,8 +9,9 @@ Docs are split into backend and frontend views of the current runtime.
 
 ## Frontend
 
+- [docs/frontend/desktop-runtime-and-auth.md](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/frontend/desktop-runtime-and-auth.md)
+  Primary desktop runtime, Brinqa auth/session lifecycle, logout, shutdown, and window-close behavior.
 - [docs/frontend/structure.md](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/frontend/structure.md)
-- [docs/frontend/auth-shell.md](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/frontend/auth-shell.md)
 - [docs/frontend/api.md](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/frontend/api.md)
 - [docs/frontend/hooks.md](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/frontend/hooks.md)
 - [docs/frontend/components.md](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/frontend/components.md)

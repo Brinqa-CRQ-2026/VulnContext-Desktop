@@ -4,6 +4,9 @@ up:
 down:
 	docker compose down
 
+desktop:
+	bash scripts/run-desktop.sh
+
 score-crq:
 	cd backend && python3 scripts/score_findings_crq_v1.py
 
