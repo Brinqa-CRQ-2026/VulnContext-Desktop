@@ -4,8 +4,6 @@ from datetime import datetime
 
 from fastapi import HTTPException
 from sqlalchemy import case, func
-from sqlalchemy.orm import object_session
-
 from app import models, schemas
 from app.services.brinqa_detail import DetailResult
 
@@ -135,52 +133,15 @@ def summary_band_filter(normalized_band: str):
     return score < 4
 
 
-def _summary_enrichment(
+def to_finding_summary(
     finding: models.Finding,
-) -> tuple[float | None, str | None, float | None, float | None, bool]:
-    cvss_score = finding.crq_cvss_score
-    cvss_severity = None
-    epss_score = finding.crq_epss_score
-    epss_percentile = finding.crq_epss_percentile
-    is_kev = bool(finding.crq_is_kev)
-
-    session = object_session(finding)
-    cve_id = (finding.cve_id or "").strip()
-    if not cve_id or session is None:
-        return cvss_score, cvss_severity, epss_score, epss_percentile, is_kev
-
-    if cvss_score is None:
-        nvd = session.get(models.NvdRecord, cve_id)
-        if nvd is not None:
-            cvss_score = nvd.cvss_score
-            cvss_severity = nvd.cvss_severity
-
-    if epss_score is None or epss_percentile is None:
-        epss = session.get(models.EPSSScore, cve_id)
-        if epss is not None:
-            if epss_score is None:
-                epss_score = epss.epss
-            if epss_percentile is None:
-                epss_percentile = epss.percentile
-            if not is_kev and epss.is_kev is not None:
-                is_kev = bool(epss.is_kev)
-
-    if not is_kev:
-        kev = session.get(models.KevRecord, cve_id)
-        if kev is not None:
-            is_kev = True
-
-    return cvss_score, cvss_severity, epss_score, epss_percentile, is_kev
-
-
-def to_finding_summary(finding: models.Finding) -> schemas.FindingSummary:
+    *,
+    target_name: str | None = None,
+) -> schemas.FindingSummary:
     asset = finding.asset
     risk_score = finding_display_score(finding)
     risk_band = finding_display_band(finding)
-    target_name = asset.hostname if asset else None
-    cvss_score, cvss_severity, epss_score, epss_percentile, is_kev = _summary_enrichment(
-        finding
-    )
+    resolved_target_name = target_name if target_name is not None else (asset.hostname if asset else None)
     return schemas.FindingSummary(
         id=finding.finding_id,
         source="Brinqa",
@@ -196,12 +157,12 @@ def to_finding_summary(finding: models.Finding) -> schemas.FindingSummary:
         last_found=finding.last_found,
         cve_id=finding.cve_id,
         target_ids=finding.asset_id,
-        target_names=target_name,
-        cvss_score=cvss_score,
-        cvss_severity=cvss_severity,
-        epss_score=epss_score,
-        epss_percentile=epss_percentile,
-        is_kev=is_kev,
+        target_names=resolved_target_name,
+        cvss_score=finding.crq_cvss_score,
+        cvss_severity=None,
+        epss_score=finding.crq_epss_score,
+        epss_percentile=finding.crq_epss_percentile,
+        is_kev=bool(finding.crq_is_kev),
         risk_score=risk_score,
         risk_band=risk_band,
         source_risk_score=finding.brinqa_risk_score,
@@ -231,11 +192,11 @@ def _parse_datetime(value) -> datetime | None:
 def to_finding_detail(
     finding: models.Finding,
     *,
-    detail: DetailResult,
+    detail: DetailResult | None = None,
 ) -> schemas.FindingDetail:
     summary = to_finding_summary(finding)
     asset = finding.asset
-    payload = detail.payload or {}
+    payload = (detail.payload or {}) if detail else {}
     return schemas.FindingDetail(
         **summary.model_dump(
             exclude={
@@ -253,23 +214,15 @@ def to_finding_detail(
         source_status=payload.get("source_status"),
         severity=payload.get("severity"),
         due_date=_parse_datetime(payload.get("due_date")),
-        cvss_score=finding.crq_cvss_score
-        if finding.crq_cvss_score is not None
-        else payload.get("cvss_score"),
+        cvss_score=finding.crq_cvss_score,
         cvss_version=payload.get("cvss_version"),
-        cvss_severity=payload.get("cvss_severity") or summary.cvss_severity,
+        cvss_severity=summary.cvss_severity,
         cvss_vector=payload.get("cvss_vector"),
         attack_vector=payload.get("attack_vector"),
         attack_complexity=payload.get("attack_complexity"),
-        epss_score=finding.crq_epss_score
-        if finding.crq_epss_score is not None
-        else payload.get("epss_score"),
-        epss_percentile=finding.crq_epss_percentile
-        if finding.crq_epss_percentile is not None
-        else payload.get("epss_percentile"),
-        is_kev=bool(finding.crq_is_kev)
-        if finding.crq_is_kev is not None
-        else bool(payload.get("is_kev", False)),
+        epss_score=finding.crq_epss_score,
+        epss_percentile=finding.crq_epss_percentile,
+        is_kev=bool(finding.crq_is_kev),
         crq_cvss_score=finding.crq_cvss_score,
         crq_epss_score=finding.crq_epss_score,
         crq_epss_percentile=finding.crq_epss_percentile,
@@ -295,8 +248,8 @@ def to_finding_detail(
         remediation_owner_name=payload.get("remediation_owner_name"),
         remediation_status=payload.get("remediation_status"),
         internal_risk_notes=payload.get("internal_risk_notes"),
-        detail_source=detail.source,
-        detail_fetched_at=detail.fetched_at,
+        detail_source=detail.source if detail else None,
+        detail_fetched_at=detail.fetched_at if detail else None,
     )
 
 

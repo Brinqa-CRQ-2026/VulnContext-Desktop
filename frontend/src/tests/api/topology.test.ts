@@ -50,10 +50,12 @@ describe("api/topology", () => {
       getAssetDetail,
       getAssetEnrichment,
       getAssetFindings,
+      getAssetFindingsAnalytics,
       getAssetFindingsPage,
       getAssetsPage,
     } = await loadTopologyApi();
     getFetchMock()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true })))
       .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true })))
       .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true })))
       .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true })))
@@ -69,6 +71,12 @@ describe("api/topology", () => {
     await getAssetDetail("asset-10");
     await getAssetEnrichment("asset-10");
     await getAssetFindings("asset-10");
+    await getAssetFindingsAnalytics("asset-10", {
+      riskBand: "High",
+      kevOnly: true,
+      source: "Brinqa",
+      search: "openssl",
+    });
     await getAssetFindingsPage("asset-10", {
       page: 2,
       pageSize: 10,
@@ -107,10 +115,14 @@ describe("api/topology", () => {
     );
     expect(getFetchMock()).toHaveBeenNthCalledWith(
       5,
-      "https://api.example.com/assets/asset-10/findings?page=2&page_size=10&sort_by=age_in_days&sort_order=asc&risk_band=High&kev_only=true"
+      "https://api.example.com/assets/asset-10/findings/analytics?risk_band=High&kev_only=true&source=Brinqa&search=openssl"
     );
     expect(getFetchMock()).toHaveBeenNthCalledWith(
       6,
+      "https://api.example.com/assets/asset-10/findings?page=2&page_size=10&sort_by=age_in_days&sort_order=asc&risk_band=High&kev_only=true"
+    );
+    expect(getFetchMock()).toHaveBeenNthCalledWith(
+      7,
       "https://api.example.com/assets?page=1&page_size=10&sort_by=finding_count&sort_order=desc&business_unit=Online+Store&business_service=Digital+Media&search=asset-20&direct_only=true"
     );
   });

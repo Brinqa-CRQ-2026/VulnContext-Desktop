@@ -554,6 +554,75 @@ def test_assets_routes_preserve_legacy_filters_and_asset_findings_after_fk_expan
     assert all(item["asset_id"] == "asset-20" for item in findings_payload["items"])
 
 
+def test_asset_findings_analytics_route_summarizes_full_filtered_result_set(
+    client,
+    db_session,
+):
+    seed_topology(db_session)
+    seed_asset(
+        db_session,
+        asset_id="asset-analytics",
+        hostname="asset-analytics-host",
+        business_service="Digital Media",
+        application="Inventory Manager",
+        finding_risks=[9.1, 8.2, 3.2],
+    )
+    backfill_asset_topology_foreign_keys(db_session)
+    findings = (
+        db_session.query(models.Finding)
+        .filter(models.Finding.asset_id == "asset-analytics")
+        .order_by(models.Finding.finding_id)
+        .all()
+    )
+    findings[0].crq_score = 9.4
+    findings[0].crq_risk_band = "Critical"
+    findings[0].crq_is_kev = True
+    findings[0].crq_cvss_score = 9.8
+    findings[0].crq_epss_score = 0.98
+    findings[0].crq_epss_percentile = 0.99
+    findings[0].age_in_days = 40.0
+    findings[1].crq_score = 7.6
+    findings[1].crq_risk_band = "High"
+    findings[1].crq_is_kev = False
+    findings[1].crq_cvss_score = 8.2
+    findings[1].crq_epss_score = 0.22
+    findings[1].crq_epss_percentile = 0.61
+    findings[1].age_in_days = 10.0
+    findings[2].crq_score = 2.5
+    findings[2].crq_risk_band = "Low"
+    findings[2].crq_is_kev = False
+    findings[2].crq_cvss_score = 3.1
+    findings[2].crq_epss_score = 0.01
+    findings[2].crq_epss_percentile = 0.03
+    findings[2].age_in_days = 5.0
+    db_session.commit()
+
+    response = client.get("/assets/asset-analytics/findings/analytics")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["asset"]["asset_id"] == "asset-analytics"
+    assert payload["asset"]["business_service"] == "Digital Media"
+    assert payload["analytics"]["total_findings"] == 3
+    assert payload["analytics"]["kev_findings"] == 1
+    assert payload["analytics"]["critical_high_findings"] == 2
+    assert payload["analytics"]["highest_risk_band"] == "Critical"
+    assert payload["analytics"]["max_risk_score"] == 9.4
+    assert payload["analytics"]["oldest_priority_age_days"] == 40.0
+    assert payload["analytics"]["risk_bands"] == {
+        "Critical": 1,
+        "High": 1,
+        "Medium": 0,
+        "Low": 1,
+    }
+
+    filtered = client.get("/assets/asset-analytics/findings/analytics?kev_only=true")
+    assert filtered.status_code == 200
+    filtered_payload = filtered.json()
+    assert filtered_payload["analytics"]["total_findings"] == 1
+    assert filtered_payload["analytics"]["kev_findings"] == 1
+    assert filtered_payload["analytics"]["risk_bands"]["Critical"] == 1
+
+
 def test_asset_detail_route_is_db_only_and_enrichment_route_uses_request_auth(
     client,
     db_session,

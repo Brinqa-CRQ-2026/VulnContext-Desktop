@@ -5,9 +5,9 @@
 - `backend/app/main.py`
   FastAPI entrypoint, CORS setup, router registration, and built-frontend serving.
 - `backend/app/api/findings.py`
-  Read-only findings summary, list, top, and detail routes.
+  Read-only findings summary, list, top, persisted detail, and explicit finding-enrichment routes.
 - `backend/app/api/topology.py`
-  Business-unit-first topology, assets, and asset-findings drill-down routes.
+  Business-unit-first topology, assets, asset-findings drill-down, and asset-findings analytics routes.
 - `backend/app/api/sources.py`
   Read-only source summary route.
 - `backend/app/api/common.py`
@@ -21,7 +21,7 @@
 - `backend/app/core/env.py`
   Environment loading for backend runtime.
 - `backend/app/services/brinqa_detail.py`
-  Best-effort detail hydration for findings and assets.
+  Request-scoped Brinqa asset detail and explicit finding narrative enrichment.
 - `backend/app/services/topology.py`
   Topology foreign-key backfill helper used by reseed workflows.
 - `backend/app/services/crq_scoring.py`

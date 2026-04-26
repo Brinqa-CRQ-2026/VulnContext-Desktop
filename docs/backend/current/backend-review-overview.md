@@ -9,7 +9,7 @@ The main responsibilities are:
 - findings retrieval and summary
 - topology drill-down
 - source summary reporting
-- best-effort detail hydration from persisted enrichment tables and optional Brinqa detail calls
+- persisted-data findings/detail responses plus explicit opt-in Brinqa enrichment routes
 - manual CRQ rescoring through scripts and service helpers
 
 ## Important constraints
@@ -21,7 +21,7 @@ The main responsibilities are:
 ## Supporting services
 
 - `brinqa_detail.py`
-  Hydrates extra asset/finding detail when enough local identifiers or Brinqa credentials are available.
+  Hydrates request-scoped Brinqa asset detail and explicit finding narrative enrichment.
 - `crq_scoring.py`
   Implements the CRQ model currently labeled `v4`.
 - `topology.py`

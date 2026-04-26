@@ -360,6 +360,53 @@ export interface AssetFindingsPage {
   page_size: number;
 }
 
+export interface AssetFindingsAnalytics {
+  total_findings: number;
+  kev_findings: number;
+  critical_high_findings: number;
+  highest_risk_band?: string | null;
+  average_risk_score?: number | null;
+  max_risk_score?: number | null;
+  oldest_priority_age_days?: number | null;
+  risk_bands: RiskBandSummary;
+}
+
+export interface AssetFindingsAnalyticsAsset {
+  asset_id: string;
+  hostname?: string | null;
+  business_unit?: string | null;
+  business_service?: string | null;
+  application?: string | null;
+  status?: string | null;
+  environment?: string | null;
+  internal_or_external?: string | null;
+  device_type?: string | null;
+  category?: string | null;
+}
+
+export interface AssetFindingsAnalyticsResponse {
+  asset: AssetFindingsAnalyticsAsset;
+  analytics: AssetFindingsAnalytics;
+}
+
+export interface FindingEnrichment {
+  finding_id: string;
+  summary?: string | null;
+  description?: string | null;
+  record_link?: string | null;
+  source_status?: string | null;
+  severity?: string | null;
+  due_date?: string | null;
+  attack_pattern_names?: string | null;
+  attack_technique_names?: string | null;
+  attack_tactic_names?: string | null;
+  risk_owner_name?: string | null;
+  remediation_owner_name?: string | null;
+  remediation_status?: string | null;
+  detail_source?: string | null;
+  detail_fetched_at?: string | null;
+}
+
 export interface FindingRouteOrigin {
   mode: "global" | "asset";
   businessUnitSlug?: string | null;

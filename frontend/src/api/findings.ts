@@ -1,5 +1,6 @@
 import { buildApiUrl, parseJsonOrThrow } from "./client";
 import type {
+  FindingEnrichment,
   FindingsSortBy,
   PaginatedFindings,
   RiskBandFilter,
@@ -76,5 +77,13 @@ export async function getFindingById(findingId: string): Promise<ScoredFinding> 
   return parseJsonOrThrow(
     res,
     `Failed to fetch finding: ${res.status} ${res.statusText}`
+  );
+}
+
+export async function getFindingEnrichment(findingId: string): Promise<FindingEnrichment> {
+  const res = await fetch(buildApiUrl(`/findings/${encodeURIComponent(findingId)}/enrichment`));
+  return parseJsonOrThrow(
+    res,
+    `Failed to fetch finding enrichment: ${res.status} ${res.statusText}`
   );
 }

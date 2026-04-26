@@ -12,7 +12,7 @@ The current backend supports a persisted app-owned finding score: CRQ v4.
   - `CVSS`
   - `EPSS`
   - `KEV`
-  while sourcing them from CRQ fields first
+  while sourcing them from persisted `crq_*` fields only
 
 Current thresholds:
 
@@ -50,10 +50,6 @@ Finding summaries and finding detail now expose CRQ-first metric fields for:
 - `epss_score`
 - `isKev`
 
-Fallback order:
-
-1. persisted `crq_*` fields on `findings`
-2. local enrichment tables by `cve_id`
-3. raw source fields when no app-owned value exists
+If those persisted values are absent on a finding row, the backend returns `null` rather than enriching them during response handling.
 
 Full persisted-field details and band tables live in [crq-scoring-v4.md](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/crq-scoring-v4.md).

@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
-from sqlalchemy import func, inspect, or_
+from sqlalchemy import case, func, inspect, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app import models, schemas
 from app.api.common import (
+    display_score_expression,
     normalize_risk_band,
     resolve_sorting,
     to_asset_enrichment,
@@ -160,6 +161,51 @@ def _sort_assets(assets: list[models.Asset], finding_counts: dict[str, int], sor
         assets,
         key=lambda asset: (key_fn(asset), asset_name(asset), asset.asset_id),
         reverse=reverse,
+    )
+
+
+def _asset_findings_filters(
+    *,
+    asset_id: str,
+    risk_band: str | None = None,
+    kev_only: bool = False,
+    source: str | None = None,
+    search: str | None = None,
+):
+    filters = [models.Finding.asset_id == asset_id]
+    if source is not None and source.strip() and source.strip().lower() != "brinqa":
+        return filters, True
+    if risk_band is not None:
+        filters.append(summary_band_filter(normalize_risk_band(risk_band)))
+    if kev_only:
+        filters.append(models.Finding.crq_is_kev.is_(True))
+    if search is not None and search.strip():
+        term = f"%{search.strip()}%"
+        filters.append(
+            or_(
+                models.Finding.finding_name.ilike(term),
+                models.Finding.cve_id.ilike(term),
+                models.Finding.finding_id.ilike(term),
+            )
+        )
+    return filters, False
+
+
+def _to_asset_findings_analytics_asset(asset: models.Asset) -> schemas.AssetFindingsAnalyticsAsset:
+    business_unit = asset.__dict__.get("business_unit")
+    business_service_rel = asset.__dict__.get("business_service_rel")
+    application_rel = asset.__dict__.get("application_rel")
+    return schemas.AssetFindingsAnalyticsAsset(
+        asset_id=asset.asset_id,
+        hostname=asset.hostname,
+        business_unit=business_unit.name if business_unit else None,
+        business_service=business_service_rel.name if business_service_rel else asset.business_service,
+        application=application_rel.name if application_rel else asset.application,
+        status=asset.status,
+        environment=asset.environment,
+        internal_or_external=asset.internal_or_external,
+        device_type=asset.device_type,
+        category=asset.category,
     )
 
 
@@ -573,7 +619,14 @@ def get_asset_findings(
     if asset is None:
         raise HTTPException(status_code=404, detail="Asset not found.")
 
-    if source is not None and source.strip() and source.strip().lower() != "brinqa":
+    filters, short_circuit_empty = _asset_findings_filters(
+        asset_id=asset.asset_id,
+        risk_band=risk_band,
+        kev_only=kev_only,
+        source=source,
+        search=search,
+    )
+    if short_circuit_empty:
         return schemas.AssetFindingsPage(
             asset=to_asset_summary(asset, finding_count=0),
             items=[],
@@ -583,31 +636,8 @@ def get_asset_findings(
         )
 
     sort_primary, sort_tie_breaker = resolve_sorting(sort_by, sort_order)
-    query = (
-        db.query(models.Finding)
-        .options(joinedload(models.Finding.asset))
-        .filter(models.Finding.asset_id == asset.asset_id)
-    )
-    count_query = db.query(func.count(models.Finding.id)).filter(
-        models.Finding.asset_id == asset.asset_id
-    )
-    if risk_band is not None:
-        band_filter = summary_band_filter(normalize_risk_band(risk_band))
-        query = query.filter(band_filter)
-        count_query = count_query.filter(band_filter)
-    if kev_only:
-        kev_filter = models.Finding.crq_is_kev.is_(True)
-        query = query.filter(kev_filter)
-        count_query = count_query.filter(kev_filter)
-    if search is not None and search.strip():
-        term = f"%{search.strip()}%"
-        search_filter = or_(
-            models.Finding.finding_name.ilike(term),
-            models.Finding.cve_id.ilike(term),
-            models.Finding.finding_id.ilike(term),
-        )
-        query = query.filter(search_filter)
-        count_query = count_query.filter(search_filter)
+    query = db.query(models.Finding).filter(*filters)
+    count_query = db.query(func.count(models.Finding.id)).filter(*filters)
 
     total = int(count_query.scalar() or 0)
     findings = (
@@ -618,8 +648,106 @@ def get_asset_findings(
     )
     return schemas.AssetFindingsPage(
         asset=to_asset_summary(asset, finding_count=total),
-        items=[to_finding_summary(finding) for finding in findings],
+        items=[to_finding_summary(finding, target_name=asset.hostname) for finding in findings],
         total=total,
         page=page,
         page_size=page_size,
+    )
+
+
+@router.get(
+    "/assets/{asset_id}/findings/analytics",
+    response_model=schemas.AssetFindingsAnalyticsResponse,
+)
+def get_asset_findings_analytics(
+    asset_id: str,
+    risk_band: str | None = Query(None),
+    kev_only: bool = Query(False),
+    source: str | None = Query(None),
+    search: str | None = Query(None),
+    db: Session = Depends(get_db),
+):
+    asset = (
+        _asset_query_with_topology(db)
+        .filter(models.Asset.asset_id == asset_id)
+        .first()
+    )
+    if asset is None:
+        raise HTTPException(status_code=404, detail="Asset not found.")
+
+    filters, short_circuit_empty = _asset_findings_filters(
+        asset_id=asset.asset_id,
+        risk_band=risk_band,
+        kev_only=kev_only,
+        source=source,
+        search=search,
+    )
+    if short_circuit_empty:
+        return schemas.AssetFindingsAnalyticsResponse(
+            asset=_to_asset_findings_analytics_asset(asset),
+            analytics=schemas.AssetFindingsAnalytics(
+                total_findings=0,
+                kev_findings=0,
+                critical_high_findings=0,
+                highest_risk_band=None,
+                average_risk_score=None,
+                max_risk_score=None,
+                oldest_priority_age_days=None,
+                risk_bands=schemas.RiskBandSummary(),
+            ),
+        )
+
+    score = display_score_expression()
+    band_label = case(
+        (score >= 9, "Critical"),
+        (score >= 7, "High"),
+        (score >= 4, "Medium"),
+        else_="Low",
+    )
+    priority_age = case(
+        (
+            or_(models.Finding.crq_is_kev.is_(True), score >= 9),
+            models.Finding.age_in_days,
+        ),
+        else_=None,
+    )
+
+    totals = (
+        db.query(
+            func.count(models.Finding.id),
+            func.sum(case((models.Finding.crq_is_kev.is_(True), 1), else_=0)),
+            func.sum(case((score >= 7, 1), else_=0)),
+            func.avg(score),
+            func.max(score),
+            func.max(priority_age),
+        )
+        .filter(*filters)
+        .one()
+    )
+    band_rows = (
+        db.query(band_label.label("band"), func.count(models.Finding.id))
+        .filter(*filters)
+        .group_by(band_label)
+        .all()
+    )
+    risk_bands = {"Critical": 0, "High": 0, "Medium": 0, "Low": 0}
+    highest_risk_band = None
+    for band in ("Critical", "High", "Medium", "Low"):
+        count = next((int(row[1]) for row in band_rows if row[0] == band), 0)
+        risk_bands[band] = count
+        if highest_risk_band is None and count > 0:
+            highest_risk_band = band
+
+    return schemas.AssetFindingsAnalyticsResponse(
+        asset=_to_asset_findings_analytics_asset(asset),
+        analytics=schemas.AssetFindingsAnalytics(
+            total_findings=int(totals[0] or 0),
+            kev_findings=int(totals[1] or 0),
+            critical_high_findings=int(totals[2] or 0),
+            highest_risk_band=highest_risk_band,
+            average_risk_score=float(totals[3]) if totals[3] is not None else None,
+            max_risk_score=float(totals[4]) if totals[4] is not None else None,
+            oldest_priority_age_days=float(totals[5]) if totals[5] is not None else None,
+            risk_bands=schemas.RiskBandSummary(**risk_bands),
+        ),
     )

@@ -1,6 +1,7 @@
 import { buildApiUrl, buildBrinqaEnrichmentRequestInit, parseJsonOrThrow } from "./client";
 import type {
   AssetListSortBy,
+  AssetFindingsAnalyticsResponse,
   ApplicationDetail,
   AssetDetail,
   AssetEnrichment,
@@ -86,6 +87,40 @@ export async function getAssetFindings(assetId: string): Promise<AssetFindingsPa
   return parseJsonOrThrow(
     res,
     `Failed to fetch asset findings: ${res.status} ${res.statusText}`
+  );
+}
+
+export async function getAssetFindingsAnalytics(
+  assetId: string,
+  {
+    riskBand,
+    kevOnly,
+    source,
+    search,
+  }: {
+    riskBand: "All" | "Critical" | "High" | "Medium" | "Low";
+    kevOnly: boolean;
+    source?: string | null;
+    search?: string | null;
+  }
+): Promise<AssetFindingsAnalyticsResponse> {
+  const params = new URLSearchParams();
+  if (riskBand !== "All") {
+    params.set("risk_band", riskBand);
+  }
+  if (kevOnly) {
+    params.set("kev_only", "true");
+  }
+  if (source && source !== "All") {
+    params.set("source", source);
+  }
+  if (search) {
+    params.set("search", search);
+  }
+  const res = await fetch(buildApiUrl(`/assets/${assetId}/findings/analytics`, params));
+  return parseJsonOrThrow(
+    res,
+    `Failed to fetch asset findings analytics: ${res.status} ${res.statusText}`
   );
 }
 

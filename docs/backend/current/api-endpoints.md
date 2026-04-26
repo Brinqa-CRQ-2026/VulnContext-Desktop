@@ -16,7 +16,9 @@ This file documents the currently served backend routes.
 - `GET /findings`
   Supports `page`, `page_size`, `sort_by`, `sort_order`, optional `source`, and optional `risk_band`.
 - `GET /findings/{finding_id}`
-  Returns one finding detail record with best-effort enrichment fallback.
+  Returns one persisted finding detail record. It does not supplement CVSS/EPSS/KEV values during response building.
+- `GET /findings/{finding_id}/enrichment`
+  Returns optional Brinqa narrative/detail fields for a single finding only. This route is explicit and separate from the main finding detail response.
 
 There are no active disposition write routes in the current backend.
 
@@ -34,6 +36,8 @@ There are no active disposition write routes in the current backend.
   Status values: `missing_token`, `unauthorized_token`, `no_related_source`, `partial_success`, `success`, `upstream_error`.
   Includes a machine-readable `reason` code for each response. `detail_source` and `detail_fetched_at` are populated on `success` and `partial_success`.
 - `GET /assets/{asset_id}/findings`
+- `GET /assets/{asset_id}/findings/analytics`
+  Returns compact asset overview fields plus analytics for the full filtered result set across all pages. It accepts the same non-pagination filters used by the asset findings table route.
 
 The business-unit hierarchy depends on the normalized topology tables created from `docs/backend/topology-seed/topology-expansion.sql`.
 

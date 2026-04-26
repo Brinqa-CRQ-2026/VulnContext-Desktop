@@ -285,36 +285,6 @@ def _normalize_request_error(exc: requests.RequestException, *, reason: str) -> 
 
 
 class BrinqaFindingDetailService:
-    def _local_enrichment_payload(self, db: Session, finding: models.Finding) -> dict[str, Any]:
-        payload: dict[str, Any] = {}
-        cve_id = _clean(finding.cve_id)
-        if not cve_id:
-            return payload
-
-        nvd = db.get(models.NvdRecord, cve_id)
-        if nvd is not None:
-            payload["cvss_score"] = nvd.cvss_score
-            payload["cvss_severity"] = nvd.cvss_severity
-
-        epss = db.get(models.EPSSScore, cve_id)
-        if epss is not None:
-            payload["epss_score"] = epss.epss
-            payload["epss_percentile"] = epss.percentile
-            if epss.is_kev is not None:
-                payload["is_kev"] = bool(epss.is_kev)
-
-        kev = db.get(models.KevRecord, cve_id)
-        if kev is not None:
-            payload["is_kev"] = True
-            payload["kev_date_added"] = kev.date_added
-            payload["kev_due_date"] = kev.due_date
-            payload["kev_vendor_project"] = kev.vendor_project
-            payload["kev_product"] = kev.product
-            payload["kev_vulnerability_name"] = kev.vulnerability_name
-            payload["kev_short_description"] = kev.short_description
-
-        return payload
-
     def _brinqa_fallback_payload(self, finding: models.Finding) -> dict[str, Any]:
         if not _brinqa_enabled():
             return {}
@@ -381,13 +351,8 @@ class BrinqaFindingDetailService:
             session.close()
 
     def get_detail(self, db: Session, finding: models.Finding) -> DetailResult:
-        payload = self._local_enrichment_payload(db, finding)
-        source = "local" if payload else None
-
-        brinqa_payload = self._brinqa_fallback_payload(finding)
-        if brinqa_payload:
-            payload = {**brinqa_payload, **payload}
-            source = "local+brinqa" if source else "brinqa"
+        payload = self._brinqa_fallback_payload(finding)
+        source = "brinqa" if payload else None
 
         return DetailResult(
             payload=payload or None,

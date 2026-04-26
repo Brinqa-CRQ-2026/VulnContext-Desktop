@@ -250,6 +250,53 @@ class AssetFindingsPage(BaseModel):
     page_size: int
 
 
+class AssetFindingsAnalytics(BaseModel):
+    total_findings: int
+    kev_findings: int
+    critical_high_findings: int
+    highest_risk_band: str | None = None
+    average_risk_score: float | None = None
+    max_risk_score: float | None = None
+    oldest_priority_age_days: float | None = None
+    risk_bands: RiskBandSummary
+
+
+class AssetFindingsAnalyticsAsset(BaseModel):
+    asset_id: str
+    hostname: str | None = None
+    business_unit: str | None = None
+    business_service: str | None = None
+    application: str | None = None
+    status: str | None = None
+    environment: str | None = None
+    internal_or_external: str | None = None
+    device_type: str | None = None
+    category: str | None = None
+
+
+class AssetFindingsAnalyticsResponse(BaseModel):
+    asset: AssetFindingsAnalyticsAsset
+    analytics: AssetFindingsAnalytics
+
+
+class FindingEnrichment(BaseModel):
+    finding_id: str
+    summary: str | None = None
+    description: str | None = None
+    record_link: str | None = None
+    source_status: str | None = None
+    severity: str | None = None
+    due_date: datetime | None = None
+    attack_pattern_names: str | None = None
+    attack_technique_names: str | None = None
+    attack_tactic_names: str | None = None
+    risk_owner_name: str | None = None
+    remediation_owner_name: str | None = None
+    remediation_status: str | None = None
+    detail_source: str | None = None
+    detail_fetched_at: datetime | None = None
+
+
 class BusinessUnitDetail(BaseModel):
     company: CompanySummary | None = None
     business_unit: str

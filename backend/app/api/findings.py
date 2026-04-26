@@ -11,6 +11,7 @@ from app.api.common import (
     normalize_risk_band,
     resolve_sorting,
     summary_band_filter,
+    _parse_datetime,
     to_finding_detail,
     to_finding_summary,
 )
@@ -116,5 +117,35 @@ def get_finding_by_id(finding_id: str, db: Session = Depends(get_db)):
     if finding is None:
         raise HTTPException(status_code=404, detail="Finding not found.")
 
+    return to_finding_detail(finding, detail=None)
+
+
+@router.get("/findings/{finding_id}/enrichment", response_model=schemas.FindingEnrichment)
+def get_finding_enrichment(finding_id: str, db: Session = Depends(get_db)):
+    finding = (
+        db.query(models.Finding)
+        .filter(models.Finding.finding_id == finding_id)
+        .first()
+    )
+    if finding is None:
+        raise HTTPException(status_code=404, detail="Finding not found.")
+
     detail = finding_detail_service.get_detail(db, finding)
-    return to_finding_detail(finding, detail=detail)
+    payload = detail.payload or {}
+    return schemas.FindingEnrichment(
+        finding_id=finding.finding_id,
+        summary=payload.get("summary"),
+        description=payload.get("description"),
+        record_link=payload.get("record_link"),
+        source_status=payload.get("source_status"),
+        severity=payload.get("severity"),
+        due_date=_parse_datetime(payload.get("due_date")),
+        attack_pattern_names=payload.get("attack_pattern_names"),
+        attack_technique_names=payload.get("attack_technique_names"),
+        attack_tactic_names=payload.get("attack_tactic_names"),
+        risk_owner_name=payload.get("risk_owner_name"),
+        remediation_owner_name=payload.get("remediation_owner_name"),
+        remediation_status=payload.get("remediation_status"),
+        detail_source=detail.source,
+        detail_fetched_at=detail.fetched_at,
+    )

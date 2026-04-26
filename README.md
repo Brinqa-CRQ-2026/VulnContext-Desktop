@@ -5,7 +5,9 @@ VulnContext Desktop currently ships a Supabase-first FastAPI backend plus a Reac
 The active runtime is narrower than some older docs and tests in the repo used to imply. Today the supported product surface is:
 
 - findings summary, list, top-findings, and detail routes
+- explicit finding narrative enrichment route for optional non-persisted Brinqa detail
 - business-unit, business-service, application, asset, and asset-findings drill-down routes
+- asset findings analytics route for full filtered-set summary cards/charts
 - source summary reporting
 - manual backend scripts for Brinqa export, enrichment sync, asset reseed, and CRQ scoring
 
