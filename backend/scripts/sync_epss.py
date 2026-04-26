@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 load_dotenv()
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 
 EPSS_URL = "https://epss.cyentia.com/epss_scores-current.csv.gz"
 BATCH_SIZE = 1000

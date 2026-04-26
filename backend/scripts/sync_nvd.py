@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 NVD_API_KEY = os.getenv("NVD_API_KEY")
 
 BASE_URL = "https://services.nvd.nist.gov/rest/json/cves/2.0"

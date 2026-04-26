@@ -9,7 +9,7 @@ from sync_nvd import process_and_upload as sync_nvd
 load_dotenv()
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 
 
 def update_is_kev():
