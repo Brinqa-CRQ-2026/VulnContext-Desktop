@@ -20,37 +20,4 @@ describe("api/sources", () => {
     await getSourcesSummary();
     expect(getFetchMock()).toHaveBeenCalledWith("https://api.example.com/sources");
   });
-
-  it("patches encoded source names with the new source body", async () => {
-    const { renameSource } = await loadSourcesApi();
-    await renameSource("Qualys Prod", "Qualys");
-
-    expect(getFetchMock()).toHaveBeenCalledWith(
-      "https://api.example.com/sources/Qualys%20Prod",
-      expect.objectContaining({
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ new_source: "Qualys" }),
-      })
-    );
-  });
-
-  it("deletes encoded source names", async () => {
-    const { deleteSource } = await loadSourcesApi();
-    await deleteSource("Qualys Prod");
-
-    expect(getFetchMock()).toHaveBeenCalledWith(
-      "https://api.example.com/sources/Qualys%20Prod",
-      { method: "DELETE" }
-    );
-  });
-
-  it("surfaces backend errors", async () => {
-    const { deleteSource } = await loadSourcesApi();
-    getFetchMock().mockResolvedValueOnce(
-      new Response(JSON.stringify({ detail: "missing source" }), { status: 404 })
-    );
-
-    await expect(deleteSource("ghost")).rejects.toThrow("missing source");
-  });
 });

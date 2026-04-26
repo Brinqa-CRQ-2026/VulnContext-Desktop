@@ -233,8 +233,7 @@ def seed_asset(
         hostname=hostname,
         business_service=business_service,
         application=application,
-        compliance_status="Tracked",
-        asset_criticality=2,
+        environment="test",
         status="Confirmed active",
     )
     db_session.add(asset)

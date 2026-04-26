@@ -160,14 +160,16 @@ class AssetSummary(BaseModel):
     status: str | None = None
     compliance_status: str | None = None
     asset_criticality: int | None = None
-    exposure_score: float | None = None
-    business_criticality_score: float | None = None
-    data_sensitivity_score: float | None = None
-    asset_type_weight: float | None = None
-    is_public_facing: bool | None = None
-    has_sensitive_data: bool | None = None
-    crown_jewel_flag: bool | None = None
-    internet_exposed_flag: bool | None = None
+    tags: list[str] | None = None
+    environment: str | None = None
+    aggregated_finding_risk: float | None = None
+    exposure_modifier: float | None = None
+    data_sensitivity_modifier: float | None = None
+    environment_modifier: float | None = None
+    asset_type_modifier: float | None = None
+    asset_context_multiplier: float | None = None
+    asset_risk_score: float | None = None
+    scored_at: datetime | None = None
     finding_count: int = 0
 
 
@@ -186,6 +188,7 @@ class AssetDetail(AssetSummary):
     device_type: str | None = None
     category: str | None = None
     virtual_or_physical: str | None = None
+    compliance_flags: str | None = None
     pci: bool | None = None
     pii: bool | None = None
     public_ip_addresses: str | None = None
@@ -193,7 +196,13 @@ class AssetDetail(AssetSummary):
     last_authenticated_scan: datetime | None = None
     last_scanned: datetime | None = None
     qualys_vm_host_id: str | None = None
+    qualys_vm_host_uid: str | None = None
+    qualys_vm_host_link: str | None = None
+    qualys_vm_host_integration: str | None = None
     servicenow_host_id: str | None = None
+    servicenow_host_uid: str | None = None
+    servicenow_host_link: str | None = None
+    servicenow_host_integration: str | None = None
     detail_source: str | None = None
     detail_fetched_at: datetime | None = None
 

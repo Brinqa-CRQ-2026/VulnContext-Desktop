@@ -1,7 +1,5 @@
 import { buildApiUrl, parseJsonOrThrow } from "./client";
 import type {
-  FindingDispositionResult,
-  FindingDispositionUpdateRequest,
   FindingsSortBy,
   PaginatedFindings,
   RiskBandFilter,
@@ -78,41 +76,5 @@ export async function getFindingById(findingId: string): Promise<ScoredFinding> 
   return parseJsonOrThrow(
     res,
     `Failed to fetch finding: ${res.status} ${res.statusText}`
-  );
-}
-
-export async function setFindingDisposition(
-  findingId: string,
-  payload: FindingDispositionUpdateRequest
-): Promise<FindingDispositionResult> {
-  const res = await fetch(buildApiUrl(`/findings/${encodeURIComponent(findingId)}/disposition`), {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-  return parseJsonOrThrow(
-    res,
-    `Failed to update disposition: ${res.status} ${res.statusText}`
-  );
-}
-
-export async function clearFindingDisposition(
-  findingId: string,
-  actor?: string | null
-): Promise<FindingDispositionResult> {
-  const params = new URLSearchParams();
-  if (actor && actor.trim()) {
-    params.set("actor", actor.trim());
-  }
-
-  const res = await fetch(
-    buildApiUrl(`/findings/${encodeURIComponent(findingId)}/disposition/clear`, params),
-    { method: "POST" }
-  );
-  return parseJsonOrThrow(
-    res,
-    `Failed to clear disposition: ${res.status} ${res.statusText}`
   );
 }

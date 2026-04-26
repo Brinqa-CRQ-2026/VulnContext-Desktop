@@ -3,12 +3,15 @@
 import uuid
 
 from sqlalchemy import (
+    JSON,
+    ARRAY,
     Boolean,
     Column,
     DateTime,
     Float,
     ForeignKey,
     Integer,
+    Numeric,
     String,
     Text,
     UniqueConstraint,
@@ -134,14 +137,23 @@ class Asset(Base):
     application = Column(String, nullable=True)
     business_service = Column(String, nullable=True, index=True)
     internal_or_external = Column(String, nullable=True, index=True)
+    public_ip_addresses = Column(String, nullable=True)
+    device_type = Column(String, nullable=True)
     category = Column(String, nullable=True)
     status = Column(String, nullable=True, index=True)
-    compliance_status = Column(String, nullable=True, index=True)
+    compliance_flags = Column(String, nullable=True)
     pci = Column(Boolean, nullable=True)
     pii = Column(Boolean, nullable=True)
-    asset_criticality = Column(Integer, nullable=True, index=True)
+    tags = Column(ARRAY(String).with_variant(JSON, "sqlite"), nullable=True)
+    environment = Column(String, nullable=True, index=True)
     qualys_vm_host_id = Column(String, nullable=True, index=True)
+    qualys_vm_host_uid = Column(String, nullable=True)
+    qualys_vm_host_link = Column(String, nullable=True)
+    qualys_vm_host_integration = Column(String, nullable=True)
     servicenow_host_id = Column(String, nullable=True, index=True)
+    servicenow_host_uid = Column(String, nullable=True)
+    servicenow_host_link = Column(String, nullable=True)
+    servicenow_host_integration = Column(String, nullable=True)
     company_id = Column(String, ForeignKey("companies.id", ondelete="SET NULL"), nullable=True, index=True)
     business_unit_id = Column(
         String,
@@ -161,14 +173,14 @@ class Asset(Base):
         nullable=True,
         index=True,
     )
-    exposure_score = Column(Float, nullable=True)
-    business_criticality_score = Column(Float, nullable=True)
-    data_sensitivity_score = Column(Float, nullable=True)
-    asset_type_weight = Column(Float, nullable=True)
-    is_public_facing = Column(Boolean, nullable=True)
-    has_sensitive_data = Column(Boolean, nullable=True)
-    crown_jewel_flag = Column(Boolean, nullable=True)
-    internet_exposed_flag = Column(Boolean, nullable=True)
+    aggregated_finding_risk = Column(Numeric(asdecimal=False), nullable=True)
+    exposure_modifier = Column(Numeric(asdecimal=False), nullable=True)
+    data_sensitivity_modifier = Column(Numeric(asdecimal=False), nullable=True)
+    environment_modifier = Column(Numeric(asdecimal=False), nullable=True)
+    asset_type_modifier = Column(Numeric(asdecimal=False), nullable=True)
+    asset_context_multiplier = Column(Numeric(asdecimal=False), nullable=True)
+    asset_risk_score = Column(Numeric(asdecimal=False), nullable=True, index=True)
+    scored_at = Column(DateTime(timezone=True), nullable=True)
 
     findings = relationship("Finding", back_populates="asset")
     company = relationship("Company", back_populates="assets")

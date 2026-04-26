@@ -1,18 +1,13 @@
 import { describe, expectTypeOf, it } from "vitest";
 
 import type {
-  FindingDisposition,
   FindingsSortBy,
   RiskBandFilter,
-  RiskWeightsConfig,
+  SourceSummary,
 } from "../../api/types";
 
 describe("api/types", () => {
-  it("exposes the expected string unions and weight keys", () => {
-    expectTypeOf<FindingDisposition>().toEqualTypeOf<
-      "none" | "ignored" | "risk_accepted" | "false_positive" | "not_applicable"
-    >();
-
+  it("exposes the expected string unions and source summary shape", () => {
     expectTypeOf<RiskBandFilter>().toEqualTypeOf<
       "All" | "Critical" | "High" | "Medium" | "Low"
     >();
@@ -28,12 +23,15 @@ describe("api/types", () => {
       | "source"
     >();
 
-    expectTypeOf<RiskWeightsConfig>().toMatchTypeOf<{
-      cvss_weight: number;
-      epss_weight: number;
-      kev_weight: number;
-      asset_criticality_weight: number;
-      context_weight: number;
+    expectTypeOf<SourceSummary>().toMatchTypeOf<{
+      source: string;
+      total_findings: number;
+      risk_bands: {
+        Critical: number;
+        High: number;
+        Medium: number;
+        Low: number;
+      };
     }>();
   });
 });

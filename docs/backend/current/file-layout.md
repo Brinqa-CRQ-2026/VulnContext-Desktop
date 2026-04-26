@@ -1,67 +1,50 @@
 # Backend File Layout
 
-This is the current backend file split overview.
-
-## Main entry
+## Active app modules
 
 - `backend/app/main.py`
-  Creates the FastAPI app, configures CORS, registers routers, and serves the built frontend when present.
-
-## API routers
-
+  FastAPI entrypoint, CORS setup, router registration, and built-frontend serving.
 - `backend/app/api/findings.py`
-  Findings list, summary, top findings, and finding detail routes.
-
+  Read-only findings summary, list, top, and detail routes.
 - `backend/app/api/topology.py`
-  Business-unit-first topology routes plus asset list/detail/findings drill-down.
-
+  Business-unit-first topology, assets, and asset-findings drill-down routes.
 - `backend/app/api/sources.py`
   Read-only source summary route.
-
 - `backend/app/api/common.py`
-  Shared API helpers for filtering, sorting, and response mapping.
-
-- `backend/app/api/__init__.py`
-  Central router export list used by `main.py`.
-
-## Core backend logic
-
+  Shared mapping, sorting, and risk-band helpers.
 - `backend/app/models.py`
-  SQLAlchemy models for thin findings/assets plus normalized topology tables.
-
+  ORM models for findings, assets, topology tables, and enrichment tables.
 - `backend/app/schemas.py`
-  FastAPI response schemas.
-
-- `backend/app/services/brinqa_detail.py`
-  Placeholder Brinqa detail service interface. Current runtime returns no live Brinqa detail.
-
-- `backend/app/services/topology.py`
-  Exact-name topology FK backfill helper.
-
-## Database and config
-
+  Response models used by the active API.
 - `backend/app/core/db.py`
-  Database engine and session dependency.
-
+  Engine, session, and model base wiring.
 - `backend/app/core/env.py`
-  Backend environment loading.
+  Environment loading for backend runtime.
+- `backend/app/services/brinqa_detail.py`
+  Best-effort detail hydration for findings and assets.
+- `backend/app/services/topology.py`
+  Topology foreign-key backfill helper used by reseed workflows.
+- `backend/app/services/crq_scoring.py`
+  Current CRQ v4 scoring logic over persisted enrichment data.
 
-## Script workflow docs
+## Active scripts
 
-- `docs/backend/current/asset-pull-workflow.md`
-  Overview of the Brinqa export scripts and CSV outputs.
+- `backend/scripts/pull_asset_business_context.py`
+- `backend/scripts/pull_asset_findings.py`
+- `backend/scripts/export_assets_for_supabase.py`
+- `backend/scripts/export_findings_for_supabase.py`
+- `backend/scripts/reseed_assets_for_supabase.py`
+- `backend/scripts/sync_epss.py`
+- `backend/scripts/sync_kev.py`
+- `backend/scripts/sync_nvd.py`
+- `backend/scripts/sync_daily.py`
+- `backend/scripts/score_findings_crq_v1.py`
+- `backend/scripts/brinqa_source_helpers.py`
 
-## Legacy reference docs
+## Tests
 
-- `docs/backend/legacy/legacy-risk-weights.md`
-- `docs/backend/legacy/legacy-source-management.md`
-- `docs/backend/legacy/legacy-csv-import.md`
-- `docs/backend/legacy/legacy-disposition-events.md`
-- `docs/backend/legacy/legacy-epss-enrichment.md`
-- `docs/backend/legacy/legacy-nvd-enrichment.md`
-- `docs/backend/legacy/legacy-kev-enrichment.md`
-- `docs/backend/legacy/legacy-asset-graph.md`
-  These preserve removed or deferred backend capabilities for future rebuilds.
-
-- `docs/backend/current/brinqa-detail-plan.md`
-  Future implementation notes for Brinqa request-time detail enrichment.
+- `backend/tests/test_findings_api.py`
+- `backend/tests/test_topology_api.py`
+- `backend/tests/test_crq_scoring.py`
+- `backend/tests/test_asset_reseed_csv.py`
+- `backend/tests/conftest.py`

@@ -34,7 +34,6 @@ import {
 interface RiskTableProps {
   refreshToken: number;
   onOpenIntegrations: () => void;
-  onDataChanged?: () => void;
   onOpenFinding?: (finding: ScoredFinding) => void;
 }
 
@@ -283,9 +282,10 @@ export function RiskTable({
           {!loading && !error && bandFilter === "All" && total === 0 ? (
             <div className="flex h-full min-h-[16rem] flex-col items-center justify-center gap-3 rounded-md border border-dashed border-slate-300 bg-slate-50/70 p-6 text-center">
               <p className="text-sm text-slate-600">
-                No findings in the database yet. Add a source integration to start ingesting scanner data.
+                No findings are available yet. Populate the backend tables through the
+                documented data scripts, then return here to review the results.
               </p>
-              <Button onClick={onOpenIntegrations}>Go to Integrations</Button>
+              <Button onClick={onOpenIntegrations}>View Sources</Button>
             </div>
           ) : (
             <Table>

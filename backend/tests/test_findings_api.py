@@ -16,8 +16,7 @@ def seed_asset_and_finding(
     asset = models.Asset(
         asset_id=f"asset-{idx}",
         hostname=f"host-{idx}",
-        compliance_status="Out of SLA",
-        asset_criticality=3,
+        environment="test",
     )
     finding = models.Finding(
         id=idx,

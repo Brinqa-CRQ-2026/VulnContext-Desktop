@@ -3,7 +3,6 @@ import { BriefcaseBusiness, ListFilter, PlugZap } from "lucide-react";
 import { Header } from "./components/layout/Header";
 import { DashboardOverview } from "./components/dashboard/DashboardOverview";
 import { RiskTable } from "./components/dashboard/RiskTable";
-import { RiskWeightsEditor } from "./components/dashboard/RiskWeightsEditor";
 import { FindingDetailPage } from "./components/dashboard/FindingDetailPage";
 import { IntegrationsPage } from "./components/integrations/IntegrationsPage";
 import { ApplicationDetailPage } from "./components/business-services/ApplicationDetailPage";
@@ -368,7 +367,7 @@ function App() {
       title: inFindingDetail ? "Finding Details" : "Findings",
       description: inFindingDetail
         ? `Detailed view for finding row #${route.findingId}`
-        : "Review, filter, and tune scoring for vulnerability triage workflows.",
+        : "Review and filter vulnerability findings using the current backend scoring outputs.",
     },
     integrations: {
       title: "Sources",
@@ -475,14 +474,9 @@ function App() {
               ) : (
                 <>
                   <DashboardOverview refreshToken={refreshToken} />
-                  <RiskWeightsEditor
-                    refreshToken={refreshToken}
-                    onWeightsUpdated={handleDataChanged}
-                  />
                   <RiskTable
                     refreshToken={refreshToken}
                     onOpenIntegrations={() => navigateTo("integrations")}
-                    onDataChanged={handleDataChanged}
                     onOpenFinding={openFinding}
                   />
                 </>
@@ -598,12 +592,7 @@ function App() {
                 />
               )
             ) : (
-              <>
-                <IntegrationsPage
-                  refreshToken={refreshToken}
-                  onDataChanged={handleDataChanged}
-                />
-              </>
+              <IntegrationsPage refreshToken={refreshToken} />
             )}
           </div>
         </div>

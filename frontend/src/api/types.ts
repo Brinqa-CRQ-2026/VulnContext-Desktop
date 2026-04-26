@@ -1,10 +1,3 @@
-export type FindingDisposition =
-  | "none"
-  | "ignored"
-  | "risk_accepted"
-  | "false_positive"
-  | "not_applicable";
-
 export interface ScoredFinding {
   id: string;
   source: string;
@@ -127,13 +120,6 @@ export interface ScoredFinding {
   remediation_updated_at?: string | null;
   remediation_updated_by?: string | null;
 
-  disposition?: FindingDisposition;
-  disposition_state?: string | null;
-  disposition_reason?: string | null;
-  disposition_comment?: string | null;
-  disposition_created_at?: string | null;
-  disposition_expires_at?: string | null;
-  disposition_created_by?: string | null;
 }
 
 export interface RiskBandSummary {
@@ -178,28 +164,10 @@ export interface PaginatedFindings {
   page_size: number;
 }
 
-export interface SeedUploadResult {
-  inserted: number;
-  source: string;
-  total_findings: number;
-}
-
 export interface SourceSummary {
   source: string;
   total_findings: number;
   risk_bands: RiskBandSummary;
-}
-
-export interface SourceRenameResult {
-  old_source: string;
-  new_source: string;
-  updated_rows: number;
-}
-
-export interface SourceDeleteResult {
-  source: string;
-  deleted_rows: number;
-  total_findings_remaining: number;
 }
 
 export interface TopologyMetrics {
@@ -334,38 +302,4 @@ export interface FindingRouteOrigin {
   applicationLabel?: string | null;
   assetId?: string | null;
   assetLabel?: string | null;
-}
-
-export interface RiskWeightsConfig {
-  cvss_weight: number;
-  epss_weight: number;
-  kev_weight: number;
-  asset_criticality_weight: number;
-  context_weight: number;
-}
-
-export interface RiskWeightsUpdateResult {
-  updated_rows: number;
-  weights: RiskWeightsConfig;
-}
-
-export interface FindingDispositionUpdateRequest {
-  disposition: Exclude<FindingDisposition, "none">;
-  reason?: string | null;
-  comment?: string | null;
-  expires_at?: string | null;
-  actor?: string | null;
-}
-
-export interface FindingDispositionResult {
-  id: string;
-  uid?: string | null;
-  record_id?: string | null;
-  disposition: FindingDisposition;
-  disposition_state?: string | null;
-  disposition_reason?: string | null;
-  disposition_comment?: string | null;
-  disposition_created_at?: string | null;
-  disposition_expires_at?: string | null;
-  disposition_created_by?: string | null;
 }

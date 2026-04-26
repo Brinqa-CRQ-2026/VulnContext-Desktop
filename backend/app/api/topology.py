@@ -145,7 +145,7 @@ def _sort_assets(assets: list[models.Asset], finding_counts: dict[str, int], sor
     key_map = {
         "name": lambda asset: asset_name(asset),
         "asset_id": lambda asset: (asset.asset_id or "").lower(),
-        "asset_criticality": lambda asset: asset.asset_criticality if asset.asset_criticality is not None else -1,
+        "asset_criticality": lambda asset: -1,
         "status": lambda asset: (asset.status or "").lower(),
         "finding_count": lambda asset: finding_counts.get(asset.asset_id, 0),
     }

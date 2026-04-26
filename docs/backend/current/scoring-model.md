@@ -31,6 +31,16 @@ Current thresholds:
 - EPSS contributes a small bounded negative or positive adjustment
 - CVSS remains the primary driver through a fixed `0.88` weight
 
+Formula:
+
+`crq_score = min(10, (cvss_score * 0.88) + epss_adjustment + kev_bonus)`
+
+Run commands:
+
+- `make score-crq`
+- `make score-crq-v4`
+- `make score-crq-preview`
+
 ## Summary and Detail Exposure
 
 Finding summaries and finding detail now expose CRQ-first metric fields for:
@@ -46,4 +56,4 @@ Fallback order:
 2. local enrichment tables by `cve_id`
 3. raw source fields when no app-owned value exists
 
-Full formula, join sources, persisted fields, and run instructions live in [crq-scoring-v4.md](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/crq-scoring-v4.md).
+Full persisted-field details and band tables live in [crq-scoring-v4.md](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/crq-scoring-v4.md).

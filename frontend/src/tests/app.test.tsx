@@ -27,32 +27,15 @@ vi.mock("../components/dashboard/DashboardOverview", () => ({
   ),
 }));
 
-vi.mock("../components/dashboard/RiskWeightsEditor", () => ({
-  RiskWeightsEditor: ({
-    refreshToken,
-    onWeightsUpdated,
-  }: {
-    refreshToken: number;
-    onWeightsUpdated: () => void;
-  }) => (
-    <div>
-      <div>{`weights:${refreshToken}`}</div>
-      <button onClick={onWeightsUpdated}>weights-updated</button>
-    </div>
-  ),
-}));
-
 vi.mock("../components/dashboard/RiskTable", () => ({
   RiskTable: ({
     refreshToken,
     onOpenFinding,
     onOpenIntegrations,
-    onDataChanged,
   }: {
     refreshToken: number;
     onOpenFinding?: (finding: { id: number; source: string }) => void;
     onOpenIntegrations: () => void;
-    onDataChanged?: () => void;
   }) => (
     <div>
       <div>{`table:${refreshToken}`}</div>
@@ -60,7 +43,6 @@ vi.mock("../components/dashboard/RiskTable", () => ({
         open-finding
       </button>
       <button onClick={onOpenIntegrations}>open-integrations</button>
-      <button onClick={onDataChanged}>table-data-changed</button>
     </div>
   ),
 }));
@@ -99,16 +81,9 @@ vi.mock("../components/dashboard/FindingDetailPage", () => ({
 }));
 
 vi.mock("../components/integrations/IntegrationsPage", () => ({
-  IntegrationsPage: ({
-    refreshToken,
-    onDataChanged,
-  }: {
-    refreshToken: number;
-    onDataChanged: () => void;
-  }) => (
+  IntegrationsPage: ({ refreshToken }: { refreshToken: number }) => (
     <div>
       <div>{`integrations:${refreshToken}`}</div>
-      <button onClick={onDataChanged}>integrations-data-changed</button>
     </div>
   ),
 }));
@@ -376,12 +351,9 @@ describe("App", () => {
     fireEvent.click(screen.getByText("header-findings"));
     await screen.findByText("dashboard:0");
 
-    fireEvent.click(screen.getByText("weights-updated"));
-    await screen.findByText("dashboard:1");
-
     fireEvent.click(screen.getByText("open-finding"));
-    await screen.findByText("detail:finding-42:1");
+    await screen.findByText("detail:finding-42:0");
     fireEvent.click(screen.getByText("detail-data-changed"));
-    await waitFor(() => expect(screen.getByText("detail:finding-42:2")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("detail:finding-42:1")).toBeInTheDocument());
   });
 });
