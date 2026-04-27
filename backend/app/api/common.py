@@ -291,6 +291,11 @@ def to_asset_summary(asset: models.Asset, finding_count: int = 0) -> schemas.Ass
         asset_context_score=asset.crq_asset_context_score,
         asset_risk_score=asset.crq_asset_risk_score,
         scored_at=asset.crq_asset_scored_at,
+        device_type=asset.device_type,
+        category=asset.category,
+        compliance_flags=asset.compliance_flags,
+        pci=asset.pci,
+        pii=asset.pii,
         finding_count=finding_count,
     )
 
@@ -303,7 +308,9 @@ def to_asset_detail(
 ) -> schemas.AssetDetail:
     payload = (detail.payload or {}) if detail else {}
     return schemas.AssetDetail(
-        **to_asset_summary(asset, finding_count=finding_count).model_dump(),
+        **to_asset_summary(asset, finding_count=finding_count).model_dump(
+            exclude={"device_type", "category", "compliance_flags", "pci", "pii"}
+        ),
         uid=payload.get("uid"),
         dnsname=payload.get("dnsname"),
         uuid=payload.get("uuid"),

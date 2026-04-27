@@ -2,6 +2,7 @@ import { buildApiUrl, buildBrinqaEnrichmentRequestInit, parseJsonOrThrow } from 
 import type {
   AssetListSortBy,
   AssetFindingsAnalyticsResponse,
+  AssetAnalyticsResponse,
   ApplicationDetail,
   AssetDetail,
   AssetEnrichment,
@@ -178,6 +179,8 @@ export async function getAssetsPage({
   businessService,
   application,
   status,
+  environment,
+  compliance,
   search,
   directOnly,
   sortBy,
@@ -189,6 +192,8 @@ export async function getAssetsPage({
   businessService?: string | null;
   application?: string | null;
   status?: string | null;
+  environment?: string | null;
+  compliance?: string | null;
   search?: string | null;
   directOnly?: boolean;
   sortBy: AssetListSortBy;
@@ -204,11 +209,48 @@ export async function getAssetsPage({
   if (businessService) params.set("business_service", businessService);
   if (application) params.set("application", application);
   if (status) params.set("status", status);
+  if (environment) params.set("environment", environment);
+  if (compliance) params.set("compliance", compliance);
   if (search) params.set("search", search);
   if (directOnly) params.set("direct_only", "true");
   const res = await fetch(buildApiUrl("/assets", params));
   return parseJsonOrThrow(
     res,
     `Failed to fetch assets: ${res.status} ${res.statusText}`
+  );
+}
+
+export async function getAssetsAnalytics({
+  businessUnit,
+  businessService,
+  application,
+  status,
+  environment,
+  compliance,
+  search,
+  directOnly,
+}: {
+  businessUnit?: string | null;
+  businessService?: string | null;
+  application?: string | null;
+  status?: string | null;
+  environment?: string | null;
+  compliance?: string | null;
+  search?: string | null;
+  directOnly?: boolean;
+}): Promise<AssetAnalyticsResponse> {
+  const params = new URLSearchParams();
+  if (businessUnit) params.set("business_unit", businessUnit);
+  if (businessService) params.set("business_service", businessService);
+  if (application) params.set("application", application);
+  if (status) params.set("status", status);
+  if (environment) params.set("environment", environment);
+  if (compliance) params.set("compliance", compliance);
+  if (search) params.set("search", search);
+  if (directOnly) params.set("direct_only", "true");
+  const res = await fetch(buildApiUrl("/assets/analytics", params));
+  return parseJsonOrThrow(
+    res,
+    `Failed to fetch asset analytics: ${res.status} ${res.statusText}`
   );
 }

@@ -17,6 +17,7 @@ The removed risk-weight editor and CSV empty-state importer are not part of the 
 - business unit overview and detail
 - business service detail
 - application detail
+- asset distribution charts for business service/application asset sections
 - asset inventory and asset findings drill-down
 - breadcrumb helpers and shared topology chrome
 

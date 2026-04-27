@@ -44,6 +44,8 @@ function seedAssetHooks({
       finding_count: 2,
       status: "Active",
       environment: "production",
+      asset_context_score: 9,
+      aggregated_finding_risk: 8.7,
       owner: null,
       service_team: null,
       device_type: null,
@@ -94,6 +96,7 @@ function seedAssetHooks({
         application: "Identity Verify",
         status: "Active",
         environment: "production",
+        asset_context_score: 9,
       },
       analytics: {
         total_findings: 8,
@@ -126,6 +129,8 @@ function seedFindingsHook() {
         business_service: "Digital Storefront",
         application: "Identity Verify",
         finding_count: 2,
+        asset_context_score: 9,
+        aggregated_finding_risk: 8.7,
       },
       total: 2,
       page: 1,
@@ -141,8 +146,8 @@ function seedFindingsHook() {
           cvss_score: 7.2,
           epss_score: 0.1234,
           age_in_days: 14,
-          status: "Open",
-          lifecycle_status: "Active",
+          status: "Fixed",
+          lifecycle_status: "Inactive",
           isKev: false,
           source: "Qualys",
         },
@@ -194,16 +199,34 @@ describe("AssetFindingsPage", () => {
     );
 
     expect(screen.getByText("Asset overview")).toBeInTheDocument();
-    expect(screen.getByText("Risk distribution")).toBeInTheDocument();
+    expect(screen.getByText("Finding risk spread")).toBeInTheDocument();
     expect(screen.getByText("Priority spotlight")).toBeInTheDocument();
     expect(screen.getByText("Enrichment loaded")).toBeInTheDocument();
-    expect(screen.getByText("Avg display risk")).toBeInTheDocument();
-    expect(screen.getByText("8.6")).toBeInTheDocument();
+    expect(screen.getByText("Asset criticality score")).toBeInTheDocument();
+    expect(screen.getByText("Asset risk score")).toBeInTheDocument();
+    expect(screen.getByText("9.0")).toBeInTheDocument();
+    expect(screen.getByText("8.7")).toBeInTheDocument();
     expect(screen.getByText("KEV findings")).toBeInTheDocument();
-    expect(screen.getByText("44d")).toBeInTheDocument();
+    const priorityCard = screen.getByText("Priority spotlight").closest("div");
+    expect(priorityCard).not.toBeNull();
+    expect(within(priorityCard as HTMLElement).getByText("3")).toBeInTheDocument();
+    expect(within(priorityCard as HTMLElement).getByText("High risk findings")).toBeInTheDocument();
+    expect(screen.queryByText("Highest band")).not.toBeInTheDocument();
     expect(screen.queryByText("Brinqa Enrichment Probe")).not.toBeInTheDocument();
     expect(screen.queryByText("Run Brinqa enrichment")).not.toBeInTheDocument();
     expect(screen.getByText("asset-owner")).toBeInTheDocument();
+    expect(screen.queryByText("Business Unit")).not.toBeInTheDocument();
+    expect(screen.queryByText("Last Scanned")).not.toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /Risk band/i })).toBeInTheDocument();
+    expect(screen.getByText("8 findings")).toBeInTheDocument();
+
+    const table = screen.getByRole("table");
+    expect(within(table).getByRole("columnheader", { name: "Status" })).toBeInTheDocument();
+    expect(within(table).getByRole("columnheader", { name: "KEV" })).toBeInTheDocument();
+    expect(within(table).getByRole("columnheader", { name: "Display risk" })).toBeInTheDocument();
+    expect(within(table).getByRole("columnheader", { name: "Risk band" })).toBeInTheDocument();
+    expect(within(table).queryByRole("columnheader", { name: "Active" })).not.toBeInTheDocument();
+    expect(screen.getByText("Fixed")).toHaveClass("bg-slate-900");
 
     fireEvent.click(screen.getByText("Remote Code Execution"));
     expect(onOpenFinding).toHaveBeenCalledWith(

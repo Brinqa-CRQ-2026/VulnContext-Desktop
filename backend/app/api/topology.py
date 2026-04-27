@@ -86,6 +86,8 @@ def _apply_asset_filters(
     business_service: str | None = None,
     application: str | None = None,
     status: str | None = None,
+    environment: str | None = None,
+    compliance: str | None = None,
     search: str | None = None,
     direct_only: bool = False,
 ):
@@ -121,10 +123,41 @@ def _apply_asset_filters(
             query = query.filter(models.Asset.application == application)
     if status is not None and status.strip():
         query = query.filter(models.Asset.status == status.strip())
+    if environment is not None and environment.strip():
+        environment_value = environment.strip().lower()
+        if environment_value == "unknown":
+            query = query.filter(
+                or_(
+                    models.Asset.environment.is_(None),
+                    models.Asset.environment == "",
+                )
+            )
+        else:
+            query = query.filter(func.lower(func.coalesce(models.Asset.environment, "")) == environment_value)
+    if compliance is not None and compliance.strip():
+        compliance_value = compliance.strip().lower()
+        if compliance_value == "pci":
+            query = query.filter(models.Asset.pci.is_(True))
+        elif compliance_value == "pii":
+            query = query.filter(models.Asset.pii.is_(True))
+        elif compliance_value == "regulated":
+            query = query.filter(
+                or_(
+                    models.Asset.pci.is_(True),
+                    models.Asset.pii.is_(True),
+                    models.Asset.compliance_flags.is_not(None),
+                )
+            )
     if search is not None and search.strip():
         term = f"%{search.strip()}%"
         query = query.filter(
-            or_(models.Asset.asset_id.ilike(term), models.Asset.hostname.ilike(term))
+            or_(
+                models.Asset.asset_id.ilike(term),
+                models.Asset.hostname.ilike(term),
+                models.Asset.device_type.ilike(term),
+                models.Asset.category.ilike(term),
+                models.Asset.environment.ilike(term),
+            )
         )
     if direct_only:
         query = query.filter(
@@ -146,8 +179,8 @@ def _sort_assets(assets: list[models.Asset], finding_counts: dict[str, int], sor
 
     key_map = {
         "name": lambda asset: asset_name(asset),
-        "asset_id": lambda asset: (asset.asset_id or "").lower(),
-        "asset_criticality": lambda asset: -1,
+        "asset_type": lambda asset: (asset.device_type or asset.category or "").lower(),
+        "asset_criticality": lambda asset: asset.crq_asset_context_score if asset.crq_asset_context_score is not None else -1,
         "status": lambda asset: (asset.status or "").lower(),
         "finding_count": lambda asset: finding_counts.get(asset.asset_id, 0),
     }
@@ -155,13 +188,38 @@ def _sort_assets(assets: list[models.Asset], finding_counts: dict[str, int], sor
     if key_fn is None:
         raise HTTPException(
             status_code=400,
-            detail="Invalid asset sort_by. Use one of: name, asset_id, asset_criticality, status, finding_count.",
+            detail="Invalid asset sort_by. Use one of: name, asset_type, asset_criticality, status, finding_count.",
         )
     return sorted(
         assets,
         key=lambda asset: (key_fn(asset), asset_name(asset), asset.asset_id),
         reverse=reverse,
     )
+
+
+def _bucket_asset_score(score: float | None) -> str:
+    if score is None:
+        return "unscored"
+    if score >= 9:
+        return "critical"
+    if score >= 7:
+        return "high"
+    if score >= 4:
+        return "medium"
+    return "low"
+
+
+def _build_asset_score_distribution(scores: list[float | None]) -> schemas.AssetScoreDistribution:
+    buckets = {
+        "low": 0,
+        "medium": 0,
+        "high": 0,
+        "critical": 0,
+        "unscored": 0,
+    }
+    for score in scores:
+        buckets[_bucket_asset_score(score)] += 1
+    return schemas.AssetScoreDistribution(**buckets)
 
 
 def _asset_findings_filters(
@@ -504,6 +562,8 @@ def get_assets(
     business_service: str | None = Query(None),
     application: str | None = Query(None),
     status: str | None = Query(None),
+    environment: str | None = Query(None),
+    compliance: str | None = Query(None),
     search: str | None = Query(None),
     direct_only: bool = Query(False),
     sort_by: str = Query("name"),
@@ -518,6 +578,8 @@ def get_assets(
         business_service=business_service,
         application=application,
         status=status,
+        environment=environment,
+        compliance=compliance,
         search=search,
         direct_only=direct_only,
     )
@@ -539,6 +601,44 @@ def get_assets(
         total=int(total),
         page=page,
         page_size=page_size,
+    )
+
+
+@router.get("/assets/analytics", response_model=schemas.AssetAnalyticsResponse)
+def get_assets_analytics(
+    business_unit: str | None = Query(None),
+    business_service: str | None = Query(None),
+    application: str | None = Query(None),
+    status: str | None = Query(None),
+    environment: str | None = Query(None),
+    compliance: str | None = Query(None),
+    search: str | None = Query(None),
+    direct_only: bool = Query(False),
+    db: Session = Depends(get_db),
+):
+    topology_ready = _has_topology_schema(db)
+    query = _apply_asset_filters(
+        _asset_query_with_topology(db),
+        topology_ready=topology_ready,
+        business_unit=business_unit,
+        business_service=business_service,
+        application=application,
+        status=status,
+        environment=environment,
+        compliance=compliance,
+        search=search,
+        direct_only=direct_only,
+    )
+
+    assets = query.all()
+    return schemas.AssetAnalyticsResponse(
+        total_assets=len(assets),
+        asset_criticality_distribution=_build_asset_score_distribution(
+            [asset.crq_asset_context_score for asset in assets]
+        ),
+        finding_risk_distribution=_build_asset_score_distribution(
+            [asset.crq_asset_aggregated_finding_risk for asset in assets]
+        ),
     )
 
 

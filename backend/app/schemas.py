@@ -170,6 +170,11 @@ class AssetSummary(BaseModel):
     asset_context_score: float | None = None
     asset_risk_score: float | None = None
     scored_at: datetime | None = None
+    device_type: str | None = None
+    category: str | None = None
+    compliance_flags: str | None = None
+    pci: bool | None = None
+    pii: bool | None = None
     finding_count: int = 0
 
 
@@ -240,6 +245,20 @@ class PaginatedAssets(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class AssetScoreDistribution(BaseModel):
+    low: int = 0
+    medium: int = 0
+    high: int = 0
+    critical: int = 0
+    unscored: int = 0
+
+
+class AssetAnalyticsResponse(BaseModel):
+    total_assets: int = 0
+    asset_criticality_distribution: AssetScoreDistribution
+    finding_risk_distribution: AssetScoreDistribution
 
 
 class AssetFindingsPage(BaseModel):

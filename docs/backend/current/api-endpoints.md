@@ -29,6 +29,8 @@ There are no active disposition write routes in the current backend.
 - `GET /topology/business-units/{business_unit_slug}/business-services/{business_service_slug}`
 - `GET /topology/business-units/{business_unit_slug}/business-services/{business_service_slug}/applications/{application_slug}`
 - `GET /assets`
+- `GET /assets/analytics`
+  Returns CRQ-banded asset score distributions for the full filtered asset result set. It accepts the same non-pagination filters as `GET /assets`.
 - `GET /assets/{asset_id}`
   Returns DB-only asset detail and never calls Brinqa.
 - `GET /assets/{asset_id}/enrichment`

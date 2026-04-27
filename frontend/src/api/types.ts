@@ -145,7 +145,7 @@ export type SortOrder = "asc" | "desc";
 export type ScopedFindingSortBy = "risk_score" | "age_in_days" | "status";
 export type AssetListSortBy =
   | "name"
-  | "asset_id"
+  | "asset_type"
   | "asset_criticality"
   | "status"
   | "finding_count";
@@ -162,6 +162,20 @@ export interface PaginatedFindings {
   total: number;
   page: number;
   page_size: number;
+}
+
+export interface AssetScoreDistribution {
+  low: number;
+  medium: number;
+  high: number;
+  critical: number;
+  unscored: number;
+}
+
+export interface AssetAnalyticsResponse {
+  total_assets: number;
+  asset_criticality_distribution: AssetScoreDistribution;
+  finding_risk_distribution: AssetScoreDistribution;
 }
 
 export interface SourceSummary {
@@ -210,14 +224,21 @@ export interface AssetSummary {
   status?: string | null;
   compliance_status?: string | null;
   asset_criticality?: number | null;
+  tags?: string[] | null;
+  environment?: string | null;
+  aggregated_finding_risk?: number | null;
   exposure_score?: number | null;
-  business_criticality_score?: number | null;
   data_sensitivity_score?: number | null;
-  asset_type_weight?: number | null;
-  is_public_facing?: boolean | null;
-  has_sensitive_data?: boolean | null;
-  crown_jewel_flag?: boolean | null;
-  internet_exposed_flag?: boolean | null;
+  environment_score?: number | null;
+  asset_type_score?: number | null;
+  asset_context_score?: number | null;
+  asset_risk_score?: number | null;
+  scored_at?: string | null;
+  device_type?: string | null;
+  category?: string | null;
+  compliance_flags?: string | null;
+  pci?: boolean | null;
+  pii?: boolean | null;
   finding_count: number;
 }
 

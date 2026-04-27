@@ -228,14 +228,22 @@ def seed_asset(
     business_service: str,
     application: str | None = None,
     finding_risks: list[float] | None = None,
+    environment: str = "test",
+    status: str = "Confirmed active",
+    pci: bool | None = None,
+    pii: bool | None = None,
+    compliance_flags: str | None = None,
 ):
     asset = models.Asset(
         asset_id=asset_id,
         hostname=hostname,
         business_service=business_service,
         application=application,
-        environment="test",
-        status="Confirmed active",
+        environment=environment,
+        status=status,
+        pci=pci,
+        pii=pii,
+        compliance_flags=compliance_flags,
     )
     db_session.add(asset)
     db_session.flush()
@@ -624,6 +632,123 @@ def test_asset_findings_analytics_route_summarizes_full_filtered_result_set(
     assert filtered_payload["analytics"]["total_findings"] == 1
     assert filtered_payload["analytics"]["kev_findings"] == 1
     assert filtered_payload["analytics"]["risk_bands"]["Critical"] == 1
+
+
+def test_assets_analytics_route_summarizes_full_filtered_asset_set(client, db_session):
+    seed_topology(db_session)
+    asset_critical = seed_asset(
+        db_session,
+        asset_id="asset-chart-1",
+        hostname="chart-1",
+        business_service="Digital Storefront",
+        application="Identity Verify",
+        finding_risks=[],
+        environment="production",
+        status="Confirmed active",
+        pci=True,
+    )
+    asset_high = seed_asset(
+        db_session,
+        asset_id="asset-chart-2",
+        hostname="chart-2",
+        business_service="Digital Storefront",
+        application="Identity Verify",
+        finding_risks=[],
+        environment="production",
+        status="Confirmed active",
+        pii=True,
+    )
+    asset_medium = seed_asset(
+        db_session,
+        asset_id="asset-chart-3",
+        hostname="chart-3",
+        business_service="Digital Storefront",
+        application=None,
+        finding_risks=[],
+        environment="test",
+        status="Retired",
+        compliance_flags="hipaa",
+    )
+    asset_low = seed_asset(
+        db_session,
+        asset_id="asset-chart-4",
+        hostname="chart-4",
+        business_service="Digital Storefront",
+        application=None,
+        finding_risks=[],
+        environment="development",
+        status="Confirmed active",
+    )
+    asset_unscored = seed_asset(
+        db_session,
+        asset_id="asset-chart-5",
+        hostname="chart-5",
+        business_service="Digital Storefront",
+        application=None,
+        finding_risks=[],
+        environment="production",
+        status="Confirmed active",
+    )
+    backfill_asset_topology_foreign_keys(db_session)
+    asset_critical.crq_asset_context_score = 9.0
+    asset_critical.crq_asset_aggregated_finding_risk = 8.9
+    asset_high.crq_asset_context_score = 7.0
+    asset_high.crq_asset_aggregated_finding_risk = 9.0
+    asset_medium.crq_asset_context_score = 4.0
+    asset_medium.crq_asset_aggregated_finding_risk = 6.9
+    asset_low.crq_asset_context_score = 3.9
+    asset_low.crq_asset_aggregated_finding_risk = 4.0
+    asset_unscored.crq_asset_context_score = None
+    asset_unscored.crq_asset_aggregated_finding_risk = None
+    db_session.commit()
+
+    response = client.get(
+        "/assets/analytics?business_service=Digital%20Storefront&application=Identity%20Verify&status=Confirmed%20active&environment=production&compliance=PCI"
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total_assets"] == 1
+    assert payload["asset_criticality_distribution"] == {
+        "low": 0,
+        "medium": 0,
+        "high": 0,
+        "critical": 1,
+        "unscored": 0,
+    }
+    assert payload["finding_risk_distribution"] == {
+        "low": 0,
+        "medium": 0,
+        "high": 1,
+        "critical": 0,
+        "unscored": 0,
+    }
+
+    all_assets = client.get("/assets/analytics?business_service=Digital%20Storefront")
+    assert all_assets.status_code == 200
+    all_payload = all_assets.json()
+    assert all_payload["total_assets"] == 5
+    assert all_payload["asset_criticality_distribution"] == {
+        "low": 1,
+        "medium": 1,
+        "high": 1,
+        "critical": 1,
+        "unscored": 1,
+    }
+    assert all_payload["finding_risk_distribution"] == {
+        "low": 0,
+        "medium": 2,
+        "high": 1,
+        "critical": 1,
+        "unscored": 1,
+    }
+
+    direct_only = client.get(
+        "/assets/analytics?business_service=Digital%20Storefront&direct_only=true&compliance=regulated"
+    )
+    assert direct_only.status_code == 200
+    direct_only_payload = direct_only.json()
+    assert direct_only_payload["total_assets"] == 1
+    assert direct_only_payload["asset_criticality_distribution"]["medium"] == 1
 
 
 def test_asset_detail_route_is_db_only_and_enrichment_route_uses_request_auth(

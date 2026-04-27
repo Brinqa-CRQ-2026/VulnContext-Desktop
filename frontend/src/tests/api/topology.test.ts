@@ -51,10 +51,12 @@ describe("api/topology", () => {
       getAssetEnrichment,
       getAssetFindings,
       getAssetFindingsAnalytics,
+      getAssetsAnalytics,
       getAssetFindingsPage,
       getAssetsPage,
     } = await loadTopologyApi();
     getFetchMock()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true })))
       .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true })))
       .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true })))
       .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true })))
@@ -95,6 +97,16 @@ describe("api/topology", () => {
       sortBy: "finding_count",
       sortOrder: "desc",
     });
+    await getAssetsAnalytics({
+      businessUnit: "Online Store",
+      businessService: "Digital Media",
+      application: "Inventory Manager",
+      status: "Confirmed active",
+      environment: "Production",
+      compliance: "PCI",
+      search: "asset-20",
+      directOnly: true,
+    });
 
     expect(getFetchMock()).toHaveBeenNthCalledWith(
       1,
@@ -124,6 +136,10 @@ describe("api/topology", () => {
     expect(getFetchMock()).toHaveBeenNthCalledWith(
       7,
       "https://api.example.com/assets?page=1&page_size=10&sort_by=finding_count&sort_order=desc&business_unit=Online+Store&business_service=Digital+Media&search=asset-20&direct_only=true"
+    );
+    expect(getFetchMock()).toHaveBeenNthCalledWith(
+      8,
+      "https://api.example.com/assets/analytics?business_unit=Online+Store&business_service=Digital+Media&application=Inventory+Manager&status=Confirmed+active&environment=Production&compliance=PCI&search=asset-20&direct_only=true"
     );
   });
 
