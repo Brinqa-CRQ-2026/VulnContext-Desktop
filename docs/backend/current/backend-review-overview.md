@@ -22,7 +22,9 @@ The main responsibilities are:
 
 - `brinqa_detail.py`
   Hydrates request-scoped Brinqa asset detail and explicit finding narrative enrichment.
-- `crq_scoring.py`
-  Implements the CRQ model currently labeled `v4`.
+- `crq_finding_scoring.py`
+  Implements the CRQ Findings model currently labeled `v4`.
+- `crq_asset_scoring.py`
+  Implements the manual-run CRQ Asset model for aggregated finding risk and asset context.
 - `topology.py`
   Backfills topology foreign keys during reseed flows.

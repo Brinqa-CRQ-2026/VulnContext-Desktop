@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 import pytest
 
 from app import models
-from app.services.crq_scoring import CRQ_VERSION, preview_scores, score_findings
+from app.services.crq_finding_scoring import CRQ_VERSION, preview_scores, score_findings
 
 
 def seed_finding(db_session, *, idx: int, age_in_days: float | None, cve_id: str):
@@ -57,11 +57,11 @@ def test_crq_scoring_persists_expected_values_and_boundaries(db_session):
 
     preview = preview_scores(db_session)
     preview_by_id = {row["finding_id"]: row for row in preview}
-    assert preview_by_id["finding-1"]["crq_epss_multiplier"] == 0.0
-    assert preview_by_id["finding-2"]["crq_epss_multiplier"] == 0.35
-    assert preview_by_id["finding-3"]["crq_epss_multiplier"] == 0.75
-    assert preview_by_id["finding-5"]["crq_epss_multiplier"] == 0.75
-    assert preview_by_id["finding-4"]["crq_epss_multiplier"] == 0.0
+    assert preview_by_id["finding-1"]["crq_finding_epss_multiplier"] == 0.0
+    assert preview_by_id["finding-2"]["crq_finding_epss_multiplier"] == 0.35
+    assert preview_by_id["finding-3"]["crq_finding_epss_multiplier"] == 0.75
+    assert preview_by_id["finding-5"]["crq_finding_epss_multiplier"] == 0.75
+    assert preview_by_id["finding-4"]["crq_finding_epss_multiplier"] == 0.0
 
     updated = score_findings(
         db_session,
@@ -81,34 +81,34 @@ def test_crq_scoring_persists_expected_values_and_boundaries(db_session):
         )
     }
 
-    assert refreshed["finding-1"].crq_score == pytest.approx(7.06)
-    assert refreshed["finding-1"].crq_risk_band == "High"
-    assert refreshed["finding-1"].crq_kev_bonus == pytest.approx(0.9)
-    assert refreshed["finding-1"].crq_age_bonus == 0.0
+    assert refreshed["finding-1"].crq_finding_score == pytest.approx(7.06)
+    assert refreshed["finding-1"].crq_finding_risk_band == "High"
+    assert refreshed["finding-1"].crq_finding_kev_bonus == pytest.approx(0.9)
+    assert refreshed["finding-1"].crq_finding_age_bonus == 0.0
 
-    assert refreshed["finding-2"].crq_score == pytest.approx(6.51)
-    assert refreshed["finding-2"].crq_risk_band == "Medium"
-    assert refreshed["finding-2"].crq_age_bonus == 0.25
+    assert refreshed["finding-2"].crq_finding_score == pytest.approx(6.51)
+    assert refreshed["finding-2"].crq_finding_risk_band == "Medium"
+    assert refreshed["finding-2"].crq_finding_age_bonus == 0.25
 
-    assert refreshed["finding-3"].crq_score == pytest.approx(6.91)
-    assert refreshed["finding-3"].crq_risk_band == "Medium"
-    assert refreshed["finding-3"].crq_age_bonus == 0.5
+    assert refreshed["finding-3"].crq_finding_score == pytest.approx(6.91)
+    assert refreshed["finding-3"].crq_finding_risk_band == "Medium"
+    assert refreshed["finding-3"].crq_finding_age_bonus == 0.5
 
-    assert refreshed["finding-4"].crq_score == pytest.approx(8.712)
-    assert refreshed["finding-4"].crq_risk_band == "High"
-    assert refreshed["finding-4"].crq_age_bonus == 1.0
-    assert "Missing EPSS percentile" in refreshed["finding-4"].crq_notes
+    assert refreshed["finding-4"].crq_finding_score == pytest.approx(8.712)
+    assert refreshed["finding-4"].crq_finding_risk_band == "High"
+    assert refreshed["finding-4"].crq_finding_age_bonus == 1.0
+    assert "Missing EPSS percentile" in refreshed["finding-4"].crq_finding_notes
 
-    assert refreshed["finding-5"].crq_score == pytest.approx(4.27)
-    assert refreshed["finding-5"].crq_risk_band == "Medium"
-    assert refreshed["finding-5"].crq_age_bonus == 0.0
-    assert "Missing age_in_days" in refreshed["finding-5"].crq_notes
+    assert refreshed["finding-5"].crq_finding_score == pytest.approx(4.27)
+    assert refreshed["finding-5"].crq_finding_risk_band == "Medium"
+    assert refreshed["finding-5"].crq_finding_age_bonus == 0.0
+    assert "Missing age_in_days" in refreshed["finding-5"].crq_finding_notes
 
-    assert refreshed["finding-6"].crq_score == pytest.approx(0.0)
-    assert refreshed["finding-6"].crq_risk_band == "Low"
-    assert "Missing NVD CVSS" in refreshed["finding-6"].crq_notes
+    assert refreshed["finding-6"].crq_finding_score == pytest.approx(0.0)
+    assert refreshed["finding-6"].crq_finding_risk_band == "Low"
+    assert "Missing NVD CVSS" in refreshed["finding-6"].crq_finding_notes
 
     for finding in refreshed.values():
-        assert finding.crq_score_version == CRQ_VERSION
-        assert finding.crq_scored_at == datetime(2024, 2, 1, tzinfo=timezone.utc)
-        assert finding.crq_score <= 10.0
+        assert finding.crq_finding_score_version == CRQ_VERSION
+        assert finding.crq_finding_scored_at == datetime(2024, 2, 1, tzinfo=timezone.utc)
+        assert finding.crq_finding_score <= 10.0

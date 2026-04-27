@@ -163,11 +163,11 @@ class AssetSummary(BaseModel):
     tags: list[str] | None = None
     environment: str | None = None
     aggregated_finding_risk: float | None = None
-    exposure_modifier: float | None = None
-    data_sensitivity_modifier: float | None = None
-    environment_modifier: float | None = None
-    asset_type_modifier: float | None = None
-    asset_context_multiplier: float | None = None
+    exposure_score: float | None = None
+    data_sensitivity_score: float | None = None
+    environment_score: float | None = None
+    asset_type_score: float | None = None
+    asset_context_score: float | None = None
     asset_risk_score: float | None = None
     scored_at: datetime | None = None
     finding_count: int = 0

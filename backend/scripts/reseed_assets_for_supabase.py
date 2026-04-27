@@ -433,14 +433,14 @@ def run_reseed(csv_path: Path) -> None:
                 """
                 select count(*)
                 from public.assets
-                where aggregated_finding_risk is not null
-                   or exposure_modifier is not null
-                   or data_sensitivity_modifier is not null
-                   or environment_modifier is not null
-                   or asset_type_modifier is not null
-                   or asset_context_multiplier is not null
-                   or asset_risk_score is not null
-                   or scored_at is not null
+                where crq_asset_aggregated_finding_risk is not null
+                   or crq_asset_exposure_score is not null
+                   or crq_asset_data_sensitivity_score is not null
+                   or crq_asset_environment_score is not null
+                   or crq_asset_type_score is not null
+                   or crq_asset_context_score is not null
+                   or crq_asset_risk_score is not null
+                   or crq_asset_scored_at is not null
                 """,
             )
             tag_assignment_total = fetch_scalar(

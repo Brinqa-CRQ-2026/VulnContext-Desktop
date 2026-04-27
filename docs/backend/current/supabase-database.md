@@ -157,10 +157,10 @@ The active backend now matches the thin live runtime model:
 
 The backend summary serializer now treats CRQ as the primary app-owned score source when fields are present:
 
-- display `risk_score` prefers `findings.crq_score`
-- `cvss_score` prefers `findings.crq_cvss_score`
-- `epss_score` prefers `findings.crq_epss_score`
-- `isKev` prefers `findings.crq_is_kev`
+- display `risk_score` prefers `findings.crq_finding_score`
+- `cvss_score` prefers `findings.crq_finding_cvss_score`
+- `epss_score` prefers `findings.crq_finding_epss_score`
+- `isKev` prefers `findings.crq_finding_is_kev`
 
 Finding list and main finding detail responses are now persisted-data-only. If those `crq_*` fields are absent on a row, the backend returns `null` rather than supplementing them during response building.
 

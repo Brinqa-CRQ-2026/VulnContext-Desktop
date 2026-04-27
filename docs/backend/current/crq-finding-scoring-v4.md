@@ -8,7 +8,7 @@ Schema changes are managed by the tracked Supabase migration in [supabase/migrat
 
 ## Formula
 
-`crq_score = min(10, (cvss_score * 0.88) + epss_adjustment + kev_bonus)`
+`crq_finding_score = min(10, (cvss_score * 0.88) + epss_adjustment + kev_bonus)`
 
 Components:
 
@@ -28,8 +28,8 @@ Stored EPSS percentiles are `0-1` values, so the scorer applies the same bands a
 
 Age handling:
 
-- `findings.age_in_days` is still copied into `crq_age_days`
-- the legacy age reference band is still copied into `crq_age_bonus`
+- `findings.age_in_days` is still copied into `crq_finding_age_days`
+- the legacy age reference band is still copied into `crq_finding_age_bonus`
 - age is excluded from the CRQ v4 score
 - for `cvss_score < 4.0`, negative EPSS adjustments are softened
 - for missing or zero CVSS, negative EPSS adjustments are disabled
@@ -45,32 +45,32 @@ Risk bands:
 
 The scorer writes these columns on `public.findings`:
 
-- `crq_score`
-- `crq_risk_band`
-- `crq_scored_at`
-- `crq_score_version`
-- `crq_cvss_score`
-- `crq_epss_score`
-- `crq_epss_percentile`
-- `crq_epss_multiplier`
-- `crq_is_kev`
-- `crq_kev_bonus`
-- `crq_age_days`
-- `crq_age_bonus`
-- `crq_notes`
+- `crq_finding_score`
+- `crq_finding_risk_band`
+- `crq_finding_scored_at`
+- `crq_finding_score_version`
+- `crq_finding_cvss_score`
+- `crq_finding_epss_score`
+- `crq_finding_epss_percentile`
+- `crq_finding_epss_multiplier`
+- `crq_finding_is_kev`
+- `crq_finding_kev_bonus`
+- `crq_finding_age_days`
+- `crq_finding_age_bonus`
+- `crq_finding_notes`
 
 Field meaning notes in v4:
 
-- `crq_epss_multiplier` stores the effective EPSS adjustment amount for the final score
-- `crq_kev_bonus` stores the KEV additive bonus of `0.9`
-- `crq_age_bonus` is reference-only and is not part of the score
+- `crq_finding_epss_multiplier` stores the effective EPSS adjustment amount for the final score
+- `crq_finding_kev_bonus` stores the KEV additive bonus of `0.9`
+- `crq_finding_age_bonus` is reference-only and is not part of the score
 
 ## Missing Data Behavior
 
-- Missing `NVD` CVSS defaults the CVSS input to `0.0` and records that in `crq_notes`
-- Missing `EPSS percentile` defaults the EPSS adjustment to `0.0` and records that in `crq_notes`
+- Missing `NVD` CVSS defaults the CVSS input to `0.0` and records that in `crq_finding_notes`
+- Missing `EPSS percentile` defaults the EPSS adjustment to `0.0` and records that in `crq_finding_notes`
 - Missing `KEV` defaults the KEV bonus to `0.0`
-- Missing `age_in_days` defaults the reference age band to `0.0` and records that in `crq_notes`
+- Missing `age_in_days` defaults the reference age band to `0.0` and records that in `crq_finding_notes`
 
 ## Run
 
@@ -84,19 +84,19 @@ Direct script usage:
 
 ```bash
 cd backend
-python3 scripts/score_findings_crq_v1.py
+python3 scripts/score_crq_findings_v1.py
 ```
 
 Optional preview mode:
 
 ```bash
 cd backend
-python3 scripts/score_findings_crq_v1.py --dry-run
+python3 scripts/score_crq_findings_v1.py --dry-run
 ```
 
 Optional targeted run:
 
 ```bash
 cd backend
-python3 scripts/score_findings_crq_v1.py --finding-id finding-123
+python3 scripts/score_crq_findings_v1.py --finding-id finding-123
 ```

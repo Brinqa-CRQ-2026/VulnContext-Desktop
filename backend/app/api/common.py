@@ -38,24 +38,24 @@ def derive_risk_band(score: float | None) -> str | None:
 
 
 def finding_display_score(finding: models.Finding) -> float | None:
-    return finding.crq_score if finding.crq_score is not None else finding.brinqa_risk_score
+    return finding.crq_finding_score if finding.crq_finding_score is not None else finding.brinqa_risk_score
 
 
 def finding_display_band(finding: models.Finding) -> str | None:
-    if finding.crq_risk_band:
-        return finding.crq_risk_band
+    if finding.crq_finding_risk_band:
+        return finding.crq_finding_risk_band
     return derive_risk_band(finding_display_score(finding))
 
 
 def finding_score_source(finding: models.Finding) -> str:
-    if finding.crq_score is not None:
-        version = (finding.crq_score_version or "v4").upper()
+    if finding.crq_finding_score is not None:
+        version = (finding.crq_finding_score_version or "v4").upper()
         return f"CRQ {version}"
     return "Brinqa"
 
 
 def display_score_expression():
-    return func.coalesce(models.Finding.crq_score, models.Finding.brinqa_risk_score)
+    return func.coalesce(models.Finding.crq_finding_score, models.Finding.brinqa_risk_score)
 
 
 def display_band_expression():
@@ -87,10 +87,10 @@ def resolve_sorting(sort_by: str, sort_order: str):
 
     sort_columns = {
         "risk_score": display_score_expression(),
-        "internal_risk_score": models.Finding.crq_score,
+        "internal_risk_score": models.Finding.crq_finding_score,
         "source_risk_score": models.Finding.brinqa_risk_score,
-        "cvss_score": models.Finding.crq_cvss_score,
-        "epss_score": models.Finding.crq_epss_score,
+        "cvss_score": models.Finding.crq_finding_cvss_score,
+        "epss_score": models.Finding.crq_finding_epss_score,
         "age_in_days": models.Finding.age_in_days,
         "vuln_age_days": models.Finding.age_in_days,
         "due_date": models.Finding.last_updated,
@@ -158,11 +158,11 @@ def to_finding_summary(
         cve_id=finding.cve_id,
         target_ids=finding.asset_id,
         target_names=resolved_target_name,
-        cvss_score=finding.crq_cvss_score,
+        cvss_score=finding.crq_finding_cvss_score,
         cvss_severity=None,
-        epss_score=finding.crq_epss_score,
-        epss_percentile=finding.crq_epss_percentile,
-        is_kev=bool(finding.crq_is_kev),
+        epss_score=finding.crq_finding_epss_score,
+        epss_percentile=finding.crq_finding_epss_percentile,
+        is_kev=bool(finding.crq_finding_is_kev),
         risk_score=risk_score,
         risk_band=risk_band,
         source_risk_score=finding.brinqa_risk_score,
@@ -170,8 +170,8 @@ def to_finding_summary(
         source_risk_rating=derive_risk_band(finding.brinqa_risk_score),
         base_risk_score=finding.brinqa_base_risk_score,
         score_source=finding_score_source(finding),
-        crq_score_version=finding.crq_score_version,
-        crq_scored_at=finding.crq_scored_at,
+        crq_score_version=finding.crq_finding_score_version,
+        crq_scored_at=finding.crq_finding_scored_at,
         asset_criticality=None,
     )
 
@@ -214,24 +214,24 @@ def to_finding_detail(
         source_status=payload.get("source_status"),
         severity=payload.get("severity"),
         due_date=_parse_datetime(payload.get("due_date")),
-        cvss_score=finding.crq_cvss_score,
+        cvss_score=finding.crq_finding_cvss_score,
         cvss_version=payload.get("cvss_version"),
         cvss_severity=summary.cvss_severity,
         cvss_vector=payload.get("cvss_vector"),
         attack_vector=payload.get("attack_vector"),
         attack_complexity=payload.get("attack_complexity"),
-        epss_score=finding.crq_epss_score,
-        epss_percentile=finding.crq_epss_percentile,
-        is_kev=bool(finding.crq_is_kev),
-        crq_cvss_score=finding.crq_cvss_score,
-        crq_epss_score=finding.crq_epss_score,
-        crq_epss_percentile=finding.crq_epss_percentile,
-        crq_epss_multiplier=finding.crq_epss_multiplier,
-        crq_is_kev=bool(finding.crq_is_kev),
-        crq_kev_bonus=finding.crq_kev_bonus,
-        crq_age_days=finding.crq_age_days,
-        crq_age_bonus=finding.crq_age_bonus,
-        crq_notes=finding.crq_notes,
+        epss_score=finding.crq_finding_epss_score,
+        epss_percentile=finding.crq_finding_epss_percentile,
+        is_kev=bool(finding.crq_finding_is_kev),
+        crq_cvss_score=finding.crq_finding_cvss_score,
+        crq_epss_score=finding.crq_finding_epss_score,
+        crq_epss_percentile=finding.crq_finding_epss_percentile,
+        crq_epss_multiplier=finding.crq_finding_epss_multiplier,
+        crq_is_kev=bool(finding.crq_finding_is_kev),
+        crq_kev_bonus=finding.crq_finding_kev_bonus,
+        crq_age_days=finding.crq_finding_age_days,
+        crq_age_bonus=finding.crq_finding_age_bonus,
+        crq_notes=finding.crq_finding_notes,
         kev_date_added=_parse_datetime(payload.get("kev_date_added")),
         kev_due_date=_parse_datetime(payload.get("kev_due_date")),
         kev_vendor_project=payload.get("kev_vendor_project"),
@@ -283,14 +283,14 @@ def to_asset_summary(asset: models.Asset, finding_count: int = 0) -> schemas.Ass
         asset_criticality=None,
         tags=list(asset.tags) if asset.tags else None,
         environment=asset.environment,
-        aggregated_finding_risk=asset.aggregated_finding_risk,
-        exposure_modifier=asset.exposure_modifier,
-        data_sensitivity_modifier=asset.data_sensitivity_modifier,
-        environment_modifier=asset.environment_modifier,
-        asset_type_modifier=asset.asset_type_modifier,
-        asset_context_multiplier=asset.asset_context_multiplier,
-        asset_risk_score=asset.asset_risk_score,
-        scored_at=asset.scored_at,
+        aggregated_finding_risk=asset.crq_asset_aggregated_finding_risk,
+        exposure_score=asset.crq_asset_exposure_score,
+        data_sensitivity_score=asset.crq_asset_data_sensitivity_score,
+        environment_score=asset.crq_asset_environment_score,
+        asset_type_score=asset.crq_asset_type_score,
+        asset_context_score=asset.crq_asset_context_score,
+        asset_risk_score=asset.crq_asset_risk_score,
+        scored_at=asset.crq_asset_scored_at,
         finding_count=finding_count,
     )
 

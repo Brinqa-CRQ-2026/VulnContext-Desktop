@@ -24,8 +24,10 @@
   Request-scoped Brinqa asset detail and explicit finding narrative enrichment.
 - `backend/app/services/topology.py`
   Topology foreign-key backfill helper used by reseed workflows.
-- `backend/app/services/crq_scoring.py`
-  Current CRQ v4 scoring logic over persisted enrichment data.
+- `backend/app/services/crq_finding_scoring.py`
+  Current CRQ Findings v4 scoring logic over persisted enrichment data.
+- `backend/app/services/crq_asset_scoring.py`
+  CRQ Asset v1 scoring logic for aggregated finding risk and asset context.
 
 ## Active scripts
 
@@ -38,7 +40,8 @@
 - `backend/scripts/sync_kev.py`
 - `backend/scripts/sync_nvd.py`
 - `backend/scripts/sync_daily.py`
-- `backend/scripts/score_findings_crq_v1.py`
+- `backend/scripts/score_crq_findings_v1.py`
+- `backend/scripts/score_crq_assets_v1.py`
 - `backend/scripts/brinqa_source_helpers.py`
 
 ## Tests
@@ -46,5 +49,6 @@
 - `backend/tests/test_findings_api.py`
 - `backend/tests/test_topology_api.py`
 - `backend/tests/test_crq_scoring.py`
+- `backend/tests/test_asset_scoring.py`
 - `backend/tests/test_asset_reseed_csv.py`
 - `backend/tests/conftest.py`

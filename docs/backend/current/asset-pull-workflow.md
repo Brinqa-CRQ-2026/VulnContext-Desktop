@@ -28,6 +28,6 @@ The current data pipeline is script-driven.
 - `backend/scripts/sync_kev.py`
 - `backend/scripts/sync_nvd.py`
 - `backend/scripts/sync_daily.py`
-- `backend/scripts/score_findings_crq_v1.py`
+- `backend/scripts/score_crq_findings_v1.py`
 
-Despite the filename, `score_findings_crq_v1.py` is the canonical entrypoint for the current CRQ model and prints the active version from `app.services.crq_scoring.CRQ_VERSION`.
+The canonical findings scorer entrypoint is `score_crq_findings_v1.py`, which prints the active version from `app.services.crq_finding_scoring.CRQ_VERSION`.

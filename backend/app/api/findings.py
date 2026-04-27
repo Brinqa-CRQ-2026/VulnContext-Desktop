@@ -38,23 +38,23 @@ def get_scores_summary(db: Session = Depends(get_db)):
     findings = (
         db.query(
             models.Finding.id,
-            models.Finding.crq_score,
+            models.Finding.crq_finding_score,
             models.Finding.brinqa_risk_score,
-            models.Finding.crq_is_kev,
+            models.Finding.crq_finding_is_kev,
         )
         .all()
     )
     band_counts = {"Critical": 0, "High": 0, "Medium": 0, "Low": 0}
     kev_band_counts = {"Critical": 0, "High": 0, "Medium": 0, "Low": 0}
     kev_total = 0
-    for _, crq_score, brinqa_risk_score, crq_is_kev in findings:
-        score = crq_score if crq_score is not None else brinqa_risk_score
+    for _, crq_finding_score, brinqa_risk_score, crq_finding_is_kev in findings:
+        score = crq_finding_score if crq_finding_score is not None else brinqa_risk_score
         band = derive_risk_band(score)
         if band in band_counts:
             band_counts[band] += 1
-            if crq_is_kev:
+            if crq_finding_is_kev:
                 kev_band_counts[band] += 1
-        if crq_is_kev:
+        if crq_finding_is_kev:
             kev_total += 1
 
     return schemas.ScoresSummary(

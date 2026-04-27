@@ -539,6 +539,9 @@ def test_assets_routes_preserve_legacy_filters_and_asset_findings_after_fk_expan
     assert detail_payload["business_service"] == "Digital Media"
     assert detail_payload["application"] == "Inventory Manager"
     assert detail_payload["finding_count"] == 2
+    assert "asset_context_score" in detail_payload
+    assert "exposure_score" in detail_payload
+    assert "crq_asset_context_score" not in detail_payload
     assert detail_payload["dnsname"] is None
     assert detail_payload["detail_source"] is None
 
@@ -574,26 +577,26 @@ def test_asset_findings_analytics_route_summarizes_full_filtered_result_set(
         .order_by(models.Finding.finding_id)
         .all()
     )
-    findings[0].crq_score = 9.4
-    findings[0].crq_risk_band = "Critical"
-    findings[0].crq_is_kev = True
-    findings[0].crq_cvss_score = 9.8
-    findings[0].crq_epss_score = 0.98
-    findings[0].crq_epss_percentile = 0.99
+    findings[0].crq_finding_score = 9.4
+    findings[0].crq_finding_risk_band = "Critical"
+    findings[0].crq_finding_is_kev = True
+    findings[0].crq_finding_cvss_score = 9.8
+    findings[0].crq_finding_epss_score = 0.98
+    findings[0].crq_finding_epss_percentile = 0.99
     findings[0].age_in_days = 40.0
-    findings[1].crq_score = 7.6
-    findings[1].crq_risk_band = "High"
-    findings[1].crq_is_kev = False
-    findings[1].crq_cvss_score = 8.2
-    findings[1].crq_epss_score = 0.22
-    findings[1].crq_epss_percentile = 0.61
+    findings[1].crq_finding_score = 7.6
+    findings[1].crq_finding_risk_band = "High"
+    findings[1].crq_finding_is_kev = False
+    findings[1].crq_finding_cvss_score = 8.2
+    findings[1].crq_finding_epss_score = 0.22
+    findings[1].crq_finding_epss_percentile = 0.61
     findings[1].age_in_days = 10.0
-    findings[2].crq_score = 2.5
-    findings[2].crq_risk_band = "Low"
-    findings[2].crq_is_kev = False
-    findings[2].crq_cvss_score = 3.1
-    findings[2].crq_epss_score = 0.01
-    findings[2].crq_epss_percentile = 0.03
+    findings[2].crq_finding_score = 2.5
+    findings[2].crq_finding_risk_band = "Low"
+    findings[2].crq_finding_is_kev = False
+    findings[2].crq_finding_cvss_score = 3.1
+    findings[2].crq_finding_epss_score = 0.01
+    findings[2].crq_finding_epss_percentile = 0.03
     findings[2].age_in_days = 5.0
     db_session.commit()
 

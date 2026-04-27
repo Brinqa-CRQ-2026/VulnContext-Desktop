@@ -65,11 +65,17 @@ make up
 - `make desktop`
   Start the primary local desktop runtime.
 - `make score-crq`
-  Run the current CRQ scorer against persisted findings.
+  Compatibility alias for the findings scorer.
+- `make score-crq-findings`
+  Run the current CRQ findings scorer against persisted findings.
 - `make score-crq-v4`
   Alias for the current scorer version.
 - `make score-crq-preview`
   Print a dry-run preview of computed CRQ values.
+- `make score-assets`
+  Compatibility alias for the asset scorer.
+- `make score-crq-assets`
+  Run the current CRQ asset scorer against persisted assets.
 
 ## Data Workflow
 
@@ -80,7 +86,7 @@ The main scripts live under `backend/scripts/`:
 - Brinqa export helpers: `pull_asset_business_context.py`, `pull_asset_findings.py`, `export_assets_for_supabase.py`, `export_findings_for_supabase.py`
 - Supabase asset reseed: `reseed_assets_for_supabase.py`
 - Enrichment sync: `sync_epss.py`, `sync_kev.py`, `sync_nvd.py`, `sync_daily.py`
-- CRQ scoring: `score_findings_crq_v1.py`
+- CRQ scoring: `score_crq_findings_v1.py`, `score_crq_assets_v1.py`
 
 ## Documentation
 

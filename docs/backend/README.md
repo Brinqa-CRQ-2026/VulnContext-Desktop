@@ -7,7 +7,8 @@
 - [docs/backend/current/api-endpoints.md](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/api-endpoints.md)
 - [docs/backend/current/asset-pull-workflow.md](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/asset-pull-workflow.md)
 - `docs/backend/current/scoring-model.md`
-- `docs/backend/current/crq-scoring-v4.md`
+- `docs/backend/current/crq-finding-scoring-v4.md`
+- `docs/backend/current/crq-asset-scoring-v1.md`
 - `docs/backend/current/scheduled-data-sync.md`
 - `docs/backend/current/feature-test-matrix.md`
 - `docs/backend/current/supabase-database.md`

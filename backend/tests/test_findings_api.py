@@ -11,9 +11,9 @@ def seed_asset_and_finding(
     idx: int,
     risk: float,
     status: str = "Confirmed active",
-    crq_score: float | None = None,
-    crq_risk_band: str | None = None,
-    crq_is_kev: bool | None = None,
+    crq_finding_score: float | None = None,
+    crq_finding_risk_band: str | None = None,
+    crq_finding_is_kev: bool | None = None,
 ):
     asset = models.Asset(
         asset_id=f"asset-{idx}",
@@ -35,18 +35,18 @@ def seed_asset_and_finding(
         age_in_days=14.0,
         date_created=datetime(2024, 1, 1, tzinfo=timezone.utc),
         last_updated=datetime(2024, 1, 20, tzinfo=timezone.utc),
-        crq_score=crq_score,
-        crq_risk_band=crq_risk_band,
-        crq_score_version="v4" if crq_score is not None else None,
-        crq_scored_at=datetime(2024, 1, 21, tzinfo=timezone.utc) if crq_score is not None else None,
-        crq_cvss_score=8.8 if crq_score is not None else None,
-        crq_epss_score=0.42 if crq_score is not None else None,
-        crq_epss_percentile=0.97 if crq_score is not None else None,
-        crq_epss_multiplier=0.35 if crq_score is not None else None,
-        crq_is_kev=crq_is_kev,
-        crq_kev_bonus=0.9 if crq_is_kev else 0.0 if crq_score is not None else None,
-        crq_age_days=14.0 if crq_score is not None else None,
-        crq_age_bonus=0.0 if crq_score is not None else None,
+        crq_finding_score=crq_finding_score,
+        crq_finding_risk_band=crq_finding_risk_band,
+        crq_finding_score_version="v4" if crq_finding_score is not None else None,
+        crq_finding_scored_at=datetime(2024, 1, 21, tzinfo=timezone.utc) if crq_finding_score is not None else None,
+        crq_finding_cvss_score=8.8 if crq_finding_score is not None else None,
+        crq_finding_epss_score=0.42 if crq_finding_score is not None else None,
+        crq_finding_epss_percentile=0.97 if crq_finding_score is not None else None,
+        crq_finding_epss_multiplier=0.35 if crq_finding_score is not None else None,
+        crq_finding_is_kev=crq_finding_is_kev,
+        crq_finding_kev_bonus=0.9 if crq_finding_is_kev else 0.0 if crq_finding_score is not None else None,
+        crq_finding_age_days=14.0 if crq_finding_score is not None else None,
+        crq_finding_age_bonus=0.0 if crq_finding_score is not None else None,
     )
     db_session.add(asset)
     db_session.add(finding)
@@ -65,9 +65,9 @@ def test_findings_summary_and_list_use_thin_runtime_models(client, db_session):
         db_session,
         idx=1,
         risk=9.2,
-        crq_score=6.5,
-        crq_risk_band="Medium",
-        crq_is_kev=True,
+        crq_finding_score=6.5,
+        crq_finding_risk_band="Medium",
+        crq_finding_is_kev=True,
     )
     seed_asset_and_finding(db_session, idx=2, risk=7.4)
     seed_asset_and_finding(db_session, idx=3, risk=3.8, status="Confirmed fixed")
@@ -102,9 +102,9 @@ def test_findings_detail_returns_thin_persisted_data_only(client, db_session):
         db_session,
         idx=5,
         risk=8.1,
-        crq_score=9.7,
-        crq_risk_band="Critical",
-        crq_is_kev=True,
+        crq_finding_score=9.7,
+        crq_finding_risk_band="Critical",
+        crq_finding_is_kev=True,
     )
 
     response = client.get(f"/findings/{finding.finding_id}")
@@ -134,8 +134,8 @@ def test_findings_enrichment_route_returns_explicit_narrative_payload(
         db_session,
         idx=6,
         risk=7.5,
-        crq_score=8.0,
-        crq_risk_band="High",
+        crq_finding_score=8.0,
+        crq_finding_risk_band="High",
     )
 
     monkeypatch.setattr(

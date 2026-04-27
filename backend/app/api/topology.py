@@ -178,7 +178,7 @@ def _asset_findings_filters(
     if risk_band is not None:
         filters.append(summary_band_filter(normalize_risk_band(risk_band)))
     if kev_only:
-        filters.append(models.Finding.crq_is_kev.is_(True))
+        filters.append(models.Finding.crq_finding_is_kev.is_(True))
     if search is not None and search.strip():
         term = f"%{search.strip()}%"
         filters.append(
@@ -706,7 +706,7 @@ def get_asset_findings_analytics(
     )
     priority_age = case(
         (
-            or_(models.Finding.crq_is_kev.is_(True), score >= 9),
+            or_(models.Finding.crq_finding_is_kev.is_(True), score >= 9),
             models.Finding.age_in_days,
         ),
         else_=None,
@@ -715,7 +715,7 @@ def get_asset_findings_analytics(
     totals = (
         db.query(
             func.count(models.Finding.id),
-            func.sum(case((models.Finding.crq_is_kev.is_(True), 1), else_=0)),
+            func.sum(case((models.Finding.crq_finding_is_kev.is_(True), 1), else_=0)),
             func.sum(case((score >= 7, 1), else_=0)),
             func.avg(score),
             func.max(score),
