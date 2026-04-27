@@ -28,7 +28,8 @@ let hasRegisteredMfaCompletionListener = false;
 let pendingSessionReset: Promise<void> | null = null;
 let hasRunQuitCleanup = false;
 let skipBeforeQuitCleanup = false;
-let allowWindowClose = false;
+let allowLoginWindowClose = false;
+let allowMainWindowClose = false;
 let isAppShuttingDown = false;
 
 function buildWindowWebPreferences() {
@@ -166,8 +167,10 @@ function ensureLoginWindow({ fresh = false }: { fresh?: boolean } = {}) {
   hasCompletedMfa = false;
 
   if (fresh && loginWindow && !loginWindow.isDestroyed()) {
+    allowLoginWindowClose = true;
     loginWindow.destroy();
     loginWindow = null;
+    allowLoginWindowClose = false;
   }
 
   if (loginWindow && !loginWindow.isDestroyed()) {
@@ -226,8 +229,10 @@ async function doResetBrinqaSession({
 
   if (reopenLogin) {
     if (mainWindow && !mainWindow.isDestroyed()) {
+      allowMainWindowClose = true;
       mainWindow.destroy();
       mainWindow = null;
+      allowMainWindowClose = false;
     }
     ensureLoginWindow({ fresh: true });
   }
@@ -285,7 +290,9 @@ function transitionToDashboard(mfaResponseBody = "") {
   }
 
   if (loginWindow && !loginWindow.isDestroyed()) {
+    allowLoginWindowClose = true;
     loginWindow.close();
+    allowLoginWindowClose = false;
   }
 }
 
@@ -413,7 +420,7 @@ function createLoginWindow() {
   });
 
   loginWindow.on("close", (event) => {
-    if (allowWindowClose || isAppShuttingDown) {
+    if (allowLoginWindowClose || isAppShuttingDown) {
       return;
     }
 
@@ -445,7 +452,7 @@ function createWindow(mfaResponseBody?: string) {
   });
 
   mainWindow.on("close", (event) => {
-    if (allowWindowClose || isAppShuttingDown) {
+    if (allowMainWindowClose || isAppShuttingDown) {
       return;
     }
 
@@ -465,7 +472,8 @@ app.whenReady().then(() => {
     if (request.quitApp) {
       isAppShuttingDown = true;
       skipBeforeQuitCleanup = true;
-      allowWindowClose = true;
+      allowLoginWindowClose = true;
+      allowMainWindowClose = true;
       app.quit();
     }
   });
@@ -519,7 +527,8 @@ app.on("before-quit", (event) => {
     quitApp: false,
   }).finally(() => {
     skipBeforeQuitCleanup = true;
-    allowWindowClose = true;
+    allowLoginWindowClose = true;
+    allowMainWindowClose = true;
     app.quit();
   });
 });
