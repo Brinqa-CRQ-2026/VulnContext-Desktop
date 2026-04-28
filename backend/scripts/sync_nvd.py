@@ -32,53 +32,81 @@ def safe_request(params):
 
 def upload_batch(supabase, batch):
     try:
-        supabase.table("nvd").upsert(batch).execute()
-    except Exception:
-        pass
+        supabase.table("nvd").upsert(batch, on_conflict="cve").execute()
+    except Exception as e:
+        print(e)
 
 def process_and_upload():
     supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
     start_index = 0
     total_uploaded = 0
+
     while True:
         params = {"startIndex": start_index, "resultsPerPage": PAGE_SIZE}
         r = safe_request(params)
         data = r.json()
         vulns = data.get("vulnerabilities", [])
+
         if not vulns:
             break
+
         batch = []
+
         for v in vulns:
             try:
-                cve_data = v["cve"]
-                cve_id = cve_data["id"]
-                metrics = cve_data.get("metrics", {})
+                cve_data = v.get("cve", {})
+                cve_id = cve_data.get("id")
+
+                descriptions = cve_data.get("descriptions") or []
+                desc = None
+
+                for d in descriptions:
+                    if d.get("lang") == "en" and d.get("value"):
+                        desc = d.get("value")
+                        break
+
+                if desc is None and descriptions:
+                    desc = descriptions[0].get("value")
+
+                metrics = v.get("metrics", {})
                 score = None
                 severity = None
+
                 if "cvssMetricV31" in metrics:
                     cvss = metrics["cvssMetricV31"][0]["cvssData"]
+                    score = cvss.get("baseScore")
+                    severity = cvss.get("baseSeverity")
+                elif "cvssMetricV30" in metrics:
+                    cvss = metrics["cvssMetricV30"][0]["cvssData"]
                     score = cvss.get("baseScore")
                     severity = cvss.get("baseSeverity")
                 elif "cvssMetricV2" in metrics:
                     cvss = metrics["cvssMetricV2"][0]["cvssData"]
                     score = cvss.get("baseScore")
                     severity = metrics["cvssMetricV2"][0].get("baseSeverity")
+
                 batch.append({
                     "cve": cve_id,
                     "cvss_score": score,
-                    "cvss_severity": severity
+                    "cvss_severity": severity,
+                    "description": desc
                 })
+
             except Exception:
                 continue
+
             if len(batch) >= BATCH_SIZE:
                 upload_batch(supabase, batch)
                 total_uploaded += len(batch)
                 batch = []
+
         if batch:
             upload_batch(supabase, batch)
             total_uploaded += len(batch)
+
         start_index += PAGE_SIZE
         time.sleep(DELAY)
+
     print(total_uploaded)
 
 def main():
