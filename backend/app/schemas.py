@@ -160,14 +160,21 @@ class AssetSummary(BaseModel):
     status: str | None = None
     compliance_status: str | None = None
     asset_criticality: int | None = None
+    tags: list[str] | None = None
+    environment: str | None = None
+    aggregated_finding_risk: float | None = None
     exposure_score: float | None = None
-    business_criticality_score: float | None = None
     data_sensitivity_score: float | None = None
-    asset_type_weight: float | None = None
-    is_public_facing: bool | None = None
-    has_sensitive_data: bool | None = None
-    crown_jewel_flag: bool | None = None
-    internet_exposed_flag: bool | None = None
+    environment_score: float | None = None
+    asset_type_score: float | None = None
+    asset_context_score: float | None = None
+    asset_risk_score: float | None = None
+    scored_at: datetime | None = None
+    device_type: str | None = None
+    category: str | None = None
+    compliance_flags: str | None = None
+    pci: bool | None = None
+    pii: bool | None = None
     finding_count: int = 0
 
 
@@ -186,6 +193,7 @@ class AssetDetail(AssetSummary):
     device_type: str | None = None
     category: str | None = None
     virtual_or_physical: str | None = None
+    compliance_flags: str | None = None
     pci: bool | None = None
     pii: bool | None = None
     public_ip_addresses: str | None = None
@@ -193,7 +201,41 @@ class AssetDetail(AssetSummary):
     last_authenticated_scan: datetime | None = None
     last_scanned: datetime | None = None
     qualys_vm_host_id: str | None = None
+    qualys_vm_host_uid: str | None = None
+    qualys_vm_host_link: str | None = None
+    qualys_vm_host_integration: str | None = None
     servicenow_host_id: str | None = None
+    servicenow_host_uid: str | None = None
+    servicenow_host_link: str | None = None
+    servicenow_host_integration: str | None = None
+    detail_source: str | None = None
+    detail_fetched_at: datetime | None = None
+
+
+class AssetEnrichment(BaseModel):
+    asset_id: str
+    status: str
+    reason: str
+    uid: str | None = None
+    dnsname: str | None = None
+    mac_addresses: str | None = None
+    uuid: str | None = None
+    tracking_method: str | None = None
+    owner: str | None = None
+    service_team: str | None = None
+    division: str | None = None
+    it_sme: str | None = None
+    it_director: str | None = None
+    location: str | None = None
+    internal_or_external: str | None = None
+    device_type: str | None = None
+    category: str | None = None
+    virtual_or_physical: str | None = None
+    compliance_flags: str | None = None
+    pci: bool | None = None
+    pii: bool | None = None
+    last_authenticated_scan: datetime | None = None
+    last_scanned: datetime | None = None
     detail_source: str | None = None
     detail_fetched_at: datetime | None = None
 
@@ -205,12 +247,73 @@ class PaginatedAssets(BaseModel):
     page_size: int
 
 
+class AssetScoreDistribution(BaseModel):
+    low: int = 0
+    medium: int = 0
+    high: int = 0
+    critical: int = 0
+    unscored: int = 0
+
+
+class AssetAnalyticsResponse(BaseModel):
+    total_assets: int = 0
+    asset_criticality_distribution: AssetScoreDistribution
+    finding_risk_distribution: AssetScoreDistribution
+
+
 class AssetFindingsPage(BaseModel):
     asset: AssetSummary
     items: list[FindingSummary]
     total: int
     page: int
     page_size: int
+
+
+class AssetFindingsAnalytics(BaseModel):
+    total_findings: int
+    kev_findings: int
+    critical_high_findings: int
+    highest_risk_band: str | None = None
+    average_risk_score: float | None = None
+    max_risk_score: float | None = None
+    oldest_priority_age_days: float | None = None
+    risk_bands: RiskBandSummary
+
+
+class AssetFindingsAnalyticsAsset(BaseModel):
+    asset_id: str
+    hostname: str | None = None
+    business_unit: str | None = None
+    business_service: str | None = None
+    application: str | None = None
+    status: str | None = None
+    environment: str | None = None
+    internal_or_external: str | None = None
+    device_type: str | None = None
+    category: str | None = None
+
+
+class AssetFindingsAnalyticsResponse(BaseModel):
+    asset: AssetFindingsAnalyticsAsset
+    analytics: AssetFindingsAnalytics
+
+
+class FindingEnrichment(BaseModel):
+    finding_id: str
+    summary: str | None = None
+    description: str | None = None
+    record_link: str | None = None
+    source_status: str | None = None
+    severity: str | None = None
+    due_date: datetime | None = None
+    attack_pattern_names: str | None = None
+    attack_technique_names: str | None = None
+    attack_tactic_names: str | None = None
+    risk_owner_name: str | None = None
+    remediation_owner_name: str | None = None
+    remediation_status: str | None = None
+    detail_source: str | None = None
+    detail_fetched_at: datetime | None = None
 
 
 class BusinessUnitDetail(BaseModel):

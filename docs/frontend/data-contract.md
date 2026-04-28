@@ -1,92 +1,32 @@
 # Frontend Data Contract
 
-This is the lightweight frontend-facing data contract overview.
-
-## Backend sources used by the frontend
+## Backend routes used by the frontend
 
 - `/findings`
 - `/findings/summary`
 - `/findings/top`
-- `/findings/{finding_db_id}`
-- `/findings/{finding_db_id}/disposition`
-- `/findings/{finding_db_id}/disposition/clear`
+- `/findings/{finding_id}`
+- `/findings/{finding_id}/enrichment`
 - `/topology/business-units`
 - `/topology/business-units/{business_unit_slug}`
 - `/topology/business-units/{business_unit_slug}/business-services/{business_service_slug}`
 - `/topology/business-units/{business_unit_slug}/business-services/{business_service_slug}/applications/{application_slug}`
 - `/assets`
+- `/assets/analytics`
+- `/assets/{asset_id}`
+- `/assets/{asset_id}/enrichment`
 - `/assets/{asset_id}/findings`
+- `/assets/{asset_id}/findings/analytics`
 - `/sources`
-- `/sources/{source_name}`
-- `/risk-weights`
-- `/imports/findings/csv`
 
-## Main frontend API client
+## Notes
 
-- `frontend/src/api/client.ts`
-- `frontend/src/api/findings.ts`
-- `frontend/src/api/sources.ts`
-- `frontend/src/api/imports.ts`
-- `frontend/src/api/risk-weights.ts`
-- `frontend/src/api/topology.ts`
-- `frontend/src/api/types.ts`
-
-## Main pages and what they call
-
-### Findings table
-
-- Uses `GET /findings`
-- Uses `GET /sources`
-- Supports sorting and filtering using backend query params
-
-### Finding detail page
-
-- Uses `GET /findings/{finding_db_id}`
-- Uses disposition set and clear routes
-- Can be opened from:
-  - the global findings table
-  - the topology asset findings table
-- Uses route origin state to rebuild the correct breadcrumb path
-
-### Topology drill-down pages
-
-- Business units use `GET /topology/business-units`
-- Business-service pages use `GET /topology/business-units/{business_unit_slug}/business-services/{business_service_slug}`
-- Application pages use `GET /topology/business-units/{business_unit_slug}/business-services/{business_service_slug}/applications/{application_slug}`
-- Asset inventory panels use `GET /assets` with paging, search, status, and topology filters
-- Asset findings uses `GET /assets/{asset_id}/findings` with:
-  - `page`
-  - `page_size`
-  - `sort_by`
-  - `sort_order`
-  - `risk_band`
-  - `kev_only`
-  - `source`
-  - `search`
-
-### Source management / integrations page
-
-- Uses source summary, rename, delete, and CSV import routes
-
-### Risk weights editor
-
-- Uses `GET /risk-weights`
-- Uses `PUT /risk-weights`
-
-## Important current shapes
-
-- `ScoredFinding` is shared across:
-  - main findings table
-  - asset findings table
-  - finding detail page
-- Finding summary rows now include CRQ-first scoring fields for:
-  - `risk_score`
-  - `cvss_score`
-  - `epss_score`
-  - `isKev`
-- `AssetFindingsPage` returns:
-  - `asset`
-  - `items`
-  - `total`
-  - `page`
-  - `page_size`
+- The frontend is currently read-only with respect to findings, sources, and imports.
+- Older routes for CSV import, source mutation, disposition writes, and risk-weight updates are not part of the active contract.
+- The findings table and asset-findings view share the same broad `ScoredFinding` shape.
+- `GET /findings/{finding_id}` is persisted-data-only. Optional Brinqa narrative fields now live on `GET /findings/{finding_id}/enrichment`.
+- `GET /assets/{asset_id}` is DB-only. `GET /assets/{asset_id}/enrichment` is the only route that forwards the stored Brinqa token.
+- `GET /assets/analytics` powers the business-service/application asset distribution charts for the full filtered asset result set. It accepts the same non-pagination filters used by `GET /assets`: `business_unit`, `business_service`, `application`, `status`, `environment`, `compliance`, `search`, and `direct_only`.
+- `GET /assets/{asset_id}/findings/analytics` powers the asset-page summary cards and charts for the full filtered result set, independent of table pagination.
+- Asset enrichment returns `status` plus machine-readable `reason`. Status values are `missing_token`, `unauthorized_token`, `no_related_source`, `partial_success`, `success`, and `upstream_error`.
+- The frontend uses `unauthorized_token` as the current recovery signal for Brinqa session reset and relogin.

@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
 
 from app import models
+from app.api import findings as findings_api
+from app.services.brinqa_detail import DetailResult
 
 
 def seed_asset_and_finding(
@@ -9,15 +11,14 @@ def seed_asset_and_finding(
     idx: int,
     risk: float,
     status: str = "Confirmed active",
-    crq_score: float | None = None,
-    crq_risk_band: str | None = None,
-    crq_is_kev: bool | None = None,
+    crq_finding_score: float | None = None,
+    crq_finding_risk_band: str | None = None,
+    crq_finding_is_kev: bool | None = None,
 ):
     asset = models.Asset(
         asset_id=f"asset-{idx}",
         hostname=f"host-{idx}",
-        compliance_status="Out of SLA",
-        asset_criticality=3,
+        environment="test",
     )
     finding = models.Finding(
         id=idx,
@@ -34,18 +35,18 @@ def seed_asset_and_finding(
         age_in_days=14.0,
         date_created=datetime(2024, 1, 1, tzinfo=timezone.utc),
         last_updated=datetime(2024, 1, 20, tzinfo=timezone.utc),
-        crq_score=crq_score,
-        crq_risk_band=crq_risk_band,
-        crq_score_version="v4" if crq_score is not None else None,
-        crq_scored_at=datetime(2024, 1, 21, tzinfo=timezone.utc) if crq_score is not None else None,
-        crq_cvss_score=8.8 if crq_score is not None else None,
-        crq_epss_score=0.42 if crq_score is not None else None,
-        crq_epss_percentile=0.97 if crq_score is not None else None,
-        crq_epss_multiplier=0.35 if crq_score is not None else None,
-        crq_is_kev=crq_is_kev,
-        crq_kev_bonus=0.9 if crq_is_kev else 0.0 if crq_score is not None else None,
-        crq_age_days=14.0 if crq_score is not None else None,
-        crq_age_bonus=0.0 if crq_score is not None else None,
+        crq_finding_score=crq_finding_score,
+        crq_finding_risk_band=crq_finding_risk_band,
+        crq_finding_score_version="v4" if crq_finding_score is not None else None,
+        crq_finding_scored_at=datetime(2024, 1, 21, tzinfo=timezone.utc) if crq_finding_score is not None else None,
+        crq_finding_cvss_score=8.8 if crq_finding_score is not None else None,
+        crq_finding_epss_score=0.42 if crq_finding_score is not None else None,
+        crq_finding_epss_percentile=0.97 if crq_finding_score is not None else None,
+        crq_finding_epss_multiplier=0.35 if crq_finding_score is not None else None,
+        crq_finding_is_kev=crq_finding_is_kev,
+        crq_finding_kev_bonus=0.9 if crq_finding_is_kev else 0.0 if crq_finding_score is not None else None,
+        crq_finding_age_days=14.0 if crq_finding_score is not None else None,
+        crq_finding_age_bonus=0.0 if crq_finding_score is not None else None,
     )
     db_session.add(asset)
     db_session.add(finding)
@@ -64,9 +65,9 @@ def test_findings_summary_and_list_use_thin_runtime_models(client, db_session):
         db_session,
         idx=1,
         risk=9.2,
-        crq_score=6.5,
-        crq_risk_band="Medium",
-        crq_is_kev=True,
+        crq_finding_score=6.5,
+        crq_finding_risk_band="Medium",
+        crq_finding_is_kev=True,
     )
     seed_asset_and_finding(db_session, idx=2, risk=7.4)
     seed_asset_and_finding(db_session, idx=3, risk=3.8, status="Confirmed fixed")
@@ -101,9 +102,9 @@ def test_findings_detail_returns_thin_persisted_data_only(client, db_session):
         db_session,
         idx=5,
         risk=8.1,
-        crq_score=9.7,
-        crq_risk_band="Critical",
-        crq_is_kev=True,
+        crq_finding_score=9.7,
+        crq_finding_risk_band="Critical",
+        crq_finding_is_kev=True,
     )
 
     response = client.get(f"/findings/{finding.finding_id}")
@@ -121,7 +122,53 @@ def test_findings_detail_returns_thin_persisted_data_only(client, db_session):
     assert payload["crq_is_kev"] is True
     assert payload["summary"] is None
     assert payload["description"] is None
-    assert payload["detail_source"] is None or payload["detail_source"] == "local"
+    assert payload["detail_source"] is None
+
+
+def test_findings_enrichment_route_returns_explicit_narrative_payload(
+    client,
+    db_session,
+    monkeypatch,
+):
+    _, finding = seed_asset_and_finding(
+        db_session,
+        idx=6,
+        risk=7.5,
+        crq_finding_score=8.0,
+        crq_finding_risk_band="High",
+    )
+
+    monkeypatch.setattr(
+        findings_api.finding_detail_service,
+        "get_detail",
+        lambda db, finding: DetailResult(
+            payload={
+                "summary": "Narrative summary",
+                "description": "Narrative description",
+                "record_link": "https://example.com/findings/2006",
+                "source_status": "Open",
+                "severity": "High",
+                "due_date": "2026-05-01T00:00:00Z",
+                "attack_pattern_names": "Initial Access",
+                "attack_technique_names": "T1190",
+                "attack_tactic_names": "Execution",
+                "risk_owner_name": "owner-1",
+                "remediation_owner_name": "owner-2",
+                "remediation_status": "Investigating",
+            },
+            fetched_at=datetime(2026, 4, 26, 12, 0, tzinfo=timezone.utc),
+            source="brinqa",
+        ),
+    )
+
+    response = client.get(f"/findings/{finding.finding_id}/enrichment")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["finding_id"] == "2006"
+    assert payload["summary"] == "Narrative summary"
+    assert payload["description"] == "Narrative description"
+    assert payload["detail_source"] == "brinqa"
+    assert payload["detail_fetched_at"] == "2026-04-26T12:00:00Z"
 
 
 def test_sources_summary_is_read_only(client, db_session):

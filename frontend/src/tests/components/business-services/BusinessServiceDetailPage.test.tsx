@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { BusinessServiceDetailPage } from "../../../components/business-services/BusinessServiceDetailPage";
+import { useAssetsAnalytics } from "../../../hooks/topology/useAssetsAnalytics";
 import { useBusinessServiceDetail } from "../../../hooks/topology/useBusinessServiceDetail";
 import { usePaginatedAssets } from "../../../hooks/topology/usePaginatedAssets";
 
@@ -11,9 +12,13 @@ vi.mock("../../../hooks/topology/useBusinessServiceDetail", () => ({
 vi.mock("../../../hooks/topology/usePaginatedAssets", () => ({
   usePaginatedAssets: vi.fn(),
 }));
+vi.mock("../../../hooks/topology/useAssetsAnalytics", () => ({
+  useAssetsAnalytics: vi.fn(),
+}));
 
 const mockedUseBusinessServiceDetail = vi.mocked(useBusinessServiceDetail);
 const mockedUsePaginatedAssets = vi.mocked(usePaginatedAssets);
+const mockedUseAssetsAnalytics = vi.mocked(useAssetsAnalytics);
 
 describe("BusinessServiceDetailPage", () => {
   it("renders applications and direct assets in sortable tables", () => {
@@ -55,14 +60,12 @@ describe("BusinessServiceDetailPage", () => {
           {
             asset_id: "asset-22",
             hostname: "host-22.internal",
-            exposure_score: 7.4,
-            business_criticality_score: 9,
-            data_sensitivity_score: 4,
-            asset_type_weight: 1.5,
-            is_public_facing: true,
-            has_sensitive_data: false,
-            crown_jewel_flag: false,
-            internet_exposed_flag: true,
+            device_type: "Firewall",
+            environment: "production",
+            category: "Host",
+            pci: true,
+            aggregated_finding_risk: 7.4,
+            asset_context_score: 9,
             status: "Active",
             compliance_status: "Compliant",
             finding_count: 3,
@@ -83,12 +86,23 @@ describe("BusinessServiceDetailPage", () => {
           {
             asset_id: "asset-22",
             hostname: "host-22.internal",
+            device_type: "Firewall",
+            environment: "production",
+            category: "Host",
+            pci: true,
+            aggregated_finding_risk: 7.4,
+            asset_context_score: 9,
             status: "Active",
             finding_count: 3,
           },
           {
             asset_id: "asset-09",
             hostname: "alpha.internal",
+            device_type: "Server",
+            category: "Endpoint",
+            environment: "development",
+            pii: true,
+            status: "Closed",
             finding_count: 9,
           },
         ],
@@ -101,6 +115,27 @@ describe("BusinessServiceDetailPage", () => {
       page: 1,
       setPage: vi.fn(),
       pageSize: 10,
+    });
+    mockedUseAssetsAnalytics.mockReturnValue({
+      analytics: {
+        total_assets: 2,
+        asset_criticality_distribution: {
+          low: 0,
+          medium: 0,
+          high: 1,
+          critical: 1,
+          unscored: 0,
+        },
+        finding_risk_distribution: {
+          low: 0,
+          medium: 0,
+          high: 1,
+          critical: 1,
+          unscored: 0,
+        },
+      },
+      loading: false,
+      error: null,
     });
 
     const onOpenApplication = vi.fn();
@@ -119,12 +154,28 @@ describe("BusinessServiceDetailPage", () => {
     );
 
     expect(screen.getByRole("columnheader", { name: /Application/i })).toBeInTheDocument();
+    expect(screen.getByText("Asset criticality spread")).toBeInTheDocument();
+    expect(screen.getByText("Finding risk spread")).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: /^Asset$/i })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: /^Status$/i })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: /^Asset type$/i })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: /^Environment$/i })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: /^Compliance$/i })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: /^Category$/i })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: /^Finding risk$/i })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: /^Criticality$/i })).toBeInTheDocument();
     expect(screen.getByText("identity-verify")).toBeInTheDocument();
-    expect(screen.queryByRole("columnheader", { name: /Exposure/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: /^Asset ID$/i })).not.toBeInTheDocument();
     const [, assetsTable] = screen.getAllByRole("table");
+    expect(within(assetsTable).getByText("Firewall")).toBeInTheDocument();
+    expect(within(assetsTable).getByText("Server")).toBeInTheDocument();
+    expect(within(assetsTable).getByText("Endpoint")).toBeInTheDocument();
+    expect(within(assetsTable).getByText("Production")).toBeInTheDocument();
+    expect(within(assetsTable).getByText("Development")).toBeInTheDocument();
+    expect(within(assetsTable).getByText("PCI")).toBeInTheDocument();
+    expect(within(assetsTable).getByText("PII")).toBeInTheDocument();
     expect(within(assetsTable).getByText("Active")).toBeInTheDocument();
+    expect(within(assetsTable).getByText("Not active")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Open Cart Service/i }));
     fireEvent.click(screen.getByRole("button", { name: /Open alpha\.internal/i }));
@@ -173,8 +224,8 @@ describe("BusinessServiceDetailPage", () => {
           },
         ],
         direct_assets: [
-          { asset_id: "z-asset", hostname: "z-host", finding_count: 1 },
-          { asset_id: "a-asset", hostname: "a-host", finding_count: 9 },
+          { asset_id: "z-asset", hostname: "z-host", category: "Endpoint", environment: "test", finding_count: 1 },
+          { asset_id: "a-asset", hostname: "a-host", device_type: "Server", environment: "production", finding_count: 9 },
         ],
       },
       loading: false,
@@ -183,8 +234,8 @@ describe("BusinessServiceDetailPage", () => {
     mockedUsePaginatedAssets.mockReturnValue({
       data: {
         items: [
-          { asset_id: "z-asset", hostname: "z-host", finding_count: 1 },
-          { asset_id: "a-asset", hostname: "a-host", finding_count: 9 },
+          { asset_id: "z-asset", hostname: "z-host", category: "Endpoint", environment: "test", finding_count: 1 },
+          { asset_id: "a-asset", hostname: "a-host", device_type: "Server", environment: "production", finding_count: 9 },
         ],
         total: 2,
         page: 1,
@@ -195,6 +246,27 @@ describe("BusinessServiceDetailPage", () => {
       page: 1,
       setPage: vi.fn(),
       pageSize: 10,
+    });
+    mockedUseAssetsAnalytics.mockReturnValue({
+      analytics: {
+        total_assets: 2,
+        asset_criticality_distribution: {
+          low: 1,
+          medium: 0,
+          high: 0,
+          critical: 0,
+          unscored: 1,
+        },
+        finding_risk_distribution: {
+          low: 0,
+          medium: 1,
+          high: 0,
+          critical: 0,
+          unscored: 1,
+        },
+      },
+      loading: false,
+      error: null,
     });
 
     render(

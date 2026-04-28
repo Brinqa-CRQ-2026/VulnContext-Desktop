@@ -3,12 +3,15 @@
 import uuid
 
 from sqlalchemy import (
+    JSON,
+    ARRAY,
     Boolean,
     Column,
     DateTime,
     Float,
     ForeignKey,
     Integer,
+    Numeric,
     String,
     Text,
     UniqueConstraint,
@@ -134,14 +137,23 @@ class Asset(Base):
     application = Column(String, nullable=True)
     business_service = Column(String, nullable=True, index=True)
     internal_or_external = Column(String, nullable=True, index=True)
+    public_ip_addresses = Column(String, nullable=True)
+    device_type = Column(String, nullable=True)
     category = Column(String, nullable=True)
     status = Column(String, nullable=True, index=True)
-    compliance_status = Column(String, nullable=True, index=True)
+    compliance_flags = Column(String, nullable=True)
     pci = Column(Boolean, nullable=True)
     pii = Column(Boolean, nullable=True)
-    asset_criticality = Column(Integer, nullable=True, index=True)
+    tags = Column(ARRAY(String).with_variant(JSON, "sqlite"), nullable=True)
+    environment = Column(String, nullable=True, index=True)
     qualys_vm_host_id = Column(String, nullable=True, index=True)
+    qualys_vm_host_uid = Column(String, nullable=True)
+    qualys_vm_host_link = Column(String, nullable=True)
+    qualys_vm_host_integration = Column(String, nullable=True)
     servicenow_host_id = Column(String, nullable=True, index=True)
+    servicenow_host_uid = Column(String, nullable=True)
+    servicenow_host_link = Column(String, nullable=True)
+    servicenow_host_integration = Column(String, nullable=True)
     company_id = Column(String, ForeignKey("companies.id", ondelete="SET NULL"), nullable=True, index=True)
     business_unit_id = Column(
         String,
@@ -161,14 +173,14 @@ class Asset(Base):
         nullable=True,
         index=True,
     )
-    exposure_score = Column(Float, nullable=True)
-    business_criticality_score = Column(Float, nullable=True)
-    data_sensitivity_score = Column(Float, nullable=True)
-    asset_type_weight = Column(Float, nullable=True)
-    is_public_facing = Column(Boolean, nullable=True)
-    has_sensitive_data = Column(Boolean, nullable=True)
-    crown_jewel_flag = Column(Boolean, nullable=True)
-    internet_exposed_flag = Column(Boolean, nullable=True)
+    crq_asset_aggregated_finding_risk = Column(Numeric(asdecimal=False), nullable=True)
+    crq_asset_exposure_score = Column(Numeric(asdecimal=False), nullable=True)
+    crq_asset_data_sensitivity_score = Column(Numeric(asdecimal=False), nullable=True)
+    crq_asset_environment_score = Column(Numeric(asdecimal=False), nullable=True)
+    crq_asset_type_score = Column(Numeric(asdecimal=False), nullable=True)
+    crq_asset_context_score = Column(Numeric(asdecimal=False), nullable=True)
+    crq_asset_risk_score = Column(Numeric(asdecimal=False), nullable=True, index=True)
+    crq_asset_scored_at = Column(DateTime(timezone=True), nullable=True)
 
     findings = relationship("Finding", back_populates="asset")
     company = relationship("Company", back_populates="assets")
@@ -194,19 +206,19 @@ class Finding(Base):
     age_in_days = Column(Float, nullable=True, index=True)
     date_created = Column(DateTime, nullable=True)
     last_updated = Column(DateTime, nullable=True)
-    crq_score = Column(Float, nullable=True, index=True)
-    crq_risk_band = Column(String, nullable=True, index=True)
-    crq_scored_at = Column(DateTime(timezone=True), nullable=True)
-    crq_score_version = Column(String, nullable=True)
-    crq_cvss_score = Column(Float, nullable=True)
-    crq_epss_score = Column(Float, nullable=True)
-    crq_epss_percentile = Column(Float, nullable=True)
-    crq_epss_multiplier = Column(Float, nullable=True)
-    crq_is_kev = Column(Boolean, nullable=True)
-    crq_kev_bonus = Column(Float, nullable=True)
-    crq_age_days = Column(Float, nullable=True)
-    crq_age_bonus = Column(Float, nullable=True)
-    crq_notes = Column(Text, nullable=True)
+    crq_finding_score = Column(Float, nullable=True, index=True)
+    crq_finding_risk_band = Column(String, nullable=True, index=True)
+    crq_finding_scored_at = Column(DateTime(timezone=True), nullable=True)
+    crq_finding_score_version = Column(String, nullable=True)
+    crq_finding_cvss_score = Column(Float, nullable=True)
+    crq_finding_epss_score = Column(Float, nullable=True)
+    crq_finding_epss_percentile = Column(Float, nullable=True)
+    crq_finding_epss_multiplier = Column(Float, nullable=True)
+    crq_finding_is_kev = Column(Boolean, nullable=True)
+    crq_finding_kev_bonus = Column(Float, nullable=True)
+    crq_finding_age_days = Column(Float, nullable=True)
+    crq_finding_age_bonus = Column(Float, nullable=True)
+    crq_finding_notes = Column(Text, nullable=True)
 
     asset = relationship("Asset", back_populates="findings")
 

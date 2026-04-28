@@ -1,22 +1,44 @@
-import { app, BrowserWindow, session } from "electron";
+import { app, BrowserWindow, ipcMain, session } from "electron";
 import path from "path";
+import {
+  buildDashboardLogoutScript,
+  buildDashboardStorageScript,
+  buildStorageSnapshotScript,
+  describeToken,
+  parseStoredAuthState,
+} from "./src/auth/brinqaAuth";
+import type { StoredAuthState } from "./src/auth/brinqaAuth";
+import {
+  BRINQA_RESET_SESSION_CHANNEL,
+  type BrinqaResetRequest,
+} from "./src/auth/brinqaDesktopBridge";
+import { performBrinqaRemoteLogout } from "./src/auth/brinqaRemoteLogout";
 
 const isDev = process.env.NODE_ENV === "development";
 const loginUrl = "https://ucsc.brinqa.net/auth/login";
+const brinqaOrigin = new URL(loginUrl).origin;
 const mfaUrlPrefix = "https://ucsc.brinqa.net/api/auth/mfa";
 const mfaUrlPattern = "https://ucsc.brinqa.net/api/auth/mfa*";
-const mfaResponseStorageKey = "brinqaMfaResponse";
-const brinqaTokenStorageKey = "brinqaAuthToken";
+const preloadPath = path.join(__dirname, "src", "preload.js");
 
 let mainWindow: BrowserWindow | null = null;
 let loginWindow: BrowserWindow | null = null;
 let hasCompletedMfa = false;
 let hasRegisteredMfaCompletionListener = false;
+let pendingSessionReset: Promise<void> | null = null;
+let hasRunQuitCleanup = false;
+let skipBeforeQuitCleanup = false;
+let allowLoginWindowClose = false;
+let allowMainWindowClose = false;
+let isAppShuttingDown = false;
 
-type StoredAuthState = {
-  mfaResponse: string | null;
-  authToken: string | null;
-};
+function buildWindowWebPreferences() {
+  return {
+    contextIsolation: true,
+    nodeIntegration: false,
+    preload: preloadPath,
+  };
+}
 
 function decodeResponseBody(body: string, base64Encoded: boolean) {
   if (!base64Encoded) {
@@ -24,70 +46,6 @@ function decodeResponseBody(body: string, base64Encoded: boolean) {
   }
 
   return Buffer.from(body, "base64").toString("utf8");
-}
-
-function tryParseJson(body: string) {
-  try {
-    return JSON.parse(body) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-}
-
-function extractTokenValue(payload: Record<string, unknown> | null) {
-  if (!payload) {
-    return null;
-  }
-
-  const candidateKeys = ["token", "access_token", "accessToken", "id_token", "idToken"];
-
-  for (const key of candidateKeys) {
-    const value = payload[key];
-    if (typeof value === "string" && value.length > 0) {
-      return value;
-    }
-  }
-
-  return null;
-}
-
-function buildStorageSnapshotScript() {
-  return `
-    JSON.stringify({
-      mfaResponse: window.localStorage.getItem(${JSON.stringify(mfaResponseStorageKey)}),
-      authToken: window.localStorage.getItem(${JSON.stringify(brinqaTokenStorageKey)})
-    });
-  `;
-}
-
-function parseStoredAuthState(rawValue: unknown): StoredAuthState {
-  if (typeof rawValue !== "string") {
-    return { mfaResponse: null, authToken: null };
-  }
-
-  try {
-    const parsed = JSON.parse(rawValue) as Partial<StoredAuthState>;
-    return {
-      mfaResponse: typeof parsed.mfaResponse === "string" ? parsed.mfaResponse : null,
-      authToken: typeof parsed.authToken === "string" ? parsed.authToken : null,
-    };
-  } catch {
-    return { mfaResponse: null, authToken: null };
-  }
-}
-
-function buildDashboardStorageScript(mfaResponseBody: string) {
-  const parsedPayload = tryParseJson(mfaResponseBody);
-  const extractedToken = extractTokenValue(parsedPayload);
-
-  return `
-    window.localStorage.setItem(${JSON.stringify(mfaResponseStorageKey)}, ${JSON.stringify(mfaResponseBody)});
-    ${
-      extractedToken
-        ? `window.localStorage.setItem(${JSON.stringify(brinqaTokenStorageKey)}, ${JSON.stringify(extractedToken)});`
-        : ""
-    }
-  `;
 }
 
 async function persistMfaDataToDashboard(mfaResponseBody: string) {
@@ -99,6 +57,196 @@ async function persistMfaDataToDashboard(mfaResponseBody: string) {
 
   const snapshot = await mainWindow.webContents.executeJavaScript(buildStorageSnapshotScript());
   console.log(`[Brinqa MFA] Dashboard localStorage updated: ${String(snapshot)}`);
+}
+
+async function clearStoredAuthState(window: BrowserWindow) {
+  if (window.isDestroyed()) {
+    return;
+  }
+
+  await window.webContents.executeJavaScript(buildDashboardLogoutScript());
+  const snapshot = await window.webContents.executeJavaScript(buildStorageSnapshotScript());
+  console.log(`[Brinqa Startup] Cleared stored auth state: ${String(snapshot)}`);
+}
+
+async function withDashboardWindow<T>(
+  action: (window: BrowserWindow) => Promise<T>
+): Promise<T> {
+  const existingWindow = mainWindow && !mainWindow.isDestroyed() ? mainWindow : null;
+  if (existingWindow) {
+    return action(existingWindow);
+  }
+
+  const bootstrapWindow = new BrowserWindow({
+    show: false,
+    webPreferences: buildWindowWebPreferences(),
+  });
+
+  try {
+    loadDashboardUrl(bootstrapWindow, false);
+    await new Promise<void>((resolve) => {
+      bootstrapWindow.webContents.once("did-finish-load", () => resolve());
+    });
+    return await action(bootstrapWindow);
+  } finally {
+    if (!bootstrapWindow.isDestroyed()) {
+      bootstrapWindow.destroy();
+    }
+  }
+}
+
+async function readStoredAuthState(): Promise<StoredAuthState> {
+  return withDashboardWindow(async (window) =>
+    parseStoredAuthState(
+      await window.webContents.executeJavaScript(buildStorageSnapshotScript())
+    )
+  );
+}
+
+async function clearStoredAuthStateEverywhere() {
+  await withDashboardWindow(async (window) => {
+    await clearStoredAuthState(window);
+  });
+}
+
+async function readValidatedAuthState(): Promise<StoredAuthState> {
+  const authState = await readStoredAuthState();
+  const tokenInfo = describeToken(authState.authToken);
+
+  console.log(
+    `[Brinqa Startup] Token inspection: ${JSON.stringify({
+      format: tokenInfo.format,
+      expiresAt:
+        typeof tokenInfo.expiresAt === "number"
+          ? new Date(tokenInfo.expiresAt).toISOString()
+          : null,
+      expired: tokenInfo.expired,
+    })}`
+  );
+
+  if (tokenInfo.expired) {
+    await clearStoredAuthStateEverywhere();
+    return { mfaResponse: null, authToken: null };
+  }
+
+  return authState;
+}
+
+async function readBrinqaSessionCookie() {
+  const cookies = await session.defaultSession.cookies.get({
+    url: brinqaOrigin,
+    name: "JSESSIONID",
+  });
+  return cookies[0]?.value ?? null;
+}
+
+async function clearBrinqaSessionData() {
+  const cookies = await session.defaultSession.cookies.get({ url: brinqaOrigin });
+  await Promise.all(
+    cookies.flatMap((cookie) => {
+      if (!cookie.domain) {
+        return [];
+      }
+
+      const protocol = cookie.secure ? "https" : "http";
+      const domain = cookie.domain.startsWith(".") ? cookie.domain.slice(1) : cookie.domain;
+      const pathName = cookie.path || "/";
+      return [
+        session.defaultSession.cookies.remove(
+          `${protocol}://${domain}${pathName}`,
+          cookie.name
+        ),
+      ];
+    })
+  );
+
+  await session.defaultSession.clearStorageData({ origin: brinqaOrigin });
+}
+
+function ensureLoginWindow({ fresh = false }: { fresh?: boolean } = {}) {
+  hasCompletedMfa = false;
+
+  if (fresh && loginWindow && !loginWindow.isDestroyed()) {
+    allowLoginWindowClose = true;
+    loginWindow.destroy();
+    loginWindow = null;
+    allowLoginWindowClose = false;
+  }
+
+  if (loginWindow && !loginWindow.isDestroyed()) {
+    loginWindow.show();
+    loginWindow.focus();
+    return;
+  }
+
+  createLoginWindow();
+}
+
+async function attemptRemoteBrinqaLogout() {
+  const [{ authToken }, sessionCookie] = await Promise.all([
+    readStoredAuthState(),
+    readBrinqaSessionCookie(),
+  ]);
+
+  if (!authToken || !sessionCookie) {
+    console.log("[Brinqa Logout] Skipping remote logout; token or JSESSIONID missing");
+    return;
+  }
+
+  await performBrinqaRemoteLogout({
+    baseUrl: brinqaOrigin,
+    bearerToken: authToken,
+    sessionCookie,
+  });
+}
+
+async function doResetBrinqaSession({
+  reopenLogin = false,
+  includeRemoteLogout = true,
+  quitApp = false,
+  reason,
+}: BrinqaResetRequest) {
+  console.log(
+    `[Brinqa Session] Reset requested: ${JSON.stringify({
+      reason,
+      reopenLogin,
+      includeRemoteLogout,
+      quitApp,
+    })}`
+  );
+
+  if (includeRemoteLogout) {
+    try {
+      await attemptRemoteBrinqaLogout();
+    } catch (error) {
+      console.error("[Brinqa Logout] Remote logout failed:", error);
+    }
+  }
+
+  await clearStoredAuthStateEverywhere();
+  await clearBrinqaSessionData();
+  hasCompletedMfa = false;
+
+  if (reopenLogin) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      allowMainWindowClose = true;
+      mainWindow.destroy();
+      mainWindow = null;
+      allowMainWindowClose = false;
+    }
+    ensureLoginWindow({ fresh: true });
+  }
+}
+
+function resetBrinqaSession(request: BrinqaResetRequest) {
+  if (!pendingSessionReset) {
+    pendingSessionReset = doResetBrinqaSession(request).finally(() => {
+      pendingSessionReset = null;
+    });
+    return pendingSessionReset;
+  }
+
+  return pendingSessionReset;
 }
 
 function loadDashboardUrl(window: BrowserWindow, openDevTools = false) {
@@ -114,31 +262,10 @@ function loadDashboardUrl(window: BrowserWindow, openDevTools = false) {
   window.loadFile(indexPath);
 }
 
-async function readStoredAuthState(): Promise<StoredAuthState> {
-  const bootstrapWindow = new BrowserWindow({
-    show: false,
-    webPreferences: {
-      contextIsolation: true,
-      nodeIntegration: false,
-    },
-  });
-
-  try {
-    loadDashboardUrl(bootstrapWindow, false);
-
-    await new Promise<void>((resolve) => {
-      bootstrapWindow.webContents.once("did-finish-load", () => resolve());
-    });
-
-    const snapshot = await bootstrapWindow.webContents.executeJavaScript(buildStorageSnapshotScript());
-    const authState = parseStoredAuthState(snapshot);
-    console.log(`[Brinqa Startup] Stored auth state: ${JSON.stringify(authState)}`);
-    return authState;
-  } finally {
-    if (!bootstrapWindow.isDestroyed()) {
-      bootstrapWindow.destroy();
-    }
-  }
+function requestAppShutdown() {
+  isAppShuttingDown = true;
+  skipBeforeQuitCleanup = false;
+  app.quit();
 }
 
 function transitionToDashboard(mfaResponseBody = "") {
@@ -163,7 +290,9 @@ function transitionToDashboard(mfaResponseBody = "") {
   }
 
   if (loginWindow && !loginWindow.isDestroyed()) {
+    allowLoginWindowClose = true;
     loginWindow.close();
+    allowLoginWindowClose = false;
   }
 }
 
@@ -274,10 +403,7 @@ function createLoginWindow() {
     width: 1100,
     height: 800,
     title: "Brinqa Login",
-    webPreferences: {
-      contextIsolation: true,
-      nodeIntegration: false,
-    },
+    webPreferences: buildWindowWebPreferences(),
   });
 
   attachMfaResponseListener(loginWindow);
@@ -293,6 +419,15 @@ function createLoginWindow() {
     );
   });
 
+  loginWindow.on("close", (event) => {
+    if (allowLoginWindowClose || isAppShuttingDown) {
+      return;
+    }
+
+    event.preventDefault();
+    requestAppShutdown();
+  });
+
   loginWindow.on("closed", () => {
     loginWindow = null;
   });
@@ -303,10 +438,7 @@ function createWindow(mfaResponseBody?: string) {
     width: 1200,
     height: 800,
     show: false,
-    webPreferences: {
-      contextIsolation: true,
-      nodeIntegration: false,
-    },
+    webPreferences: buildWindowWebPreferences(),
   });
 
   loadDashboardUrl(mainWindow, true);
@@ -319,6 +451,15 @@ function createWindow(mfaResponseBody?: string) {
     mainWindow?.show();
   });
 
+  mainWindow.on("close", (event) => {
+    if (allowMainWindowClose || isAppShuttingDown) {
+      return;
+    }
+
+    event.preventDefault();
+    requestAppShutdown();
+  });
+
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
@@ -326,9 +467,19 @@ function createWindow(mfaResponseBody?: string) {
 
 app.whenReady().then(() => {
   registerMfaCompletionListener();
+  ipcMain.handle(BRINQA_RESET_SESSION_CHANNEL, async (_event, request: BrinqaResetRequest) => {
+    await resetBrinqaSession(request);
+    if (request.quitApp) {
+      isAppShuttingDown = true;
+      skipBeforeQuitCleanup = true;
+      allowLoginWindowClose = true;
+      allowMainWindowClose = true;
+      app.quit();
+    }
+  });
 
   void (async () => {
-    const storedAuthState = await readStoredAuthState();
+    const storedAuthState = await readValidatedAuthState();
 
     if (storedAuthState.authToken) {
       hasCompletedMfa = true;
@@ -347,7 +498,7 @@ app.whenReady().then(() => {
     }
 
     void (async () => {
-      const storedAuthState = await readStoredAuthState();
+      const storedAuthState = await readValidatedAuthState();
       if (storedAuthState.authToken) {
         hasCompletedMfa = true;
         createWindow(storedAuthState.mfaResponse ?? "");
@@ -357,6 +508,28 @@ app.whenReady().then(() => {
       hasCompletedMfa = false;
       createLoginWindow();
     })();
+  });
+});
+
+app.on("before-quit", (event) => {
+  if (skipBeforeQuitCleanup || hasRunQuitCleanup) {
+    return;
+  }
+
+  isAppShuttingDown = true;
+  hasRunQuitCleanup = true;
+  event.preventDefault();
+
+  void resetBrinqaSession({
+    reason: "shutdown",
+    reopenLogin: false,
+    includeRemoteLogout: true,
+    quitApp: false,
+  }).finally(() => {
+    skipBeforeQuitCleanup = true;
+    allowLoginWindowClose = true;
+    allowMainWindowClose = true;
+    app.quit();
   });
 });
 

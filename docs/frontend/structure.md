@@ -1,86 +1,40 @@
 # Frontend Structure
 
-This is the brief frontend structure overview.
-
 ## Main folders
 
-- `frontend/src/`
-  Main frontend application source.
-
+- `frontend/src/auth/`
+  Brinqa auth parsing, token inspection, renderer reset helpers, and remote logout helpers used by the Electron shell.
 - `frontend/src/api/`
-  Frontend backend-client layer, grouped by backend route area.
-
+  Read-only backend client modules and shared types.
 - `frontend/src/hooks/`
-  React hooks for data loading and page-level state coordination.
-
-- `frontend/src/components/`
-  Reusable UI building blocks and page sections.
-
-- `frontend/src/lib/`
-  Small shared frontend helpers.
-
-## Component subfolders
-
+  Async loading and route-oriented state coordination.
 - `frontend/src/components/dashboard/`
-  Findings and dashboard UI.
-
+  Dashboard summary, findings table, and finding detail UI.
 - `frontend/src/components/business-services/`
-  Topology drill-down UI for business units, business services, applications, assets, and asset findings.
-
+  Topology drill-down views.
 - `frontend/src/components/integrations/`
-  Source/import management UI.
-
+  Current source-summary page.
 - `frontend/src/components/layout/`
-  Shared layout pieces like navigation and page framing.
-
+  App shell and navigation.
 - `frontend/src/components/ui/`
-  Reusable low-level UI primitives.
+  Shared UI primitives.
+- `frontend/src/lib/`
+  Small utility helpers.
 
-## Hook subfolders
+## Electron shell
 
-- `frontend/src/hooks/dashboard/`
-  Dashboard-focused hooks.
-
-- `frontend/src/hooks/findings/`
-  Findings table and detail hooks.
-
-- `frontend/src/hooks/topology/`
-  Topology drill-down and paginated asset/finding hooks.
-
-- `frontend/src/hooks/sources/`
-  Source-summary hooks.
-
-- `frontend/src/hooks/risk-weights/`
-  Scoring-model hooks.
-
-## Root frontend files
-
-At the root of `frontend/`, the extra config and setup files support Electron, Vite, TypeScript, Tailwind, and package/build setup.
-
-Examples:
-- `package.json`
-- `package-lock.json`
-- `tsconfig.json`
-- `vite.config.ts`
-- `tailwind.config.js`
-- `postcss.config.js`
-- `components.json`
-- `electron-main.ts`
-- `index.html`
-
-These are important for app setup and builds, but they are not part of the day-to-day feature folder structure.
+- `frontend/electron-main.ts`
+  Owns the Electron desktop shell, Brinqa login window, MFA interception, runtime shutdown, and auth routing.
+- `frontend/src/preload.ts`
+  Exposes the renderer-to-Electron auth bridge used by logout, shutdown, and unauthorized recovery flows.
+- `scripts/run-desktop.sh`
+  Starts backend, waits for readiness, starts Vite, starts Electron, and shuts child processes down when Electron exits.
+- [docs/frontend/desktop-runtime-and-auth.md](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/frontend/desktop-runtime-and-auth.md)
+  Explains the desktop runtime, Brinqa auth/session lifecycle, and shutdown behavior.
 
 ## Current high-traffic flows
 
-- Dashboard flow:
-  - summary cards
-  - main findings table
-  - finding detail
-
-- Topology flow:
-  - business units
-  - business service
-  - optional application
-  - asset
-  - asset findings
-  - finding detail with breadcrumb-aware return path
+- business-unit overview -> business service -> optional application -> asset findings -> finding detail
+- findings dashboard -> finding detail
+- sources summary page
+- desktop launcher -> backend -> renderer -> Electron -> logout/shutdown cleanup

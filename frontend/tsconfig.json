@@ -23,7 +23,7 @@
   },
   "include": [
     "electron-main.ts",
-    "src/**/*.{ts,tsx}"
+    "src/preload.ts"
   ],
   "exclude": [
     "node_modules",

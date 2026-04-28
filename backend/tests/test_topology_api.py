@@ -6,6 +6,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app import models
 from app.api import topology as topology_api
+from app.services.brinqa_detail import BrinqaAuthContext, DetailResult, SourceAttempt
 from app.services.topology import backfill_asset_topology_foreign_keys
 
 
@@ -227,15 +228,22 @@ def seed_asset(
     business_service: str,
     application: str | None = None,
     finding_risks: list[float] | None = None,
+    environment: str = "test",
+    status: str = "Confirmed active",
+    pci: bool | None = None,
+    pii: bool | None = None,
+    compliance_flags: str | None = None,
 ):
     asset = models.Asset(
         asset_id=asset_id,
         hostname=hostname,
         business_service=business_service,
         application=application,
-        compliance_status="Tracked",
-        asset_criticality=2,
-        status="Confirmed active",
+        environment=environment,
+        status=status,
+        pci=pci,
+        pii=pii,
+        compliance_flags=compliance_flags,
     )
     db_session.add(asset)
     db_session.flush()
@@ -539,6 +547,9 @@ def test_assets_routes_preserve_legacy_filters_and_asset_findings_after_fk_expan
     assert detail_payload["business_service"] == "Digital Media"
     assert detail_payload["application"] == "Inventory Manager"
     assert detail_payload["finding_count"] == 2
+    assert "asset_context_score" in detail_payload
+    assert "exposure_score" in detail_payload
+    assert "crq_asset_context_score" not in detail_payload
     assert detail_payload["dnsname"] is None
     assert detail_payload["detail_source"] is None
 
@@ -552,6 +563,536 @@ def test_assets_routes_preserve_legacy_filters_and_asset_findings_after_fk_expan
     assert findings_payload["page_size"] == 1
     assert len(findings_payload["items"]) == 1
     assert all(item["asset_id"] == "asset-20" for item in findings_payload["items"])
+
+
+def test_asset_findings_analytics_route_summarizes_full_filtered_result_set(
+    client,
+    db_session,
+):
+    seed_topology(db_session)
+    seed_asset(
+        db_session,
+        asset_id="asset-analytics",
+        hostname="asset-analytics-host",
+        business_service="Digital Media",
+        application="Inventory Manager",
+        finding_risks=[9.1, 8.2, 3.2],
+    )
+    backfill_asset_topology_foreign_keys(db_session)
+    findings = (
+        db_session.query(models.Finding)
+        .filter(models.Finding.asset_id == "asset-analytics")
+        .order_by(models.Finding.finding_id)
+        .all()
+    )
+    findings[0].crq_finding_score = 9.4
+    findings[0].crq_finding_risk_band = "Critical"
+    findings[0].crq_finding_is_kev = True
+    findings[0].crq_finding_cvss_score = 9.8
+    findings[0].crq_finding_epss_score = 0.98
+    findings[0].crq_finding_epss_percentile = 0.99
+    findings[0].age_in_days = 40.0
+    findings[1].crq_finding_score = 7.6
+    findings[1].crq_finding_risk_band = "High"
+    findings[1].crq_finding_is_kev = False
+    findings[1].crq_finding_cvss_score = 8.2
+    findings[1].crq_finding_epss_score = 0.22
+    findings[1].crq_finding_epss_percentile = 0.61
+    findings[1].age_in_days = 10.0
+    findings[2].crq_finding_score = 2.5
+    findings[2].crq_finding_risk_band = "Low"
+    findings[2].crq_finding_is_kev = False
+    findings[2].crq_finding_cvss_score = 3.1
+    findings[2].crq_finding_epss_score = 0.01
+    findings[2].crq_finding_epss_percentile = 0.03
+    findings[2].age_in_days = 5.0
+    db_session.commit()
+
+    response = client.get("/assets/asset-analytics/findings/analytics")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["asset"]["asset_id"] == "asset-analytics"
+    assert payload["asset"]["business_service"] == "Digital Media"
+    assert payload["analytics"]["total_findings"] == 3
+    assert payload["analytics"]["kev_findings"] == 1
+    assert payload["analytics"]["critical_high_findings"] == 2
+    assert payload["analytics"]["highest_risk_band"] == "Critical"
+    assert payload["analytics"]["max_risk_score"] == 9.4
+    assert payload["analytics"]["oldest_priority_age_days"] == 40.0
+    assert payload["analytics"]["risk_bands"] == {
+        "Critical": 1,
+        "High": 1,
+        "Medium": 0,
+        "Low": 1,
+    }
+
+    filtered = client.get("/assets/asset-analytics/findings/analytics?kev_only=true")
+    assert filtered.status_code == 200
+    filtered_payload = filtered.json()
+    assert filtered_payload["analytics"]["total_findings"] == 1
+    assert filtered_payload["analytics"]["kev_findings"] == 1
+    assert filtered_payload["analytics"]["risk_bands"]["Critical"] == 1
+
+
+def test_assets_analytics_route_summarizes_full_filtered_asset_set(client, db_session):
+    seed_topology(db_session)
+    asset_critical = seed_asset(
+        db_session,
+        asset_id="asset-chart-1",
+        hostname="chart-1",
+        business_service="Digital Storefront",
+        application="Identity Verify",
+        finding_risks=[],
+        environment="production",
+        status="Confirmed active",
+        pci=True,
+    )
+    asset_high = seed_asset(
+        db_session,
+        asset_id="asset-chart-2",
+        hostname="chart-2",
+        business_service="Digital Storefront",
+        application="Identity Verify",
+        finding_risks=[],
+        environment="production",
+        status="Confirmed active",
+        pii=True,
+    )
+    asset_medium = seed_asset(
+        db_session,
+        asset_id="asset-chart-3",
+        hostname="chart-3",
+        business_service="Digital Storefront",
+        application=None,
+        finding_risks=[],
+        environment="test",
+        status="Retired",
+        compliance_flags="hipaa",
+    )
+    asset_low = seed_asset(
+        db_session,
+        asset_id="asset-chart-4",
+        hostname="chart-4",
+        business_service="Digital Storefront",
+        application=None,
+        finding_risks=[],
+        environment="development",
+        status="Confirmed active",
+    )
+    asset_unscored = seed_asset(
+        db_session,
+        asset_id="asset-chart-5",
+        hostname="chart-5",
+        business_service="Digital Storefront",
+        application=None,
+        finding_risks=[],
+        environment="production",
+        status="Confirmed active",
+    )
+    backfill_asset_topology_foreign_keys(db_session)
+    asset_critical.crq_asset_context_score = 9.0
+    asset_critical.crq_asset_aggregated_finding_risk = 8.9
+    asset_high.crq_asset_context_score = 7.0
+    asset_high.crq_asset_aggregated_finding_risk = 9.0
+    asset_medium.crq_asset_context_score = 4.0
+    asset_medium.crq_asset_aggregated_finding_risk = 6.9
+    asset_low.crq_asset_context_score = 3.9
+    asset_low.crq_asset_aggregated_finding_risk = 4.0
+    asset_unscored.crq_asset_context_score = None
+    asset_unscored.crq_asset_aggregated_finding_risk = None
+    db_session.commit()
+
+    response = client.get(
+        "/assets/analytics?business_service=Digital%20Storefront&application=Identity%20Verify&status=Confirmed%20active&environment=production&compliance=PCI"
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total_assets"] == 1
+    assert payload["asset_criticality_distribution"] == {
+        "low": 0,
+        "medium": 0,
+        "high": 0,
+        "critical": 1,
+        "unscored": 0,
+    }
+    assert payload["finding_risk_distribution"] == {
+        "low": 0,
+        "medium": 0,
+        "high": 1,
+        "critical": 0,
+        "unscored": 0,
+    }
+
+    all_assets = client.get("/assets/analytics?business_service=Digital%20Storefront")
+    assert all_assets.status_code == 200
+    all_payload = all_assets.json()
+    assert all_payload["total_assets"] == 5
+    assert all_payload["asset_criticality_distribution"] == {
+        "low": 1,
+        "medium": 1,
+        "high": 1,
+        "critical": 1,
+        "unscored": 1,
+    }
+    assert all_payload["finding_risk_distribution"] == {
+        "low": 0,
+        "medium": 2,
+        "high": 1,
+        "critical": 1,
+        "unscored": 1,
+    }
+
+    direct_only = client.get(
+        "/assets/analytics?business_service=Digital%20Storefront&direct_only=true&compliance=regulated"
+    )
+    assert direct_only.status_code == 200
+    direct_only_payload = direct_only.json()
+    assert direct_only_payload["total_assets"] == 1
+    assert direct_only_payload["asset_criticality_distribution"]["medium"] == 1
+
+
+def test_asset_detail_route_is_db_only_and_enrichment_route_uses_request_auth(
+    client,
+    db_session,
+    monkeypatch,
+):
+    seed_topology(db_session)
+    seed_asset(
+        db_session,
+        asset_id="asset-40",
+        hostname="asset-40-host",
+        business_service="Digital Media",
+        application="Inventory Manager",
+        finding_risks=[8.0],
+    )
+    backfill_asset_topology_foreign_keys(db_session)
+    db_session.commit()
+
+    def fail_if_called(*args, **kwargs):
+        raise AssertionError("asset detail route should not call Brinqa enrichment")
+
+    monkeypatch.setattr(topology_api.asset_detail_service, "get_detail", fail_if_called)
+
+    detail = client.get("/assets/asset-40")
+    assert detail.status_code == 200
+    detail_payload = detail.json()
+    assert detail_payload["asset_id"] == "asset-40"
+    assert detail_payload["detail_source"] is None
+
+    captured_auth: dict[str, str | None] = {}
+
+    def fake_get_detail(asset, auth=None):
+        assert asset.asset_id == "asset-40"
+        assert isinstance(auth, BrinqaAuthContext)
+        captured_auth["bearer_token"] = auth.bearer_token
+        captured_auth["session_cookie"] = auth.session_cookie
+        return DetailResult(
+            payload={
+                "owner": "asset-owner",
+                "service_team": "blue-team",
+                "location": "Santa Cruz",
+                "tracking_method": "Agent",
+                "last_scanned": "2025-02-20T10:00:00Z",
+                "last_authenticated_scan": "2025-02-21T11:00:00Z",
+            },
+            fetched_at=datetime(2025, 2, 21, 11, 5, tzinfo=timezone.utc),
+            source="qualys+servicenow",
+            status="success",
+            reason="both_sources_succeeded",
+        )
+
+    monkeypatch.setattr(topology_api.asset_detail_service, "get_detail", fake_get_detail)
+
+    enrichment = client.get(
+        "/assets/asset-40/enrichment",
+        headers={"X-Brinqa-Auth-Token": "token-123"},
+    )
+    assert enrichment.status_code == 200
+    payload = enrichment.json()
+    assert captured_auth == {"bearer_token": "token-123", "session_cookie": None}
+    assert payload["status"] == "success"
+    assert payload["reason"] == "both_sources_succeeded"
+    assert payload["owner"] == "asset-owner"
+    assert payload["service_team"] == "blue-team"
+    assert payload["tracking_method"] == "Agent"
+    assert payload["detail_source"] == "qualys+servicenow"
+
+
+def test_asset_enrichment_route_returns_missing_token_without_token(client, db_session):
+    seed_topology(db_session)
+    seed_asset(
+        db_session,
+        asset_id="asset-41",
+        hostname="asset-41-host",
+        business_service="Digital Media",
+        application="Inventory Manager",
+        finding_risks=[4.0],
+    )
+    backfill_asset_topology_foreign_keys(db_session)
+    db_session.commit()
+
+    response = client.get("/assets/asset-41/enrichment")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["asset_id"] == "asset-41"
+    assert payload["status"] == "missing_token"
+    assert payload["reason"] == "missing_auth_token"
+
+
+@pytest.mark.parametrize(
+    ("status", "reason"),
+    [
+        ("unauthorized_token", "brinqa_unauthorized"),
+        ("no_related_source", "no_related_source"),
+        ("upstream_error", "qualys_detail_failed"),
+    ],
+)
+def test_asset_enrichment_route_returns_non_success_contract_states(
+    client,
+    db_session,
+    monkeypatch,
+    status,
+    reason,
+):
+    seed_topology(db_session)
+    seed_asset(
+        db_session,
+        asset_id="asset-42",
+        hostname="asset-42-host",
+        business_service="Digital Media",
+        application="Inventory Manager",
+        finding_risks=[5.0],
+    )
+    backfill_asset_topology_foreign_keys(db_session)
+    db_session.commit()
+
+    monkeypatch.setattr(
+        topology_api.asset_detail_service,
+        "get_detail",
+        lambda asset, auth=None: DetailResult(
+            payload=None,
+            fetched_at=None,
+            source=None,
+            status=status,
+            reason=reason,
+            error=reason,
+        ),
+    )
+
+    response = client.get(
+        "/assets/asset-42/enrichment",
+        headers={"X-Brinqa-Auth-Token": "token-123"},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == status
+    assert payload["reason"] == reason
+    assert payload["detail_source"] is None
+    assert payload["detail_fetched_at"] is None
+
+
+@pytest.mark.parametrize(
+    ("asset_id", "payload", "reason", "detail_source"),
+    [
+        (
+            "asset-43",
+            {"owner": "sn-owner", "service_team": "blue-team"},
+            "qualys_source_missing",
+            "servicenow",
+        ),
+        (
+            "asset-44",
+            {"dnsname": "host.qualys.local", "tracking_method": "Agent"},
+            "servicenow_detail_failed",
+            "qualys",
+        ),
+    ],
+)
+def test_asset_enrichment_route_returns_partial_success_variants(
+    client,
+    db_session,
+    monkeypatch,
+    asset_id,
+    payload,
+    reason,
+    detail_source,
+):
+    seed_topology(db_session)
+    seed_asset(
+        db_session,
+        asset_id=asset_id,
+        hostname=f"{asset_id}-host",
+        business_service="Digital Media",
+        application="Inventory Manager",
+        finding_risks=[5.0],
+    )
+    backfill_asset_topology_foreign_keys(db_session)
+    db_session.commit()
+
+    monkeypatch.setattr(
+        topology_api.asset_detail_service,
+        "get_detail",
+        lambda asset, auth=None: DetailResult(
+            payload=payload,
+            fetched_at=datetime(2025, 2, 21, 11, 5, tzinfo=timezone.utc),
+            source=detail_source,
+            status="partial_success",
+            reason=reason,
+        ),
+    )
+
+    response = client.get(
+        f"/assets/{asset_id}/enrichment",
+        headers={"X-Brinqa-Auth-Token": "token-123"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "partial_success"
+    assert data["reason"] == reason
+    assert data["detail_source"] == detail_source
+    assert data["detail_fetched_at"] == "2025-02-21T11:05:00Z"
+
+
+def test_asset_enrichment_route_returns_success_when_both_sources_resolve(
+    client,
+    db_session,
+    monkeypatch,
+):
+    seed_topology(db_session)
+    seed_asset(
+        db_session,
+        asset_id="asset-45",
+        hostname="asset-45-host",
+        business_service="Digital Media",
+        application="Inventory Manager",
+        finding_risks=[5.0],
+    )
+    backfill_asset_topology_foreign_keys(db_session)
+    db_session.commit()
+
+    monkeypatch.setattr(
+        topology_api.asset_detail_service,
+        "get_detail",
+        lambda asset, auth=None: DetailResult(
+            payload={
+                "dnsname": "asset-45.qualys.local",
+                "owner": "asset-owner",
+                "tracking_method": "Agent",
+            },
+            fetched_at=datetime(2025, 2, 21, 11, 5, tzinfo=timezone.utc),
+            source="qualys+servicenow",
+            status="success",
+            reason="both_sources_succeeded",
+        ),
+    )
+
+    response = client.get(
+        "/assets/asset-45/enrichment",
+        headers={"X-Brinqa-Auth-Token": "token-123"},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "success"
+    assert payload["reason"] == "both_sources_succeeded"
+    assert payload["detail_source"] == "qualys+servicenow"
+
+
+def test_asset_detail_service_returns_partial_success_when_only_one_source_succeeds(
+    monkeypatch,
+):
+    asset = models.Asset(asset_id="asset-50", hostname="asset-50-host")
+    calls = iter(
+        [
+            SourceAttempt(
+                name="qualys",
+                payload={"dnsname": "asset-50.qualys.local"},
+                reason=None,
+                source_id="qualys-50",
+                succeeded=True,
+            ),
+            SourceAttempt(
+                name="servicenow",
+                payload=None,
+                reason="servicenow_source_missing",
+            ),
+        ]
+    )
+
+    monkeypatch.setattr(
+        topology_api.asset_detail_service,
+        "_fetch_source_attempt",
+        lambda *args, **kwargs: next(calls),
+    )
+
+    detail = topology_api.asset_detail_service.get_detail(
+        asset,
+        auth=BrinqaAuthContext(bearer_token="token-123"),
+    )
+
+    assert detail.status == "partial_success"
+    assert detail.reason == "servicenow_source_missing"
+    assert detail.source == "qualys"
+    assert detail.payload == {"dnsname": "asset-50.qualys.local"}
+    assert detail.fetched_at is not None
+
+
+def test_asset_detail_service_returns_no_related_source_when_neither_source_resolves(
+    monkeypatch,
+):
+    asset = models.Asset(asset_id="asset-51", hostname="asset-51-host")
+    calls = iter(
+        [
+            SourceAttempt(name="qualys", payload=None, reason="qualys_source_missing"),
+            SourceAttempt(name="servicenow", payload=None, reason="servicenow_source_missing"),
+        ]
+    )
+
+    monkeypatch.setattr(
+        topology_api.asset_detail_service,
+        "_fetch_source_attempt",
+        lambda *args, **kwargs: next(calls),
+    )
+
+    detail = topology_api.asset_detail_service.get_detail(
+        asset,
+        auth=BrinqaAuthContext(bearer_token="token-123"),
+    )
+
+    assert detail.status == "no_related_source"
+    assert detail.reason == "no_related_source"
+    assert detail.payload is None
+
+
+def test_asset_detail_service_returns_unauthorized_token_when_brinqa_rejects_auth(
+    monkeypatch,
+):
+    asset = models.Asset(asset_id="asset-52", hostname="asset-52-host")
+    calls = iter(
+        [
+            SourceAttempt(
+                name="qualys",
+                payload=None,
+                reason="brinqa_unauthorized",
+                unauthorized=True,
+            ),
+            SourceAttempt(name="servicenow", payload=None, reason="servicenow_source_missing"),
+        ]
+    )
+
+    monkeypatch.setattr(
+        topology_api.asset_detail_service,
+        "_fetch_source_attempt",
+        lambda *args, **kwargs: next(calls),
+    )
+
+    detail = topology_api.asset_detail_service.get_detail(
+        asset,
+        auth=BrinqaAuthContext(bearer_token="token-123"),
+    )
+
+    assert detail.status == "unauthorized_token"
+    assert detail.reason == "brinqa_unauthorized"
+    assert detail.payload is None
 
 
 def test_topology_routes_return_503_when_normalized_tables_are_not_initialized(

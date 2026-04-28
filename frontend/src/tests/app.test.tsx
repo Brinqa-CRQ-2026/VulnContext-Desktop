@@ -1,13 +1,29 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const { requestBrinqaSessionReset } = vi.hoisted(() => ({
+  requestBrinqaSessionReset: vi.fn(),
+}));
+
+vi.mock("../auth/electronBrinqa", () => ({
+  requestBrinqaSessionReset,
+}));
+
 vi.mock("../components/layout/Header", () => ({
   Header: ({
     page,
     onNavigate,
+    onLogout,
+    onShutdown,
+    logoutPending,
+    shutdownPending,
   }: {
     page: string;
     onNavigate: (page: "findings" | "integrations" | "business-services") => void;
+    onLogout: () => void;
+    onShutdown: () => void;
+    logoutPending?: boolean;
+    shutdownPending?: boolean;
   }) => (
     <div>
       <div>{`header:${page}`}</div>
@@ -16,6 +32,12 @@ vi.mock("../components/layout/Header", () => ({
       <button onClick={() => onNavigate("integrations")}>header-integrations</button>
       <button onClick={() => onNavigate("business-services")}>
         header-business-services
+      </button>
+      <button disabled={logoutPending} onClick={onLogout}>
+        header-logout
+      </button>
+      <button disabled={shutdownPending} onClick={onShutdown}>
+        header-shutdown
       </button>
     </div>
   ),
@@ -27,32 +49,15 @@ vi.mock("../components/dashboard/DashboardOverview", () => ({
   ),
 }));
 
-vi.mock("../components/dashboard/RiskWeightsEditor", () => ({
-  RiskWeightsEditor: ({
-    refreshToken,
-    onWeightsUpdated,
-  }: {
-    refreshToken: number;
-    onWeightsUpdated: () => void;
-  }) => (
-    <div>
-      <div>{`weights:${refreshToken}`}</div>
-      <button onClick={onWeightsUpdated}>weights-updated</button>
-    </div>
-  ),
-}));
-
 vi.mock("../components/dashboard/RiskTable", () => ({
   RiskTable: ({
     refreshToken,
     onOpenFinding,
     onOpenIntegrations,
-    onDataChanged,
   }: {
     refreshToken: number;
     onOpenFinding?: (finding: { id: number; source: string }) => void;
     onOpenIntegrations: () => void;
-    onDataChanged?: () => void;
   }) => (
     <div>
       <div>{`table:${refreshToken}`}</div>
@@ -60,7 +65,6 @@ vi.mock("../components/dashboard/RiskTable", () => ({
         open-finding
       </button>
       <button onClick={onOpenIntegrations}>open-integrations</button>
-      <button onClick={onDataChanged}>table-data-changed</button>
     </div>
   ),
 }));
@@ -99,16 +103,9 @@ vi.mock("../components/dashboard/FindingDetailPage", () => ({
 }));
 
 vi.mock("../components/integrations/IntegrationsPage", () => ({
-  IntegrationsPage: ({
-    refreshToken,
-    onDataChanged,
-  }: {
-    refreshToken: number;
-    onDataChanged: () => void;
-  }) => (
+  IntegrationsPage: ({ refreshToken }: { refreshToken: number }) => (
     <div>
       <div>{`integrations:${refreshToken}`}</div>
-      <button onClick={onDataChanged}>integrations-data-changed</button>
     </div>
   ),
 }));
@@ -262,6 +259,8 @@ import App from "../app";
 describe("App", () => {
   beforeEach(() => {
     window.location.hash = "";
+    requestBrinqaSessionReset.mockReset();
+    requestBrinqaSessionReset.mockResolvedValue(undefined);
   });
 
   it("renders the business services overview by default", () => {
@@ -376,12 +375,38 @@ describe("App", () => {
     fireEvent.click(screen.getByText("header-findings"));
     await screen.findByText("dashboard:0");
 
-    fireEvent.click(screen.getByText("weights-updated"));
-    await screen.findByText("dashboard:1");
-
     fireEvent.click(screen.getByText("open-finding"));
-    await screen.findByText("detail:finding-42:1");
+    await screen.findByText("detail:finding-42:0");
     fireEvent.click(screen.getByText("detail-data-changed"));
-    await waitFor(() => expect(screen.getByText("detail:finding-42:2")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("detail:finding-42:1")).toBeInTheDocument());
+  });
+
+  it("triggers Brinqa session reset from the logout control", async () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByText("header-logout"));
+
+    await waitFor(() =>
+      expect(requestBrinqaSessionReset).toHaveBeenCalledWith({
+        reason: "logout",
+        reopenLogin: true,
+        includeRemoteLogout: true,
+      })
+    );
+  });
+
+  it("triggers app shutdown through the Brinqa session reset bridge", async () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByText("header-shutdown"));
+
+    await waitFor(() =>
+      expect(requestBrinqaSessionReset).toHaveBeenCalledWith({
+        reason: "shutdown",
+        reopenLogin: false,
+        includeRemoteLogout: true,
+        quitApp: true,
+      })
+    );
   });
 });

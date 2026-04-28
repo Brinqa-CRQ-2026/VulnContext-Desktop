@@ -4,15 +4,11 @@ This file tracks the current state of the business-context expansion so future c
 
 ## Goal
 
-Add a business-context navigation layer above findings:
+Keep the business-context navigation layer as the primary path above findings:
 
-- `Company -> Business Unit -> Business Service -> Assets -> Findings`
+- `Business Unit -> Business Service -> Application -> Assets -> Findings`
 
-The current implemented scope is:
-
-- company overview landing page
-- company/business-unit drill-in page
-- mock-backed data only
+The current implementation is backend-driven, not mock-backed.
 
 ## Current Implementation State
 
@@ -22,84 +18,59 @@ The current implemented scope is:
 - FastAPI serves the built frontend for:
   - `/`
   - `/business-services`
-  - `/business-services/:slug`
+  - nested business-services drill-down paths
 - Business Services uses HTTP path routing
 - findings and integrations still use hash-style routing to avoid collisions with backend API routes
 
 ### Overview Page
 
-Current overview page is a company-first landing page.
+Current overview page is a business-unit overview page.
 
 Implemented behavior:
 
-- page header title is `Company Overview`
-- overview header description is intentionally removed
-- top metric cards show only:
-  - total companies
-  - affected assets
-  - open findings
-- one company card is shown for each company in the current mocked dataset
-- current companies are:
-  - `Virtuon`
-  - `Cyberdyne Systems`
-- business unit is shown directly under the company name on each card
-- company cards are dark blue with white centered text
-- company cards are more defined/prominent than before
-- company cards are shorter than the earlier square version
-- company card stats are displayed in one horizontal row
-- each company card stat uses:
-  - bold larger number
-  - centered label underneath
+- page header title is `Business Unit Overview`
+- the page loads business units from the backend topology route
+- each row/card carries current rollup counts from persisted topology and findings data
 
-### Company Drill-In Page
+### Drill-Down Flow
 
-Clicking a company card opens a company/business-unit specific page.
+The current flow is:
 
-Implemented behavior:
-
-- page title becomes the company name
-- page shows the related business unit
-- page lists business services for that company/business unit
-- each listed business service shows:
-  - number of open findings
-  - number of affected assets
-
-## Mock Data In Use
-
-Current mocked business services:
-
-- `Digital Media` / `Online Store` / `Virtuon` / `248 assets` / `5310 findings`
-- `Digital Storefront` / `Online Store` / `Virtuon` / `196 assets` / `4312 findings`
-- `Shipping and Tracking` / `Online Store` / `Virtuon` / `93 assets` / `1582 findings`
-- `Logistics` / `Manufacturing` / `Cyberdyne Systems` / `118 assets` / `2172 findings`
-- `Manufacturing Shop` / `Manufacturing` / `Cyberdyne Systems` / `104 assets` / `1929 findings`
+- business unit overview
+- business unit detail
+- business service detail
+- optional application detail
+- asset findings page
+- finding detail with breadcrumb-aware return path
 
 ## Files Added Or Changed For This Feature
 
-- `frontend/src/mocks/businessServices.ts`
 - `frontend/src/components/business-services/BusinessServicesOverview.tsx`
+- `frontend/src/components/business-services/BusinessUnitDetailPage.tsx`
 - `frontend/src/components/business-services/BusinessServiceDetailPage.tsx`
+- `frontend/src/components/business-services/ApplicationDetailPage.tsx`
+- `frontend/src/components/business-services/AssetFindingsPage.tsx`
 - `frontend/src/app.tsx`
 - `frontend/src/components/layout/Header.tsx`
 - `backend/app/main.py`
-- `backend/tests/test_api_contract.py`
+- `backend/app/api/topology.py`
 - `frontend/src/tests/app.test.tsx`
 - `frontend/src/tests/components/business-services/BusinessServicesOverview.test.tsx`
 
 ## Current Constraints
 
-- backend business-service/company APIs are not implemented yet
-- this feature is still mock-backed
-- styling has been improved incrementally, but this is still not treated as a final design system pass
+- the flow depends on the normalized topology tables being present
+- business-unit/business-service/application pages are backend-backed, but detail enrichment remains best-effort
+- company remains a contextual field, not the top-level navigation page
 
 ## Next Likely Steps
 
 Likely next work for this feature:
 
-1. define the company/business-unit detail page more precisely
-2. add the next layer for business-service selection beneath company/business unit
-3. define the assets page structure
-4. later replace mocks with backend data once the user asks for it
+1. tighten copy and visual hierarchy for business-unit-first navigation
+2. decide whether company needs its own dedicated landing layer again
+3. extend topology rollups beyond business unit and service if the product needs higher-level summaries
+4. keep this tracker aligned whenever the drill-down flow changes materially
 
 ## Maintenance Rule
 

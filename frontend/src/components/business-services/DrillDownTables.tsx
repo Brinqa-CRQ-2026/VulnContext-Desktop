@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 
 import type { ApplicationSummary, AssetSummary, ScoredFinding, SortOrder } from "../../api/types";
 import { cn } from "../../lib/utils";
+import { Pill } from "../ui/pill";
 import {
   Table,
   TableBody,
@@ -15,7 +16,7 @@ import {
 export type ApplicationSortKey = "application" | "slug" | "asset_count" | "finding_count";
 export type AssetSortKey =
   | "name"
-  | "asset_id"
+  | "asset_type"
   | "business_service"
   | "application"
   | "asset_criticality"
@@ -157,18 +158,52 @@ export function AssetsDrillDownTable({
       <TableHeader>
         <TableRow>
           <SortableHeader
+            label="Status"
+            isActive={sort.key === "status"}
+            order={sort.order}
+            onClick={() => onSortChange(toggleSort(sort, "status"))}
+            disabled={!enableSorting}
+            showIcon={enableSorting}
+          />
+          <SortableHeader
+            label="Compliance"
+            isActive={false}
+            order={sort.order}
+            onClick={() => undefined}
+            disabled
+            showIcon={false}
+          />
+          <SortableHeader
             label="Asset"
             isActive={sort.key === "name"}
             order={sort.order}
             onClick={() => onSortChange(toggleSort(sort, "name"))}
             disabled={!enableSorting}
+            showIcon={enableSorting}
           />
           <SortableHeader
-            label="Asset ID"
-            isActive={sort.key === "asset_id"}
+            label="Category"
+            isActive={false}
             order={sort.order}
-            onClick={() => onSortChange(toggleSort(sort, "asset_id"))}
+            onClick={() => undefined}
+            disabled
+            showIcon={false}
+          />
+          <SortableHeader
+            label="Asset type"
+            isActive={sort.key === "asset_type"}
+            order={sort.order}
+            onClick={() => onSortChange(toggleSort(sort, "asset_type"))}
             disabled={!enableSorting}
+            showIcon={enableSorting}
+          />
+          <SortableHeader
+            label="Environment"
+            isActive={false}
+            order={sort.order}
+            onClick={() => undefined}
+            disabled
+            showIcon={false}
           />
           {showBusinessService ? (
             <SortableHeader
@@ -177,6 +212,7 @@ export function AssetsDrillDownTable({
               order={sort.order}
               onClick={() => onSortChange(toggleSort(sort, "business_service"))}
               disabled={!enableSorting}
+              showIcon={enableSorting}
             />
           ) : null}
           {showApplication ? (
@@ -186,8 +222,18 @@ export function AssetsDrillDownTable({
               order={sort.order}
               onClick={() => onSortChange(toggleSort(sort, "application"))}
               disabled={!enableSorting}
+              showIcon={enableSorting}
             />
           ) : null}
+          <SortableHeader
+            label="Finding risk"
+            isActive={sort.key === "asset_criticality"}
+            order={sort.order}
+            onClick={() => onSortChange(toggleSort(sort, "asset_criticality"))}
+            className="border-l border-slate-200 pl-4 text-right"
+            disabled={!enableSorting}
+            showIcon={enableSorting}
+          />
           <SortableHeader
             label="Criticality"
             isActive={sort.key === "asset_criticality"}
@@ -195,21 +241,16 @@ export function AssetsDrillDownTable({
             onClick={() => onSortChange(toggleSort(sort, "asset_criticality"))}
             className="text-right"
             disabled={!enableSorting}
-          />
-          <SortableHeader
-            label="Status"
-            isActive={sort.key === "status"}
-            order={sort.order}
-            onClick={() => onSortChange(toggleSort(sort, "status"))}
-            disabled={!enableSorting}
+            showIcon={enableSorting}
           />
           <SortableHeader
             label="Findings"
             isActive={sort.key === "finding_count"}
             order={sort.order}
             onClick={() => onSortChange(toggleSort(sort, "finding_count"))}
-            className="text-right"
+            className="text-right font-semibold text-slate-900"
             disabled={!enableSorting}
+            showIcon={enableSorting}
           />
         </TableRow>
       </TableHeader>
@@ -221,16 +262,28 @@ export function AssetsDrillDownTable({
             onClick={() => onOpenAsset(asset)}
           >
             <TableCell>
+              <AssetStatusBadge status={asset.status} />
+            </TableCell>
+            <TableCell>
+              <AssetComplianceBadges asset={asset} />
+            </TableCell>
+            <TableCell>
               <div className="font-medium text-slate-900">{getAssetName(asset)}</div>
             </TableCell>
-            <TableCell className="text-slate-500">{asset.asset_id}</TableCell>
+            <TableCell>{formatCategory(asset.category)}</TableCell>
+            <TableCell className="text-slate-500">{getAssetType(asset)}</TableCell>
+            <TableCell>{formatEnvironment(asset.environment)}</TableCell>
             {showBusinessService ? (
               <TableCell>{formatText(asset.business_service)}</TableCell>
             ) : null}
             {showApplication ? <TableCell>{formatText(asset.application)}</TableCell> : null}
-            <TableCell className="text-right">{formatNullable(asset.asset_criticality, 0)}</TableCell>
-            <TableCell>{formatText(asset.status)}</TableCell>
-            <TableCell className="text-right font-medium text-slate-900">
+            <TableCell className="border-l border-slate-200 pl-4 text-right">
+              {formatNullable(asset.aggregated_finding_risk)}
+            </TableCell>
+            <TableCell className="text-right">
+              {formatNullable(asset.asset_context_score)}
+            </TableCell>
+            <TableCell className="text-right font-semibold text-slate-900">
               {asset.finding_count.toLocaleString()}
             </TableCell>
           </InteractiveRow>
@@ -394,6 +447,7 @@ function SortableHeader({
   onClick,
   className,
   disabled = false,
+  showIcon = true,
 }: {
   label: string;
   isActive: boolean;
@@ -401,8 +455,9 @@ function SortableHeader({
   onClick: () => void;
   className?: string;
   disabled?: boolean;
+  showIcon?: boolean;
 }) {
-  const Icon = !isActive ? ArrowUpDown : order === "asc" ? ArrowUp : ArrowDown;
+  const Icon = !showIcon ? null : !isActive ? ArrowUpDown : order === "asc" ? ArrowUp : ArrowDown;
 
   return (
     <TableHead className={className}>
@@ -417,7 +472,7 @@ function SortableHeader({
         )}
       >
         <span>{label}</span>
-        <Icon className="h-3.5 w-3.5" />
+        {Icon ? <Icon className="h-3.5 w-3.5" /> : null}
       </button>
     </TableHead>
   );
@@ -450,19 +505,8 @@ function InteractiveRow({
 function Tag({
   tone,
   children,
-}: PropsWithChildren<{ tone: "neutral" | "warn" }>) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium",
-        tone === "warn"
-          ? "border-amber-200 bg-amber-50 text-amber-700"
-          : "border-slate-200 bg-slate-50 text-slate-700"
-      )}
-    >
-      {children}
-    </span>
-  );
+}: PropsWithChildren<{ tone: "neutral" | "warn" | "success" | "dark" }>) {
+  return <Pill tone={tone}>{children}</Pill>;
 }
 
 function toggleSort<TSortKey extends string>(
@@ -513,14 +557,14 @@ function getAssetSortValue(asset: AssetSummary, key: AssetSortKey) {
   switch (key) {
     case "name":
       return getAssetName(asset);
-    case "asset_id":
-      return asset.asset_id;
+    case "asset_type":
+      return getAssetType(asset);
     case "business_service":
       return asset.business_service ?? null;
     case "application":
       return asset.application ?? null;
     case "asset_criticality":
-      return asset.asset_criticality ?? null;
+      return asset.asset_context_score ?? null;
     case "status":
       return asset.status ?? null;
     case "finding_count":
@@ -581,6 +625,69 @@ function getDisplayFindingTitle(finding: ScoredFinding) {
 
 function getAssetName(asset: AssetSummary) {
   return asset.hostname ?? asset.asset_id;
+}
+
+function getAssetType(asset: AssetSummary) {
+  return formatText(asset.device_type);
+}
+
+function AssetStatusBadge({ status }: { status?: string | null }) {
+  const normalized = deriveAssetStatus(status);
+  return <Tag tone={normalized === "Active" ? "success" : "neutral"}>{normalized}</Tag>;
+}
+
+function AssetComplianceBadges({ asset }: { asset: AssetSummary }) {
+  const badges = getComplianceBadges(asset);
+  if (badges.length === 0) {
+    return <span className="text-slate-500">—</span>;
+  }
+  return (
+    <div className="flex flex-wrap gap-1">
+      {badges.map((badge) => (
+        <Tag key={badge} tone={badge === "PCI" || badge === "PII" ? "warn" : "neutral"}>
+          {badge}
+        </Tag>
+      ))}
+    </div>
+  );
+}
+
+function getComplianceBadges(asset: AssetSummary) {
+  const badges = new Set<string>();
+  if (asset.pci) badges.add("PCI");
+  if (asset.pii) badges.add("PII");
+  const rawFlags = (asset.compliance_flags ?? "")
+    .split(/[;,|]/)
+    .map((value) => value.trim())
+    .filter(Boolean);
+  rawFlags.forEach((flag) => {
+    const normalized = flag.toUpperCase();
+    if (normalized !== "PCI" && normalized !== "PII") {
+      badges.add(normalized);
+    }
+  });
+  return Array.from(badges);
+}
+
+function formatEnvironment(value?: string | null) {
+  const normalized = (value ?? "").trim().toLowerCase();
+  if (!normalized) return "Unknown";
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
+
+function formatCategory(value?: string | null) {
+  return formatText(value);
+}
+
+function deriveAssetStatus(status?: string | null) {
+  const normalized = (status ?? "").trim().toLowerCase();
+  if (normalized && /fixed|closed|resolved|inactive|retired/.test(normalized)) {
+    return "Not active";
+  }
+  if (normalized && /active|open|new/.test(normalized)) {
+    return "Active";
+  }
+  return "Not active";
 }
 
 function formatNullable(value?: number | null, digits = 1) {

@@ -60,50 +60,6 @@ describe("api/findings", () => {
     expect(getFetchMock()).toHaveBeenCalledWith("https://api.example.com/findings/finding-42");
   });
 
-  it("posts disposition updates as JSON", async () => {
-    const { setFindingDisposition } = await loadFindingsApi();
-    await setFindingDisposition("finding-7", {
-      disposition: "false_positive",
-      reason: "dup",
-      comment: "ignore",
-      actor: "ui",
-    });
-
-    expect(getFetchMock()).toHaveBeenCalledWith(
-      "https://api.example.com/findings/finding-7/disposition",
-      expect.objectContaining({
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          disposition: "false_positive",
-          reason: "dup",
-          comment: "ignore",
-          actor: "ui",
-        }),
-      })
-    );
-  });
-
-  it("posts clear disposition without actor when omitted", async () => {
-    const { clearFindingDisposition } = await loadFindingsApi();
-    await clearFindingDisposition("finding-9");
-
-    expect(getFetchMock()).toHaveBeenCalledWith(
-      "https://api.example.com/findings/finding-9/disposition/clear",
-      { method: "POST" }
-    );
-  });
-
-  it("includes the actor query param for clear disposition when provided", async () => {
-    const { clearFindingDisposition } = await loadFindingsApi();
-    await clearFindingDisposition("finding-9", " analyst ");
-
-    expect(getFetchMock()).toHaveBeenCalledWith(
-      "https://api.example.com/findings/finding-9/disposition/clear?actor=analyst",
-      { method: "POST" }
-    );
-  });
-
   it("surfaces backend errors", async () => {
     const { getTopScores } = await loadFindingsApi();
     getFetchMock().mockResolvedValueOnce(

@@ -1,7 +1,6 @@
 import { buildApiUrl, parseJsonOrThrow } from "./client";
 import type {
-  FindingDispositionResult,
-  FindingDispositionUpdateRequest,
+  FindingEnrichment,
   FindingsSortBy,
   PaginatedFindings,
   RiskBandFilter,
@@ -81,38 +80,10 @@ export async function getFindingById(findingId: string): Promise<ScoredFinding> 
   );
 }
 
-export async function setFindingDisposition(
-  findingId: string,
-  payload: FindingDispositionUpdateRequest
-): Promise<FindingDispositionResult> {
-  const res = await fetch(buildApiUrl(`/findings/${encodeURIComponent(findingId)}/disposition`), {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
+export async function getFindingEnrichment(findingId: string): Promise<FindingEnrichment> {
+  const res = await fetch(buildApiUrl(`/findings/${encodeURIComponent(findingId)}/enrichment`));
   return parseJsonOrThrow(
     res,
-    `Failed to update disposition: ${res.status} ${res.statusText}`
-  );
-}
-
-export async function clearFindingDisposition(
-  findingId: string,
-  actor?: string | null
-): Promise<FindingDispositionResult> {
-  const params = new URLSearchParams();
-  if (actor && actor.trim()) {
-    params.set("actor", actor.trim());
-  }
-
-  const res = await fetch(
-    buildApiUrl(`/findings/${encodeURIComponent(findingId)}/disposition/clear`, params),
-    { method: "POST" }
-  );
-  return parseJsonOrThrow(
-    res,
-    `Failed to clear disposition: ${res.status} ${res.statusText}`
+    `Failed to fetch finding enrichment: ${res.status} ${res.statusText}`
   );
 }

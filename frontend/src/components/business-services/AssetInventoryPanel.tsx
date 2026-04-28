@@ -2,7 +2,9 @@ import { ArrowDown, ArrowUp, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { usePaginatedAssets } from "../../hooks/topology/usePaginatedAssets";
+import { useAssetsAnalytics } from "../../hooks/topology/useAssetsAnalytics";
 import type { AssetListSortBy, AssetSummary, SortOrder } from "../../api/types";
+import { AssetDistributionCharts } from "./AssetDistributionCharts";
 import { AssetsDrillDownTable, type SortState } from "./DrillDownTables";
 import { Button } from "../ui/button";
 import {
@@ -38,6 +40,8 @@ export function AssetInventoryPanel({
   const [searchDraft, setSearchDraft] = useState("");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<string>("All");
+  const [environment, setEnvironment] = useState<string>("All");
+  const [compliance, setCompliance] = useState<string>("All");
   const [sortBy, setSortBy] = useState<AssetListSortBy>("finding_count");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
 
@@ -47,10 +51,27 @@ export function AssetInventoryPanel({
     businessService,
     application,
     status: status === "All" ? null : status,
+    environment: environment === "All" ? null : environment,
+    compliance: compliance === "All" ? null : compliance,
     search,
     directOnly,
     sortBy,
     sortOrder,
+    refreshToken,
+  });
+  const {
+    analytics,
+    loading: analyticsLoading,
+    error: analyticsError,
+  } = useAssetsAnalytics({
+    businessUnit,
+    businessService,
+    application,
+    status: status === "All" ? null : status,
+    environment: environment === "All" ? null : environment,
+    compliance: compliance === "All" ? null : compliance,
+    search,
+    directOnly,
     refreshToken,
   });
 
@@ -75,9 +96,23 @@ export function AssetInventoryPanel({
     key: sortBy,
     order: sortOrder,
   };
+  const environmentOptions = useMemo(() => {
+    const values = new Set<string>();
+    assets.forEach((asset) => {
+      values.add(normalizeEnvironmentOption(asset.environment));
+    });
+    return ["All", ...Array.from(values).sort((left, right) => left.localeCompare(right))];
+  }, [assets]);
+  const complianceOptions = ["All", "Regulated", "PCI", "PII"];
 
   return (
     <div className="space-y-4">
+      <AssetDistributionCharts
+        analytics={analytics}
+        loading={analyticsLoading}
+        error={analyticsError}
+      />
+
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-4">
         <form
           className="flex flex-wrap items-center gap-2"
@@ -116,6 +151,34 @@ export function AssetInventoryPanel({
             </select>
           </label>
           <label className="flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">
+            <span>Environment</span>
+            <select
+              value={environment}
+              onChange={(event) => setEnvironment(event.target.value)}
+              className="bg-transparent outline-none"
+            >
+              {environmentOptions.map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">
+            <span>Compliance</span>
+            <select
+              value={compliance}
+              onChange={(event) => setCompliance(event.target.value)}
+              className="bg-transparent outline-none"
+            >
+              {complianceOptions.map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">
             <span>Sort by</span>
             <select
               value={sortBy}
@@ -124,7 +187,7 @@ export function AssetInventoryPanel({
             >
               <option value="finding_count">Findings</option>
               <option value="name">Asset / hostname</option>
-              <option value="asset_id">Asset ID</option>
+              <option value="asset_type">Asset type</option>
               <option value="asset_criticality">Criticality</option>
               <option value="status">Status</option>
             </select>
@@ -216,4 +279,10 @@ export function AssetInventoryPanel({
       ) : null}
     </div>
   );
+}
+
+function normalizeEnvironmentOption(environment?: string | null) {
+  const value = (environment ?? "").trim().toLowerCase();
+  if (!value) return "Unknown";
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }

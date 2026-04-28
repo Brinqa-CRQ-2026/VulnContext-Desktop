@@ -15,24 +15,14 @@ from brinqa_source_helpers import (
     normalize_record,
 )
 
-# =========================
-# export_assets_for_supabase.py
-# =========================
-# Main asset export workflow:
-# 1. read asset ids from asset_business_context.csv
-# 2. fetch Qualys + ServiceNow source detail for each asset
-# 3. merge to one thin asset CSV ready for Supabase import
-#
-# Run:
-# python3 backend/scripts/export_assets_for_supabase.py
-
 ASSET_CONTEXT_CSV = DATA_DIR / "asset_business_context.csv"
+DETAIL_OUTPUT_CSV = DATA_DIR / "assets_source_detail.csv"
 OUTPUT_CSV = DATA_DIR / "assets_for_supabase.csv"
 
 QUALYS_DETAIL_API_URL_TEMPLATE = f"{BASE_URL}/api/caasm/model/qualysVmHosts/{{qualys_id}}/"
 SERVICENOW_DETAIL_API_URL_TEMPLATE = f"{BASE_URL}/api/caasm/model/servicenowHosts/{{servicenow_id}}/"
 
-THIN_COLUMNS = [
+SOURCE_DETAIL_COLUMNS = [
     "asset_id",
     "uid",
     "hostname",
@@ -61,6 +51,31 @@ THIN_COLUMNS = [
     "private_ip_addresses",
     "last_authenticated_scan",
     "last_scanned",
+    "qualys_vm_host_id",
+    "qualys_vm_host_uid",
+    "qualys_vm_host_link",
+    "qualys_vm_host_integration",
+    "servicenow_host_id",
+    "servicenow_host_uid",
+    "servicenow_host_link",
+    "servicenow_host_integration",
+]
+
+FINAL_COLUMNS = [
+    "asset_id",
+    "hostname",
+    "application",
+    "business_service",
+    "internal_or_external",
+    "public_ip_addresses",
+    "device_type",
+    "category",
+    "status",
+    "compliance_flags",
+    "pci",
+    "pii",
+    "tags",
+    "environment",
     "qualys_vm_host_id",
     "qualys_vm_host_uid",
     "qualys_vm_host_link",
@@ -102,10 +117,12 @@ SERVICENOW_FIELDS = [
     "virtualorphysical",
 ]
 
+ENVIRONMENT_TAGS = {"development", "production", "test"}
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Export one thin Supabase-ready assets CSV from Brinqa asset and source context."
+        description="Export source detail and final Supabase-ready assets CSVs from Brinqa host context."
     )
     parser.add_argument(
         "--asset-context-csv",
@@ -113,9 +130,14 @@ def parse_args() -> argparse.Namespace:
         help=f"Base asset business context CSV path. Default: {ASSET_CONTEXT_CSV}",
     )
     parser.add_argument(
+        "--detail-output",
+        default=str(DETAIL_OUTPUT_CSV),
+        help=f"Local source-detail snapshot path. Default: {DETAIL_OUTPUT_CSV}",
+    )
+    parser.add_argument(
         "--output",
         default=str(OUTPUT_CSV),
-        help=f"Output CSV path. Default: {OUTPUT_CSV}",
+        help=f"Final merged asset CSV path. Default: {OUTPUT_CSV}",
     )
     parser.add_argument(
         "--workers",
@@ -144,7 +166,7 @@ def _to_bool_string(value: Any) -> Optional[str]:
         return "true"
     if lowered in {"false", "0", "no", "n"}:
         return "false"
-    return cleaned
+    return None
 
 
 def _canonical_hostname(row: Dict[str, Any]) -> Optional[str]:
@@ -153,6 +175,52 @@ def _canonical_hostname(row: Dict[str, Any]) -> Optional[str]:
         if value:
             return value
     return None
+
+
+def _normalize_tags(value: Any) -> list[str]:
+    cleaned = _clean(value)
+    if not cleaned:
+        return []
+
+    tags: list[str] = []
+    for part in cleaned.split("|"):
+        token = part.strip()
+        if token and token not in tags:
+            tags.append(token)
+    return tags
+
+
+def _tag_array_literal(tags: list[str]) -> Optional[str]:
+    if not tags:
+        return None
+    escaped = [tag.replace("\\", "\\\\").replace('"', '\\"') for tag in tags]
+    return "{" + ",".join(f'"{tag}"' for tag in escaped) + "}"
+
+
+def _normalize_environment(value: Any) -> Optional[str]:
+    cleaned = _clean(value)
+    if not cleaned:
+        return None
+
+    lowered = cleaned.lower()
+    if lowered.startswith("development"):
+        return "development"
+    if lowered.startswith("production"):
+        return "production"
+    if lowered.startswith("test"):
+        return "test"
+    if lowered == "unknown":
+        return "unknown"
+    return lowered
+
+
+def _derive_environment(tags: list[str], environments_value: Any) -> str:
+    for tag in tags:
+        lowered = tag.lower()
+        if lowered in ENVIRONMENT_TAGS:
+            return lowered
+
+    return _normalize_environment(environments_value) or "unknown"
 
 
 def _read_asset_context(path: Path) -> pd.DataFrame:
@@ -181,10 +249,7 @@ def _build_detail_payload(object_id: str, fields: List[str]) -> Dict[str, Any]:
     }
 
 
-def _fetch_qualys_for_asset(
-    asset_id: str,
-    session: requests.Session,
-) -> Optional[Dict[str, Any]]:
+def _fetch_qualys_for_asset(asset_id: str, session: requests.Session) -> Optional[Dict[str, Any]]:
     qualys_source = fetch_related_source(
         session,
         asset_id,
@@ -336,7 +401,7 @@ def _fetch_all_source_detail(asset_ids: List[str], *, workers: int) -> pd.DataFr
     return pd.DataFrame(ordered_rows)
 
 
-def _build_final_frame(base_df: pd.DataFrame, detail_df: pd.DataFrame) -> pd.DataFrame:
+def _build_source_detail_frame(base_df: pd.DataFrame, detail_df: pd.DataFrame) -> pd.DataFrame:
     merged = base_df.merge(detail_df, on="asset_id", how="left", suffixes=("", "_detail"))
 
     expected_columns = [
@@ -430,14 +495,54 @@ def _build_final_frame(base_df: pd.DataFrame, detail_df: pd.DataFrame) -> pd.Dat
     ):
         merged[source_col] = merged[source_col].apply(_clean)
 
-    final_df = merged[THIN_COLUMNS].copy()
-    final_df = final_df.drop_duplicates(subset=["asset_id"])
-    return final_df
+    final_df = merged[SOURCE_DETAIL_COLUMNS].copy()
+    return final_df.drop_duplicates(subset=["asset_id"])
+
+
+def _build_final_asset_frame(source_df: pd.DataFrame, context_df: pd.DataFrame) -> pd.DataFrame:
+    merged = source_df.merge(context_df, on="asset_id", how="left", suffixes=("", "_context"))
+    merged = merged.fillna("")
+
+    final_rows: list[dict[str, Optional[str]]] = []
+    for record in merged.to_dict(orient="records"):
+        tags = _normalize_tags(record.get("tags"))
+        final_rows.append(
+            {
+                "asset_id": _clean(record.get("asset_id")),
+                "hostname": _clean(record.get("hostname")) or _clean(record.get("hostnames")),
+                "application": _clean(record.get("application")) or _clean(record.get("applications")),
+                "business_service": _clean(record.get("business_service"))
+                or _clean(record.get("businessServices")),
+                "internal_or_external": _clean(record.get("internal_or_external")),
+                "public_ip_addresses": _clean(record.get("public_ip_addresses"))
+                or _clean(record.get("publicIpAddresses")),
+                "device_type": _clean(record.get("device_type")) or _clean(record.get("type")),
+                "category": _clean(record.get("category")),
+                "status": _clean(record.get("status")),
+                "compliance_flags": _clean(record.get("compliance_flags")),
+                "pci": _to_bool_string(record.get("pci")),
+                "pii": _to_bool_string(record.get("pii")),
+                "tags": _tag_array_literal(tags),
+                "environment": _derive_environment(tags, record.get("environments")),
+                "qualys_vm_host_id": _clean(record.get("qualys_vm_host_id")),
+                "qualys_vm_host_uid": _clean(record.get("qualys_vm_host_uid")),
+                "qualys_vm_host_link": _clean(record.get("qualys_vm_host_link")),
+                "qualys_vm_host_integration": _clean(record.get("qualys_vm_host_integration")),
+                "servicenow_host_id": _clean(record.get("servicenow_host_id")),
+                "servicenow_host_uid": _clean(record.get("servicenow_host_uid")),
+                "servicenow_host_link": _clean(record.get("servicenow_host_link")),
+                "servicenow_host_integration": _clean(record.get("servicenow_host_integration")),
+            }
+        )
+
+    final_df = pd.DataFrame(final_rows, columns=FINAL_COLUMNS)
+    return final_df.drop_duplicates(subset=["asset_id"])
 
 
 def main() -> None:
     args = parse_args()
     asset_context_path = Path(args.asset_context_csv)
+    detail_output_path = Path(args.detail_output)
     output_path = Path(args.output)
     workers = max(1, args.workers)
 
@@ -448,14 +553,18 @@ def main() -> None:
         return
 
     detail_df = _fetch_all_source_detail(asset_ids, workers=workers)
-    final_df = _build_final_frame(base_df, detail_df)
+    source_detail_df = _build_source_detail_frame(base_df, detail_df)
+    final_df = _build_final_asset_frame(source_detail_df, base_df)
 
+    detail_output_path.parent.mkdir(parents=True, exist_ok=True)
+    source_detail_df.to_csv(detail_output_path, index=False)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     final_df.to_csv(output_path, index=False)
 
-    print(f"Wrote {len(final_df)} asset rows to {output_path}")
+    print(f"Wrote {len(source_detail_df)} source-detail rows to {detail_output_path}")
+    print(f"Wrote {len(final_df)} merged asset rows to {output_path}")
     print(f"Used {min(workers, len(asset_ids))} worker(s) across {len(asset_ids)} asset(s)")
-    print("Columns: " + ", ".join(THIN_COLUMNS))
+    print("Final columns: " + ", ".join(FINAL_COLUMNS))
 
 
 if __name__ == "__main__":

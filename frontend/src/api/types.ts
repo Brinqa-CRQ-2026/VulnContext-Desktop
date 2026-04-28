@@ -1,10 +1,3 @@
-export type FindingDisposition =
-  | "none"
-  | "ignored"
-  | "risk_accepted"
-  | "false_positive"
-  | "not_applicable";
-
 export interface ScoredFinding {
   id: string;
   source: string;
@@ -127,13 +120,6 @@ export interface ScoredFinding {
   remediation_updated_at?: string | null;
   remediation_updated_by?: string | null;
 
-  disposition?: FindingDisposition;
-  disposition_state?: string | null;
-  disposition_reason?: string | null;
-  disposition_comment?: string | null;
-  disposition_created_at?: string | null;
-  disposition_expires_at?: string | null;
-  disposition_created_by?: string | null;
 }
 
 export interface RiskBandSummary {
@@ -159,7 +145,7 @@ export type SortOrder = "asc" | "desc";
 export type ScopedFindingSortBy = "risk_score" | "age_in_days" | "status";
 export type AssetListSortBy =
   | "name"
-  | "asset_id"
+  | "asset_type"
   | "asset_criticality"
   | "status"
   | "finding_count";
@@ -178,28 +164,24 @@ export interface PaginatedFindings {
   page_size: number;
 }
 
-export interface SeedUploadResult {
-  inserted: number;
-  source: string;
-  total_findings: number;
+export interface AssetScoreDistribution {
+  low: number;
+  medium: number;
+  high: number;
+  critical: number;
+  unscored: number;
+}
+
+export interface AssetAnalyticsResponse {
+  total_assets: number;
+  asset_criticality_distribution: AssetScoreDistribution;
+  finding_risk_distribution: AssetScoreDistribution;
 }
 
 export interface SourceSummary {
   source: string;
   total_findings: number;
   risk_bands: RiskBandSummary;
-}
-
-export interface SourceRenameResult {
-  old_source: string;
-  new_source: string;
-  updated_rows: number;
-}
-
-export interface SourceDeleteResult {
-  source: string;
-  deleted_rows: number;
-  total_findings_remaining: number;
 }
 
 export interface TopologyMetrics {
@@ -242,14 +224,21 @@ export interface AssetSummary {
   status?: string | null;
   compliance_status?: string | null;
   asset_criticality?: number | null;
+  tags?: string[] | null;
+  environment?: string | null;
+  aggregated_finding_risk?: number | null;
   exposure_score?: number | null;
-  business_criticality_score?: number | null;
   data_sensitivity_score?: number | null;
-  asset_type_weight?: number | null;
-  is_public_facing?: boolean | null;
-  has_sensitive_data?: boolean | null;
-  crown_jewel_flag?: boolean | null;
-  internet_exposed_flag?: boolean | null;
+  environment_score?: number | null;
+  asset_type_score?: number | null;
+  asset_context_score?: number | null;
+  asset_risk_score?: number | null;
+  scored_at?: string | null;
+  device_type?: string | null;
+  category?: string | null;
+  compliance_flags?: string | null;
+  pci?: boolean | null;
+  pii?: boolean | null;
   finding_count: number;
 }
 
@@ -316,12 +305,127 @@ export interface ApplicationDetail {
   assets: AssetSummary[];
 }
 
+export interface AssetDetail extends AssetSummary {
+  uid?: string | null;
+  dnsname?: string | null;
+  uuid?: string | null;
+  tracking_method?: string | null;
+  owner?: string | null;
+  service_team?: string | null;
+  division?: string | null;
+  it_sme?: string | null;
+  it_director?: string | null;
+  location?: string | null;
+  internal_or_external?: string | null;
+  device_type?: string | null;
+  category?: string | null;
+  virtual_or_physical?: string | null;
+  compliance_flags?: string | null;
+  pci?: boolean | null;
+  pii?: boolean | null;
+  public_ip_addresses?: string | null;
+  private_ip_addresses?: string | null;
+  last_authenticated_scan?: string | null;
+  last_scanned?: string | null;
+  qualys_vm_host_id?: string | null;
+  qualys_vm_host_uid?: string | null;
+  qualys_vm_host_link?: string | null;
+  qualys_vm_host_integration?: string | null;
+  servicenow_host_id?: string | null;
+  servicenow_host_uid?: string | null;
+  servicenow_host_link?: string | null;
+  servicenow_host_integration?: string | null;
+  detail_source?: string | null;
+  detail_fetched_at?: string | null;
+}
+
+export interface AssetEnrichment {
+  asset_id: string;
+  status:
+    | "missing_token"
+    | "unauthorized_token"
+    | "no_related_source"
+    | "partial_success"
+    | "success"
+    | "upstream_error";
+  reason: string;
+  uid?: string | null;
+  dnsname?: string | null;
+  mac_addresses?: string | null;
+  uuid?: string | null;
+  tracking_method?: string | null;
+  owner?: string | null;
+  service_team?: string | null;
+  division?: string | null;
+  it_sme?: string | null;
+  it_director?: string | null;
+  location?: string | null;
+  internal_or_external?: string | null;
+  device_type?: string | null;
+  category?: string | null;
+  virtual_or_physical?: string | null;
+  compliance_flags?: string | null;
+  pci?: boolean | null;
+  pii?: boolean | null;
+  last_authenticated_scan?: string | null;
+  last_scanned?: string | null;
+  detail_source?: string | null;
+  detail_fetched_at?: string | null;
+}
+
 export interface AssetFindingsPage {
   asset: AssetSummary;
   items: ScoredFinding[];
   total: number;
   page: number;
   page_size: number;
+}
+
+export interface AssetFindingsAnalytics {
+  total_findings: number;
+  kev_findings: number;
+  critical_high_findings: number;
+  highest_risk_band?: string | null;
+  average_risk_score?: number | null;
+  max_risk_score?: number | null;
+  oldest_priority_age_days?: number | null;
+  risk_bands: RiskBandSummary;
+}
+
+export interface AssetFindingsAnalyticsAsset {
+  asset_id: string;
+  hostname?: string | null;
+  business_unit?: string | null;
+  business_service?: string | null;
+  application?: string | null;
+  status?: string | null;
+  environment?: string | null;
+  internal_or_external?: string | null;
+  device_type?: string | null;
+  category?: string | null;
+}
+
+export interface AssetFindingsAnalyticsResponse {
+  asset: AssetFindingsAnalyticsAsset;
+  analytics: AssetFindingsAnalytics;
+}
+
+export interface FindingEnrichment {
+  finding_id: string;
+  summary?: string | null;
+  description?: string | null;
+  record_link?: string | null;
+  source_status?: string | null;
+  severity?: string | null;
+  due_date?: string | null;
+  attack_pattern_names?: string | null;
+  attack_technique_names?: string | null;
+  attack_tactic_names?: string | null;
+  risk_owner_name?: string | null;
+  remediation_owner_name?: string | null;
+  remediation_status?: string | null;
+  detail_source?: string | null;
+  detail_fetched_at?: string | null;
 }
 
 export interface FindingRouteOrigin {
@@ -334,38 +438,4 @@ export interface FindingRouteOrigin {
   applicationLabel?: string | null;
   assetId?: string | null;
   assetLabel?: string | null;
-}
-
-export interface RiskWeightsConfig {
-  cvss_weight: number;
-  epss_weight: number;
-  kev_weight: number;
-  asset_criticality_weight: number;
-  context_weight: number;
-}
-
-export interface RiskWeightsUpdateResult {
-  updated_rows: number;
-  weights: RiskWeightsConfig;
-}
-
-export interface FindingDispositionUpdateRequest {
-  disposition: Exclude<FindingDisposition, "none">;
-  reason?: string | null;
-  comment?: string | null;
-  expires_at?: string | null;
-  actor?: string | null;
-}
-
-export interface FindingDispositionResult {
-  id: string;
-  uid?: string | null;
-  record_id?: string | null;
-  disposition: FindingDisposition;
-  disposition_state?: string | null;
-  disposition_reason?: string | null;
-  disposition_comment?: string | null;
-  disposition_created_at?: string | null;
-  disposition_expires_at?: string | null;
-  disposition_created_by?: string | null;
 }

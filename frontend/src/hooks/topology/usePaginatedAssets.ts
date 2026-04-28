@@ -13,6 +13,8 @@ export function usePaginatedAssets({
   businessService,
   application,
   status,
+  environment,
+  compliance,
   search,
   directOnly = false,
   sortBy = "finding_count",
@@ -24,6 +26,8 @@ export function usePaginatedAssets({
   businessService?: string | null;
   application?: string | null;
   status?: string | null;
+  environment?: string | null;
+  compliance?: string | null;
   search?: string | null;
   directOnly?: boolean;
   sortBy?: AssetListSortBy;
@@ -37,7 +41,7 @@ export function usePaginatedAssets({
 
   useEffect(() => {
     setPage(1);
-  }, [businessUnit, businessService, application, status, search, directOnly, sortBy, sortOrder]);
+  }, [businessUnit, businessService, application, status, environment, compliance, search, directOnly, sortBy, sortOrder]);
 
   useEffect(() => {
     let active = true;
@@ -53,6 +57,8 @@ export function usePaginatedAssets({
           businessService,
           application,
           status,
+          environment,
+          compliance,
           search,
           directOnly,
           sortBy,
@@ -82,6 +88,8 @@ export function usePaginatedAssets({
     businessService,
     application,
     status,
+    environment,
+    compliance,
     search,
     directOnly,
     sortBy,

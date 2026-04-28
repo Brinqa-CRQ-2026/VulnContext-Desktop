@@ -1,65 +1,40 @@
 # Frontend Components
 
-This is the frontend components overview.
+## Dashboard area
 
-## Purpose
+`frontend/src/components/dashboard/` contains:
 
-The components layer holds the rendered UI for the desktop app.
+- summary cards and charts
+- the main findings table
+- finding detail UI
 
-It is split by feature area so page sections stay easier to find and change.
+The removed risk-weight editor and CSV empty-state importer are not part of the active component surface anymore.
 
-## Main component folders
+## Topology area
 
-- `frontend/src/components/dashboard/`
-  Main findings experience and primary analyst workflow UI.
-  This area covers:
-  - dashboard summary and overview sections
-  - findings charts and summary cards
-  - the main findings table and filtering workflow
-  - finding detail views with breadcrumb-aware read-only drill-down
-  - the risk scoring editor
-  - the current empty/import state used when no findings exist yet
+`frontend/src/components/business-services/` contains:
 
-- `frontend/src/components/business-services/`
-  Topology drill-down UI.
-  This area covers:
-  - business-unit overview and detail pages
-  - business-service and application drill-down pages
-  - asset inventory lists with shared search/filter/sort controls
-  - asset findings table with server-backed pagination and findings-style filters
-  - shared topology breadcrumbs, page skeletons, and drill-down table shells
+- business unit overview and detail
+- business service detail
+- application detail
+- asset distribution charts for business service/application asset sections
+- asset inventory and asset findings drill-down
+- breadcrumb helpers and shared topology chrome
 
-- `frontend/src/components/integrations/`
-  Source management and import-related UI.
-  This area is where the user manages imported data sources after data enters the app.
-  It covers:
-  - source inventory views
-  - source rename and delete actions
-  - source-level summary cards
-  - the import entry point used to add staged CSV data
+## Sources area
 
-- `frontend/src/components/layout/`
-  Shared layout structure used across the app shell.
+`frontend/src/components/integrations/IntegrationsPage.tsx` is now a read-only source-summary page.
 
-- `frontend/src/components/ui/`
-  Shared reusable interface primitives such as buttons, cards, tables, inputs, sheets, pagination, and other low-level pieces.
+It does not expose import, rename, or delete controls because the backend does not currently serve those write routes.
 
-## Important current page patterns
+## App shell
 
-- The main findings table is the richer analyst view for all findings.
-- Scoped asset findings reuses the same filter language, but remains attached to one asset and pages through `/assets/{asset_id}/findings`.
-- Asset, application, and business-service inventory lists share one search/sort/pagination pattern through the same inventory panel.
-- Finding detail supports two breadcrumb origins:
-  - global findings
-  - topology asset drill-down
+`frontend/src/components/layout/Header.tsx` contains the desktop runtime controls.
 
-## How this fits with the rest of the frontend
+Current behavior:
 
-- Components render the UI.
-- Hooks provide loaded data and async state.
-- API modules provide backend calls.
-- `lib` holds small shared helpers like finding-title normalization.
+- `Log Out` clears Brinqa auth/session state and returns to the login flow without shutting down backend or renderer
+- `Shut Down` performs the same Brinqa cleanup and then exits the desktop runtime
+- normal window close follows the same shutdown path as `Shut Down`
 
-## Design note
-
-The component folders are grouped by app area first, then by reusable UI primitives, so the dashboard and topology drill-down features can evolve independently without turning into one flat shared-components directory.
+These controls are part of runtime lifecycle, not just UI navigation.

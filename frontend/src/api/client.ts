@@ -1,3 +1,5 @@
+import { buildStoredBrinqaAuthHeaders } from "../auth/brinqaAuth";
+
 function getApiBaseUrl(): string {
   const configured = import.meta.env.VITE_API_BASE_URL?.trim();
   if (configured) {
@@ -17,6 +19,11 @@ export function buildApiUrl(path: string, params?: URLSearchParams): string {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   const query = params?.toString();
   return query ? `${API_BASE_URL}${normalizedPath}?${query}` : `${API_BASE_URL}${normalizedPath}`;
+}
+
+export function buildBrinqaEnrichmentRequestInit(): RequestInit | undefined {
+  const headers = buildStoredBrinqaAuthHeaders();
+  return Object.keys(headers).length > 0 ? { headers } : undefined;
 }
 
 export async function parseJsonOrThrow<T>(
