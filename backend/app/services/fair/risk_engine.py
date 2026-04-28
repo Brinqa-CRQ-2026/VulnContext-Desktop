@@ -13,7 +13,7 @@ class RiskEngine:
         lef = lef_distribution[:n]
         lm = lm_distribution[:n]
 
-        # normalize ranks (0 → 1)
+        # normalize ranks (0 -> 1)
         lef_ranks = np.argsort(np.argsort(lef)) / (n - 1)
         lm_sorted = np.sort(lm)
 
