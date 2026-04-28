@@ -16,7 +16,7 @@ BATCH_SIZE = 500
 DELAY = 2
 
 def safe_request(params):
-    headers = {"User-Agent": "vinces-nvd-script"}
+    headers = {"User-Agent": "nvd-script"}
     if NVD_API_KEY:
         headers["apiKey"] = NVD_API_KEY
     while True:
