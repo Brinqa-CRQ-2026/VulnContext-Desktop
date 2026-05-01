@@ -39,14 +39,15 @@ class LM:
             size=iterations
         )
 
-        duration_fraction = np.clip(duration_samples / 365, 0, 1)
+        duration_fraction = np.clip(duration_samples / 365, 0, 0.2)
 
         primary_loss = service_value * impact_factor * duration_fraction
 
         return primary_loss
 
     def _simulate_secondary_loss(self, context, iterations):
-        mean = context.get("secondary_loss_mean", 0)
+        service_value = context.get("service_value", 100000)
+        mean = 0.07 * service_value
 
         if mean <= 0:
             return np.zeros(iterations)
@@ -54,7 +55,7 @@ class LM:
         sensitivity = context["crq_asset_data_sensitivity_score"]
         environment = context["crq_asset_environment_score"]
 
-        trigger_prob = 0.2 + 0.6 * (sensitivity * environment)
+        trigger_prob = 0.05 + 0.3 * (sensitivity * environment)
         trigger_prob = min(trigger_prob, 1.0)
 
         triggers = np.random.binomial(1, trigger_prob, size=iterations)
@@ -66,5 +67,6 @@ class LM:
             sigma=sigma,
             size=iterations
         )
+        secondary_samples = np.clip(secondary_samples, 0, 150000)
 
         return triggers * secondary_samples
