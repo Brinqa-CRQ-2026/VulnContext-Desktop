@@ -38,14 +38,14 @@ make desktop
 
 1. `make desktop` runs the local desktop launcher.
 2. The launcher builds the Electron main process code.
-3. The launcher starts the backend on `127.0.0.1:8000`.
+3. The launcher starts the backend on `127.0.0.1:8000` or the next free localhost port.
 4. The launcher waits for backend readiness.
-5. The launcher starts the Vite renderer on `127.0.0.1:5173`.
+5. The launcher starts the Vite renderer on `127.0.0.1:5173` or the next free localhost port.
 6. The launcher waits for renderer readiness.
 7. The launcher starts Electron.
 8. When Electron exits, the launcher stops the backend and renderer child processes.
 
-If Electron does not open, first ensure ports `8000` and `5173` are free and restart from the repo root.
+If Electron does not open, restart from the repo root and check the launcher output for the selected backend and renderer ports.
 
 ## Startup auth flow
 

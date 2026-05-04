@@ -15,6 +15,7 @@ import {
 import { performBrinqaRemoteLogout } from "./src/auth/brinqaRemoteLogout";
 
 const isDev = process.env.NODE_ENV === "development";
+const devServerUrl = process.env.ELECTRON_RENDERER_URL?.trim() || "http://127.0.0.1:5173";
 const loginUrl = "https://ucsc.brinqa.net/auth/login";
 const brinqaOrigin = new URL(loginUrl).origin;
 const mfaUrlPrefix = "https://ucsc.brinqa.net/api/auth/mfa";
@@ -251,7 +252,7 @@ function resetBrinqaSession(request: BrinqaResetRequest) {
 
 function loadDashboardUrl(window: BrowserWindow, openDevTools = false) {
   if (isDev) {
-    window.loadURL("http://localhost:5173");
+    window.loadURL(devServerUrl);
     if (openDevTools) {
       window.webContents.openDevTools();
     }

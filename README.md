@@ -29,7 +29,7 @@ Desktop runtime behavior:
 - normal window close behaves the same as `Shut Down`
 - next startup prompts for a fresh Brinqa login after shutdown cleanup
 
-If Electron does not open, ensure ports `8000` and `5173` are free and rerun from the repo root.
+If Electron does not open, rerun from the repo root and review the launcher output. The desktop launcher now prefers `8000` and `5173`, but automatically moves to the next free localhost ports when either one is already in use.
 
 ### Backend Only
 

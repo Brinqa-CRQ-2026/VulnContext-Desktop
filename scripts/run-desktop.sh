@@ -8,6 +8,8 @@ RENDERER_PID=""
 ELECTRON_PID=""
 EXIT_CODE=0
 IS_CLEANING_UP=0
+DEFAULT_BACKEND_PORT="${BACKEND_PORT:-8000}"
+DEFAULT_RENDERER_PORT="${RENDERER_PORT:-5173}"
 
 start_process() {
   local workdir="$1"
@@ -90,22 +92,72 @@ wait_for_url() {
   return 1
 }
 
+port_is_available() {
+  local port="$1"
+
+  python3 - "$port" <<'PY'
+import socket
+import sys
+
+port = int(sys.argv[1])
+
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    try:
+        sock.bind(("127.0.0.1", port))
+    except OSError:
+        sys.exit(1)
+
+sys.exit(0)
+PY
+}
+
+find_available_port() {
+  local start_port="$1"
+  local port="$start_port"
+  local max_port=65535
+
+  while (( port <= max_port )); do
+    if port_is_available "$port"; then
+      echo "$port"
+      return 0
+    fi
+    port=$((port + 1))
+  done
+
+  echo "Unable to find an available port starting at $start_port" >&2
+  return 1
+}
+
 echo "Building Electron main process..."
 (
   cd "$ROOT_DIR/frontend"
   npm run build:electron
 )
 
+BACKEND_PORT="$(find_available_port "$DEFAULT_BACKEND_PORT")"
+RENDERER_PORT="$(find_available_port "$DEFAULT_RENDERER_PORT")"
+BACKEND_URL="http://127.0.0.1:${BACKEND_PORT}"
+RENDERER_URL="http://127.0.0.1:${RENDERER_PORT}"
+
+if [[ "$BACKEND_PORT" != "$DEFAULT_BACKEND_PORT" ]]; then
+  echo "Backend port $DEFAULT_BACKEND_PORT is busy; using $BACKEND_PORT instead."
+fi
+
+if [[ "$RENDERER_PORT" != "$DEFAULT_RENDERER_PORT" ]]; then
+  echo "Renderer port $DEFAULT_RENDERER_PORT is busy; using $RENDERER_PORT instead."
+fi
+
 echo "Starting backend..."
-BACKEND_PID="$(start_process "$ROOT_DIR/backend" python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000)"
-wait_for_url "backend" "http://127.0.0.1:8000/docs" "$BACKEND_PID"
+BACKEND_PID="$(start_process "$ROOT_DIR/backend" python3 -m uvicorn app.main:app --host 127.0.0.1 --port "$BACKEND_PORT")"
+wait_for_url "backend" "${BACKEND_URL}/docs" "$BACKEND_PID"
 
 echo "Starting renderer..."
-RENDERER_PID="$(start_process "$ROOT_DIR/frontend" npm run dev:renderer)"
-wait_for_url "renderer" "http://127.0.0.1:5173" "$RENDERER_PID"
+RENDERER_PID="$(start_process "$ROOT_DIR/frontend" env VITE_API_BASE_URL="$BACKEND_URL" npm run dev:renderer -- --host 127.0.0.1 --port "$RENDERER_PORT" --strictPort)"
+wait_for_url "renderer" "$RENDERER_URL" "$RENDERER_PID"
 
 echo "Starting Electron..."
-ELECTRON_PID="$(start_process "$ROOT_DIR/frontend" env NODE_ENV=development npm run dev:electron)"
+ELECTRON_PID="$(start_process "$ROOT_DIR/frontend" env NODE_ENV=development ELECTRON_RENDERER_URL="$RENDERER_URL" npm run dev:electron)"
 
 while true; do
   if ! process_running "$BACKEND_PID"; then
