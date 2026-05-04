@@ -428,6 +428,48 @@ export interface FindingEnrichment {
   detail_fetched_at?: string | null;
 }
 
+export interface FairLossPredictionRequest {
+  control_context: Record<string, number | Record<string, number>>;
+  primary_loss_mean: number;
+  secondary_loss_mean: number;
+  iterations?: number;
+}
+
+export interface FairLossHistogramPoint {
+  loss: number;
+  probability: number;
+}
+
+export interface FairLossPredictionResponse {
+  control_score: number;
+  vulnerability: number;
+  tef_mean: number;
+  lef_mean: number;
+  loss_mean: number;
+  loss_p50: number;
+  loss_p90: number;
+  loss_p95: number;
+  loss_p99: number;
+  worst_loss: number;
+  lm_mean: number;
+  primary_mean: number;
+  secondary_mean: number;
+  histogram: FairLossHistogramPoint[];
+}
+
+export interface ControlAssessment {
+  id?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  control_score: number;
+  confidence: number;
+  prevent_score: number;
+  detect_score: number;
+  respond_score: number;
+  contain_score: number;
+  answers: Record<string, Record<string, number>>;
+}
+
 export interface FindingRouteOrigin {
   mode: "global" | "asset";
   businessUnitSlug?: string | null;

@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -314,6 +315,67 @@ class FindingEnrichment(BaseModel):
     remediation_status: str | None = None
     detail_source: str | None = None
     detail_fetched_at: datetime | None = None
+
+
+class FairLossPredictionRequest(BaseModel):
+    control_context: dict[str, Any] = Field(default_factory=dict)
+    primary_loss_mean: float = Field(default=50000, ge=0, le=10000000)
+    secondary_loss_mean: float = Field(default=15000, ge=0, le=10000000)
+    iterations: int = Field(default=10000, ge=1000, le=50000)
+
+
+class FairLossHistogramPoint(BaseModel):
+    loss: float
+    probability: float
+
+
+class FairLossPredictionResponse(BaseModel):
+    control_score: float
+    vulnerability: float
+    tef_mean: float
+    lef_mean: float
+    loss_mean: float
+    loss_p50: float
+    loss_p90: float
+    loss_p95: float
+    loss_p99: float
+    worst_loss: float
+    lm_mean: float
+    primary_mean: float
+    secondary_mean: float
+    histogram: list[FairLossHistogramPoint]
+
+
+class ControlQuestionnaireRequest(BaseModel):
+    answers: dict[str, Any] = Field(default_factory=dict)
+
+
+class ControlAssessmentRequest(ControlQuestionnaireRequest):
+    pass
+
+
+class ControlQuestionnaireResponse(BaseModel):
+    control_score: float
+    confidence: float
+    prevent_score: float
+    detect_score: float
+    respond_score: float
+    contain_score: float
+    answers: dict[str, dict[str, int]]
+    flat_context: dict[str, int]
+
+
+class ControlAssessmentResponse(BaseModel):
+    id: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    control_score: float
+    confidence: float
+    prevent_score: float
+    detect_score: float
+    respond_score: float
+    contain_score: float
+    answers: dict[str, dict[str, int]]
 
 
 class BusinessUnitDetail(BaseModel):

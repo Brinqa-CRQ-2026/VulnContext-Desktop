@@ -17,8 +17,13 @@ from app.api.common import (
 )
 from app.core.db import get_db
 from app.services.brinqa_detail import finding_detail_service
+from app.services.fair.loss_prediction import (
+    FairLossPredictionService,
+    LossPredictionInputs,
+)
 
 router = APIRouter(tags=["findings"])
+fair_loss_prediction_service = FairLossPredictionService()
 
 
 @router.get("/findings/top", response_model=List[schemas.FindingSummary])
@@ -118,6 +123,35 @@ def get_finding_by_id(finding_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Finding not found.")
 
     return to_finding_detail(finding, detail=None)
+
+
+@router.post(
+    "/findings/{finding_id}/fair-loss",
+    response_model=schemas.FairLossPredictionResponse,
+)
+def predict_finding_fair_loss(
+    finding_id: str,
+    payload: schemas.FairLossPredictionRequest,
+    db: Session = Depends(get_db),
+):
+    finding = (
+        db.query(models.Finding)
+        .options(joinedload(models.Finding.asset))
+        .filter(models.Finding.finding_id == finding_id)
+        .first()
+    )
+    if finding is None:
+        raise HTTPException(status_code=404, detail="Finding not found.")
+
+    return fair_loss_prediction_service.simulate(
+        finding,
+        LossPredictionInputs(
+            control_context=payload.control_context,
+            primary_loss_mean=payload.primary_loss_mean,
+            secondary_loss_mean=payload.secondary_loss_mean,
+            iterations=payload.iterations,
+        ),
+    )
 
 
 @router.get("/findings/{finding_id}/enrichment", response_model=schemas.FindingEnrichment)

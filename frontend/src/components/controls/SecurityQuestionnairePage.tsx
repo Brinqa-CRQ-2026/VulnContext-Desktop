@@ -1,8 +1,19 @@
-import { useMemo, useState } from "react";
-import { Check, Clipboard, RotateCcw } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Check, Clipboard, RotateCcw, Save } from "lucide-react";
 
+import {
+  getCurrentControlAssessment,
+  saveCurrentControlAssessment,
+} from "../../api/controls";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import {
+  DEFAULT_CONTROL_CONTEXT,
+  fromNestedControlContext,
+  readControlContext,
+  toNestedControlContext,
+  writeControlContext,
+} from "../../lib/controlQuestionnaire";
 import { cn } from "../../lib/utils";
 
 type ControlDomainId = "prevent" | "detect" | "respond" | "contain";
@@ -263,20 +274,46 @@ const DOMAINS: ControlDomain[] = [
   },
 ];
 
-const INITIAL_ANSWERS = DOMAINS.reduce<Record<string, number>>((answers, domain) => {
-  domain.questions.forEach((question) => {
-    answers[question.contextKey] = question.defaultScore;
-  });
-  return answers;
-}, {});
-
 function formatPercent(value: number) {
   return `${Math.round(value * 100)}%`;
 }
 
 export function SecurityQuestionnairePage() {
-  const [answers, setAnswers] = useState(INITIAL_ANSWERS);
+  const [answers, setAnswers] = useState(readControlContext);
   const [copied, setCopied] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<"idle" | "loading" | "saving" | "saved" | "error">(
+    "idle"
+  );
+  const [syncError, setSyncError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadSavedAssessment() {
+      try {
+        setSyncStatus("loading");
+        setSyncError(null);
+        const assessment = await getCurrentControlAssessment();
+        if (!active) return;
+
+        const next = fromNestedControlContext(assessment.answers);
+        setAnswers(next);
+        writeControlContext(next);
+        setSyncStatus(assessment.id ? "saved" : "idle");
+      } catch (err) {
+        if (!active) return;
+        setSyncStatus("error");
+        setSyncError(
+          err instanceof Error ? err.message : "Failed to load saved control assessment."
+        );
+      }
+    }
+
+    loadSavedAssessment();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const domainScores = useMemo(() => {
     return DOMAINS.map((domain) => {
@@ -298,7 +335,33 @@ export function SecurityQuestionnairePage() {
     );
   }, [domainScores]);
 
-  const contextJson = useMemo(() => JSON.stringify(answers, null, 2), [answers]);
+  const contextJson = useMemo(
+    () => JSON.stringify(toNestedControlContext(answers), null, 2),
+    [answers]
+  );
+
+  const persistAnswers = async (nextAnswers: Record<string, number>) => {
+    try {
+      setSyncStatus("saving");
+      setSyncError(null);
+      await saveCurrentControlAssessment(toNestedControlContext(nextAnswers));
+      setSyncStatus("saved");
+    } catch (err) {
+      setSyncStatus("error");
+      setSyncError(
+        err instanceof Error ? err.message : "Failed to save control assessment."
+      );
+    }
+  };
+
+  const updateAnswer = (contextKey: string, score: number) => {
+    setAnswers((current) => {
+      const next = { ...current, [contextKey]: score };
+      writeControlContext(next);
+      void persistAnswers(next);
+      return next;
+    });
+  };
 
   const handleCopy = async () => {
     try {
@@ -424,10 +487,7 @@ export function SecurityQuestionnairePage() {
                                   : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
                               )}
                               onClick={() =>
-                                setAnswers((current) => ({
-                                  ...current,
-                                  [question.contextKey]: option.score,
-                                }))
+                                updateAnswer(question.contextKey, option.score)
                               }
                             >
                               <span className="block font-semibold">
@@ -481,15 +541,41 @@ export function SecurityQuestionnairePage() {
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between gap-3">
-              <CardTitle className="text-sm font-semibold">Context Payload</CardTitle>
+              <div>
+                <CardTitle className="text-sm font-semibold">Context Payload</CardTitle>
+                <p className="mt-1 text-xs text-slate-500">
+                  {syncStatus === "loading"
+                    ? "Loading saved assessment..."
+                    : syncStatus === "saving"
+                      ? "Saving assessment..."
+                      : syncStatus === "saved"
+                        ? "Saved to Supabase."
+                        : syncStatus === "error"
+                          ? syncError ?? "Unable to sync assessment."
+                          : "Local questionnaire context."}
+                </p>
+              </div>
               <div className="flex items-center gap-2">
                 <Button
                   aria-label="Reset questionnaire"
                   size="icon"
                   variant="outline"
-                  onClick={() => setAnswers(INITIAL_ANSWERS)}
+                  onClick={() => {
+                    setAnswers(DEFAULT_CONTROL_CONTEXT);
+                    writeControlContext(DEFAULT_CONTROL_CONTEXT);
+                    void persistAnswers(DEFAULT_CONTROL_CONTEXT);
+                  }}
                 >
                   <RotateCcw className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={syncStatus === "saving"}
+                  onClick={() => void persistAnswers(answers)}
+                >
+                  <Save className="h-4 w-4" />
+                  {syncStatus === "saving" ? "Saving..." : "Save Changes"}
                 </Button>
                 <Button
                   aria-label="Copy context payload"
