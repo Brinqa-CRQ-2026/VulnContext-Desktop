@@ -11,6 +11,8 @@ Docs are split into backend and frontend views of the current runtime.
 
 - [docs/backend/README.md](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/README.md)
   Current backend routes, services, scripts, and trimmed legacy notes.
+- [docs/backend/current/fair/README.md](backend/current/fair/README.md)
+  FAIR pipeline docs for the control questionnaire, loss prediction services, and frontend/backend contracts.
 
 ## Frontend
 
