@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy import case, func, inspect, or_
 from sqlalchemy.orm import Session, joinedload
@@ -222,6 +224,57 @@ def _build_asset_score_distribution(scores: list[float | None]) -> schemas.Asset
     return schemas.AssetScoreDistribution(**buckets)
 
 
+def _build_asset_type_distribution(
+    assets: list[models.Asset], *, limit: int = 5
+) -> list[schemas.AssetTypeDistributionItem]:
+    counts: dict[str, int] = {}
+    for asset in assets:
+        label = (
+            (asset.device_type or "").strip()
+            or (asset.category or "").strip()
+            or "Unknown"
+        )
+        counts[label] = counts.get(label, 0) + 1
+
+    rows = sorted(counts.items(), key=lambda item: (-item[1], item[0].lower()))
+    return [
+        schemas.AssetTypeDistributionItem(label=label, count=count)
+        for label, count in rows[:limit]
+    ]
+
+
+def _parse_business_criticality(label: str | None) -> tuple[int | None, str | None]:
+    if not label:
+        return None, None
+
+    match = re.match(r"^\s*(\d+)\s*[-:]\s*(.+?)\s*$", label)
+    if match:
+        return int(match.group(1)), match.group(2).strip().title()
+
+    return None, label.strip().title()
+
+
+def _get_business_service_or_404(
+    db: Session, business_unit_slug: str, business_service_slug: str
+) -> models.BusinessService:
+    business_service = (
+        db.query(models.BusinessService)
+        .join(models.BusinessService.business_unit)
+        .options(
+            joinedload(models.BusinessService.business_unit).joinedload(models.BusinessUnit.company),
+            joinedload(models.BusinessService.applications),
+        )
+        .filter(
+            models.BusinessUnit.slug == business_unit_slug,
+            models.BusinessService.slug == business_service_slug,
+        )
+        .first()
+    )
+    if business_service is None:
+        raise HTTPException(status_code=404, detail="Business service not found.")
+    return business_service
+
+
 def _asset_findings_filters(
     *,
     asset_id: str,
@@ -403,21 +456,9 @@ def get_business_service_detail(
     db: Session = Depends(get_db),
 ):
     _require_topology_schema(db)
-    business_service = (
-        db.query(models.BusinessService)
-        .join(models.BusinessService.business_unit)
-        .options(
-            joinedload(models.BusinessService.business_unit).joinedload(models.BusinessUnit.company),
-            joinedload(models.BusinessService.applications),
-        )
-        .filter(
-            models.BusinessUnit.slug == business_unit_slug,
-            models.BusinessService.slug == business_service_slug,
-        )
-        .first()
+    business_service = _get_business_service_or_404(
+        db, business_unit_slug, business_service_slug
     )
-    if business_service is None:
-        raise HTTPException(status_code=404, detail="Business service not found.")
 
     direct_assets = (
         _asset_query_with_topology(db)
@@ -495,6 +536,53 @@ def get_business_service_detail(
             to_asset_summary(asset, finding_count=int(direct_finding_counts.get(asset.asset_id, 0)))
             for asset in direct_assets
         ],
+    )
+
+
+@router.get(
+    "/topology/business-units/{business_unit_slug}/business-services/{business_service_slug}/analytics",
+    response_model=schemas.BusinessServiceAnalytics,
+)
+def get_business_service_analytics(
+    business_unit_slug: str,
+    business_service_slug: str,
+    db: Session = Depends(get_db),
+):
+    _require_topology_schema(db)
+    business_service = _get_business_service_or_404(
+        db, business_unit_slug, business_service_slug
+    )
+
+    service_assets = (
+        _asset_query_with_topology(db)
+        .filter(models.Asset.business_service_id == business_service.id)
+        .all()
+    )
+    applications = sorted(business_service.applications, key=lambda item: item.name.lower())
+    all_finding_counts = _finding_counts_for_asset_ids(
+        db, [asset.asset_id for asset in service_assets]
+    )
+    business_criticality_score, business_criticality_label = _parse_business_criticality(
+        business_service.criticality_label
+    )
+
+    return schemas.BusinessServiceAnalytics(
+        service_risk_score=None,
+        service_risk_label=None,
+        business_criticality_score=business_criticality_score,
+        business_criticality_max=5,
+        business_criticality_label=business_criticality_label,
+        totals=schemas.BusinessServiceAnalyticsTotals(
+            applications=len(applications),
+            assets=len(service_assets),
+            findings=sum(
+                int(all_finding_counts.get(asset.asset_id, 0)) for asset in service_assets
+            ),
+        ),
+        asset_criticality_distribution=_build_asset_score_distribution(
+            [asset.crq_asset_context_score for asset in service_assets]
+        ),
+        asset_type_distribution=_build_asset_type_distribution(service_assets, limit=5),
     )
 
 

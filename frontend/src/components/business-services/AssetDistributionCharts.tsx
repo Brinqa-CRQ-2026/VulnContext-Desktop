@@ -77,14 +77,14 @@ export function AssetDistributionChartCard({
   const hasData = chartData.some((row) => row.count > 0);
 
   return (
-    <Card className="overflow-hidden border-slate-200 bg-white shadow-sm">
-      <CardHeader className="gap-2 border-b border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,1),rgba(240,253,244,0.85))]">
+    <Card className="overflow-hidden border-slate-200 bg-white">
+      <CardHeader className="gap-2 border-b border-slate-200/80 bg-white">
         <div className="flex items-start justify-between gap-3">
           <div>
             <CardTitle className="text-base text-slate-900">{title}</CardTitle>
             <p className="mt-1 text-sm text-slate-500">{description}</p>
           </div>
-          <div className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+          <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700">
             {totalCount.toLocaleString()} {countUnit}
           </div>
         </div>

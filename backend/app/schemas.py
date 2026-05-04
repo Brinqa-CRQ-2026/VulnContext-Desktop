@@ -261,6 +261,28 @@ class AssetAnalyticsResponse(BaseModel):
     finding_risk_distribution: AssetScoreDistribution
 
 
+class AssetTypeDistributionItem(BaseModel):
+    label: str
+    count: int
+
+
+class BusinessServiceAnalyticsTotals(BaseModel):
+    applications: int = 0
+    assets: int = 0
+    findings: int = 0
+
+
+class BusinessServiceAnalytics(BaseModel):
+    service_risk_score: float | None = None
+    service_risk_label: str | None = None
+    business_criticality_score: int | None = None
+    business_criticality_max: int = 5
+    business_criticality_label: str | None = None
+    totals: BusinessServiceAnalyticsTotals
+    asset_criticality_distribution: AssetScoreDistribution
+    asset_type_distribution: list[AssetTypeDistributionItem]
+
+
 class AssetFindingsPage(BaseModel):
     asset: AssetSummary
     items: list[FindingSummary]

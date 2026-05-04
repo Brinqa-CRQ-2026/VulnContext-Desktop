@@ -435,26 +435,26 @@ export function FindingDetailPage({
           {finding.isKev || hasRemediationSnapshot ? (
             <div className="space-y-3">
             {finding.isKev ? (
-              <div className="rounded-xl border border-amber-200 bg-amber-50/90 p-4">
+              <div className="rounded-xl border border-slate-200 bg-white p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
+                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
                       Known Exploited Vulnerability
                     </div>
-                    <p className="mt-2 text-sm leading-6 text-amber-950">
+                    <p className="mt-2 text-sm leading-6 text-slate-900">
                       {finding.kevShortDescription
                         || finding.kevVulnerabilityName
                         || "This finding is present in the KEV catalog."}
                     </p>
                   </div>
-                  <div className="min-w-[11rem] rounded-lg border border-amber-200 bg-white/80 p-3">
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-700">
+                  <div className="min-w-[11rem] rounded-lg border border-slate-200 bg-slate-50/50 p-3">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
                       KEV due date
                     </div>
-                    <div className="mt-1 text-sm font-semibold text-amber-950">
+                    <div className="mt-1 text-sm font-semibold text-slate-900">
                       {formatDate(finding.kevDueDate)}
                     </div>
-                    <div className="mt-2 text-xs text-amber-800">
+                    <div className="mt-2 text-xs text-slate-600">
                       {finding.kevRequiredAction || "Review KEV-required action as soon as possible."}
                     </div>
                   </div>

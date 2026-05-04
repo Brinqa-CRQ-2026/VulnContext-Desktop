@@ -3,11 +3,15 @@ import { describe, expect, it, vi } from "vitest";
 
 import { BusinessServiceDetailPage } from "../../../components/business-services/BusinessServiceDetailPage";
 import { useAssetsAnalytics } from "../../../hooks/topology/useAssetsAnalytics";
+import { useBusinessServiceAnalytics } from "../../../hooks/topology/useBusinessServiceAnalytics";
 import { useBusinessServiceDetail } from "../../../hooks/topology/useBusinessServiceDetail";
 import { usePaginatedAssets } from "../../../hooks/topology/usePaginatedAssets";
 
 vi.mock("../../../hooks/topology/useBusinessServiceDetail", () => ({
   useBusinessServiceDetail: vi.fn(),
+}));
+vi.mock("../../../hooks/topology/useBusinessServiceAnalytics", () => ({
+  useBusinessServiceAnalytics: vi.fn(),
 }));
 vi.mock("../../../hooks/topology/usePaginatedAssets", () => ({
   usePaginatedAssets: vi.fn(),
@@ -17,6 +21,7 @@ vi.mock("../../../hooks/topology/useAssetsAnalytics", () => ({
 }));
 
 const mockedUseBusinessServiceDetail = vi.mocked(useBusinessServiceDetail);
+const mockedUseBusinessServiceAnalytics = vi.mocked(useBusinessServiceAnalytics);
 const mockedUsePaginatedAssets = vi.mocked(usePaginatedAssets);
 const mockedUseAssetsAnalytics = vi.mocked(useAssetsAnalytics);
 
@@ -28,6 +33,7 @@ describe("BusinessServiceDetailPage", () => {
         business_unit: "Online Store",
         business_service: "Digital Storefront",
         slug: "digital-storefront",
+        description: null,
         metrics: {
           total_business_services: 0,
           total_applications: 2,
@@ -105,8 +111,44 @@ describe("BusinessServiceDetailPage", () => {
             status: "Closed",
             finding_count: 9,
           },
+          {
+            asset_id: "asset-88",
+            hostname: "zeta.internal",
+            device_type: "Workstation",
+            category: "Endpoint",
+            environment: "production",
+            status: "Active",
+            finding_count: 1,
+          },
+          {
+            asset_id: "asset-99",
+            hostname: "omega.internal",
+            device_type: "Load Balancer",
+            category: "Network",
+            environment: "production",
+            status: "Active",
+            finding_count: 1,
+          },
+          {
+            asset_id: "asset-77",
+            hostname: "delta.internal",
+            device_type: "Proxy",
+            category: "Network",
+            environment: "staging",
+            status: "Active",
+            finding_count: 2,
+          },
+          {
+            asset_id: "asset-66",
+            hostname: "theta.internal",
+            device_type: "Router",
+            category: "Network",
+            environment: "production",
+            status: "Active",
+            finding_count: 2,
+          },
         ],
-        total: 2,
+        total: 6,
         page: 1,
         page_size: 10,
       },
@@ -115,6 +157,36 @@ describe("BusinessServiceDetailPage", () => {
       page: 1,
       setPage: vi.fn(),
       pageSize: 10,
+    });
+    mockedUseBusinessServiceAnalytics.mockReturnValue({
+      analytics: {
+        service_risk_score: null,
+        service_risk_label: null,
+        business_criticality_score: 4,
+        business_criticality_max: 5,
+        business_criticality_label: "High",
+        totals: {
+          applications: 3,
+          assets: 146,
+          findings: 5162,
+        },
+        asset_criticality_distribution: {
+          low: 0,
+          medium: 3,
+          high: 1,
+          critical: 1,
+          unscored: 0,
+        },
+        asset_type_distribution: [
+          { label: "Server", count: 60 },
+          { label: "Firewall", count: 42 },
+          { label: "Workstation", count: 18 },
+          { label: "Load Balancer", count: 16 },
+          { label: "Proxy", count: 10 },
+        ],
+      },
+      loading: false,
+      error: null,
     });
     mockedUseAssetsAnalytics.mockReturnValue({
       analytics: {
@@ -153,6 +225,39 @@ describe("BusinessServiceDetailPage", () => {
       />
     );
 
+    expect(screen.queryByText("Business Service Detail")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Applications and direct assets under the selected business service.")
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("Service Risk Score")).toBeInTheDocument();
+    expect(screen.getByText("Business Criticality")).toBeInTheDocument();
+    expect(screen.getByText("9.2")).toBeInTheDocument();
+    const businessCriticalityCard = screen
+      .getByText("Business Criticality")
+      .closest(".rounded-xl");
+    expect(businessCriticalityCard).not.toBeNull();
+    expect(within(businessCriticalityCard as HTMLElement).getByText("4/5")).toBeInTheDocument();
+    expect(screen.getByText("Description")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Description for this business service will appear here when it is available."
+      )
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Service Totals")).not.toBeInTheDocument();
+    expect(screen.getByText("Total Applications")).toBeInTheDocument();
+    expect(screen.getByText("Total Assets")).toBeInTheDocument();
+    expect(screen.getByText("Total Findings")).toBeInTheDocument();
+    expect(screen.getByText("146")).toBeInTheDocument();
+    expect(screen.getByText("5,162")).toBeInTheDocument();
+    expect(screen.getByText("Asset Criticality Distribution")).toBeInTheDocument();
+    expect(screen.getByText("All assets under Digital Storefront")).toBeInTheDocument();
+    expect(screen.getByText("Asset Type Distribution")).toBeInTheDocument();
+    expect(screen.getByText("Top 5 asset types under Digital Storefront")).toBeInTheDocument();
+    expect(screen.getByText("Load Balancer")).toBeInTheDocument();
+    expect(screen.getByText("Proxy")).toBeInTheDocument();
+    expect(screen.queryByText("Chart / Visual / Info")).not.toBeInTheDocument();
+    expect(screen.getByText("Applications")).toBeInTheDocument();
+    expect(screen.getByText("Direct Assets")).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: /Application/i })).toBeInTheDocument();
     expect(screen.getByText("Asset criticality spread")).toBeInTheDocument();
     expect(screen.getByText("Finding risk spread")).toBeInTheDocument();
@@ -169,14 +274,18 @@ describe("BusinessServiceDetailPage", () => {
     const [, assetsTable] = screen.getAllByRole("table");
     expect(within(assetsTable).getByText("Firewall")).toBeInTheDocument();
     expect(within(assetsTable).getByText("Server")).toBeInTheDocument();
-    expect(within(assetsTable).getByText("Endpoint")).toBeInTheDocument();
-    expect(within(assetsTable).getByText("Production")).toBeInTheDocument();
+    expect(within(assetsTable).getAllByText("Endpoint").length).toBeGreaterThan(0);
+    expect(within(assetsTable).getAllByText("Production").length).toBeGreaterThan(0);
     expect(within(assetsTable).getByText("Development")).toBeInTheDocument();
     expect(within(assetsTable).getByText("PCI")).toBeInTheDocument();
     expect(within(assetsTable).getByText("PII")).toBeInTheDocument();
-    expect(within(assetsTable).getByText("Active")).toBeInTheDocument();
+    expect(within(assetsTable).getAllByText("Active").length).toBeGreaterThan(0);
     expect(within(assetsTable).getByText("Not active")).toBeInTheDocument();
-
+    expect(mockedUseBusinessServiceAnalytics).toHaveBeenCalledWith(
+      "online-store",
+      "digital-storefront",
+      0
+    );
     fireEvent.click(screen.getByRole("button", { name: /Open Cart Service/i }));
     fireEvent.click(screen.getByRole("button", { name: /Open alpha\.internal/i }));
 
@@ -195,6 +304,7 @@ describe("BusinessServiceDetailPage", () => {
         business_unit: "Online Store",
         business_service: "Digital Storefront",
         slug: "digital-storefront",
+        description: "Customer-facing storefront for digital checkout and browsing.",
         metrics: {
           total_business_services: 0,
           total_applications: 2,
@@ -247,6 +357,33 @@ describe("BusinessServiceDetailPage", () => {
       setPage: vi.fn(),
       pageSize: 10,
     });
+    mockedUseBusinessServiceAnalytics.mockReturnValue({
+      analytics: {
+        service_risk_score: null,
+        service_risk_label: null,
+        business_criticality_score: 4,
+        business_criticality_max: 5,
+        business_criticality_label: "High",
+        totals: {
+          applications: 2,
+          assets: 2,
+          findings: 12,
+        },
+        asset_criticality_distribution: {
+          low: 1,
+          medium: 0,
+          high: 0,
+          critical: 0,
+          unscored: 1,
+        },
+        asset_type_distribution: [
+          { label: "Server", count: 1 },
+          { label: "Endpoint", count: 1 },
+        ],
+      },
+      loading: false,
+      error: null,
+    });
     mockedUseAssetsAnalytics.mockReturnValue({
       analytics: {
         total_assets: 2,
@@ -282,6 +419,9 @@ describe("BusinessServiceDetailPage", () => {
       />
     );
 
+    expect(
+      screen.getByText("Customer-facing storefront for digital checkout and browsing.")
+    ).toBeInTheDocument();
     const [applicationsTable, assetsTable] = screen.getAllByRole("table");
     let applicationRows = within(applicationsTable).getAllByRole("button", {
       name: /^Open /i,

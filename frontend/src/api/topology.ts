@@ -7,6 +7,7 @@ import type {
   AssetDetail,
   AssetEnrichment,
   AssetFindingsPage,
+  BusinessServiceAnalytics,
   BusinessServiceDetail,
   BusinessUnitDetail,
   BusinessUnitSummary,
@@ -45,6 +46,21 @@ export async function getBusinessServiceDetail(
   return parseJsonOrThrow(
     res,
     `Failed to fetch business service detail: ${res.status} ${res.statusText}`
+  );
+}
+
+export async function getBusinessServiceAnalytics(
+  businessUnitSlug: string,
+  businessServiceSlug: string
+): Promise<BusinessServiceAnalytics> {
+  const res = await fetch(
+    buildApiUrl(
+      `/topology/business-units/${businessUnitSlug}/business-services/${businessServiceSlug}/analytics`
+    )
+  );
+  return parseJsonOrThrow(
+    res,
+    `Failed to fetch business service analytics: ${res.status} ${res.statusText}`
   );
 }
 

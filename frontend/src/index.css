@@ -91,3 +91,49 @@ body {
     @apply bg-neutral-200 text-foreground;
   }
 }
+
+@layer components {
+  .vc-page-stack {
+    @apply space-y-4;
+  }
+
+  .vc-page-title {
+    @apply text-3xl font-semibold tracking-tight text-slate-900;
+  }
+
+  .vc-page-subtitle {
+    @apply text-sm font-normal leading-6 text-slate-500;
+  }
+
+  .vc-entity-title {
+    @apply text-2xl font-semibold tracking-tight text-slate-900;
+  }
+
+  .vc-context-line {
+    @apply text-sm font-normal leading-6 text-slate-500;
+  }
+
+  .vc-eyebrow {
+    @apply text-xs font-semibold uppercase tracking-[0.16em] text-slate-500;
+  }
+
+  .vc-section-title {
+    @apply text-sm font-semibold text-slate-700;
+  }
+
+  .vc-body {
+    @apply text-sm font-normal leading-6 text-slate-900;
+  }
+
+  .vc-meta {
+    @apply text-xs font-normal text-slate-500;
+  }
+
+  .vc-kpi-label {
+    @apply text-xs font-semibold uppercase tracking-[0.14em] leading-4 text-slate-900;
+  }
+
+  .vc-kpi-value {
+    @apply text-[34px] font-semibold leading-none tracking-[-0.04em];
+  }
+}

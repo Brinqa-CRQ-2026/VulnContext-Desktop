@@ -178,6 +178,28 @@ export interface AssetAnalyticsResponse {
   finding_risk_distribution: AssetScoreDistribution;
 }
 
+export interface AssetTypeDistributionItem {
+  label: string;
+  count: number;
+}
+
+export interface BusinessServiceAnalyticsTotals {
+  applications: number;
+  assets: number;
+  findings: number;
+}
+
+export interface BusinessServiceAnalytics {
+  service_risk_score: number | null;
+  service_risk_label: string | null;
+  business_criticality_score: number | null;
+  business_criticality_max: number;
+  business_criticality_label: string | null;
+  totals: BusinessServiceAnalyticsTotals;
+  asset_criticality_distribution: AssetScoreDistribution;
+  asset_type_distribution: AssetTypeDistributionItem[];
+}
+
 export interface SourceSummary {
   source: string;
   total_findings: number;

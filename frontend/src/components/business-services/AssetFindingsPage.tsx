@@ -660,7 +660,7 @@ function PrioritySummaryStat({
   highRiskCount: number;
 }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-[linear-gradient(180deg,#ffffff,rgba(248,250,252,0.92))] p-5">
+    <div className="rounded-lg border border-slate-200 bg-white p-5">
       <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">
         Priority spotlight
       </dt>
@@ -736,8 +736,8 @@ function SummaryStat({
     <div
       className={
         emphasis === "hero"
-          ? "rounded-lg border border-slate-200 bg-[linear-gradient(180deg,#ffffff,rgba(248,250,252,0.92))] p-5"
-          : "rounded-lg border border-slate-200 p-4"
+          ? "rounded-lg border border-slate-200 bg-white p-5"
+          : "rounded-lg border border-slate-200 bg-white p-4"
       }
     >
       <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</dt>

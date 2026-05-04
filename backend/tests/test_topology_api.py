@@ -233,6 +233,8 @@ def seed_asset(
     pci: bool | None = None,
     pii: bool | None = None,
     compliance_flags: str | None = None,
+    device_type: str | None = None,
+    category: str | None = None,
 ):
     asset = models.Asset(
         asset_id=asset_id,
@@ -244,6 +246,8 @@ def seed_asset(
         pci=pci,
         pii=pii,
         compliance_flags=compliance_flags,
+        device_type=device_type,
+        category=category,
     )
     db_session.add(asset)
     db_session.flush()
@@ -491,6 +495,128 @@ def test_business_service_and_application_routes_return_direct_assets_and_asset_
     assert application_payload["metrics"]["total_assets"] == 1
     assert application_payload["metrics"]["total_findings"] == 2
     assert [item["asset_id"] for item in application_payload["assets"]] == ["asset-10"]
+
+
+def test_business_service_analytics_route_returns_totals_distributions_and_top_five_asset_types(
+    client, db_session
+):
+    seed_topology(db_session)
+    seeded_assets = [
+        seed_asset(
+            db_session,
+            asset_id="asset-bs-1",
+            hostname="server-1",
+            business_service="Digital Media",
+            application="Inventory Manager",
+            finding_risks=[9.1],
+            device_type="Server",
+        ),
+        seed_asset(
+            db_session,
+            asset_id="asset-bs-2",
+            hostname="server-2",
+            business_service="Digital Media",
+            finding_risks=[8.0],
+            device_type="Server",
+        ),
+        seed_asset(
+            db_session,
+            asset_id="asset-bs-3",
+            hostname="server-3",
+            business_service="Digital Media",
+            finding_risks=[7.0],
+            device_type="Server",
+        ),
+        seed_asset(
+            db_session,
+            asset_id="asset-bs-4",
+            hostname="firewall-1",
+            business_service="Digital Media",
+            finding_risks=[6.0],
+            device_type="Firewall",
+        ),
+        seed_asset(
+            db_session,
+            asset_id="asset-bs-5",
+            hostname="firewall-2",
+            business_service="Digital Media",
+            finding_risks=[5.0],
+            device_type="Firewall",
+        ),
+        seed_asset(
+            db_session,
+            asset_id="asset-bs-6",
+            hostname="workstation-1",
+            business_service="Digital Media",
+            finding_risks=[4.0],
+            device_type="Workstation",
+        ),
+        seed_asset(
+            db_session,
+            asset_id="asset-bs-7",
+            hostname="proxy-1",
+            business_service="Digital Media",
+            finding_risks=[3.0],
+            device_type="Proxy",
+        ),
+        seed_asset(
+            db_session,
+            asset_id="asset-bs-8",
+            hostname="router-1",
+            business_service="Digital Media",
+            finding_risks=[2.0],
+            device_type="Router",
+        ),
+        seed_asset(
+            db_session,
+            asset_id="asset-bs-9",
+            hostname="switch-1",
+            business_service="Digital Media",
+            finding_risks=[1.0],
+            category="Network",
+        ),
+    ]
+    backfill_asset_topology_foreign_keys(db_session)
+    context_scores = [9.0, 9.1, 7.2, 4.5, 3.1, 5.0, None, 7.6, 2.0]
+    for asset, score in zip(seeded_assets, context_scores, strict=True):
+        asset.crq_asset_context_score = score
+    db_session.commit()
+
+    response = client.get(
+        "/topology/business-units/online-store/business-services/digital-media/analytics"
+    )
+    assert response.status_code == 200
+    payload = response.json()
+
+    assert payload["service_risk_score"] is None
+    assert payload["service_risk_label"] is None
+    assert payload["business_criticality_score"] == 3
+    assert payload["business_criticality_max"] == 5
+    assert payload["business_criticality_label"] == "Medium"
+    assert payload["totals"] == {
+        "applications": 1,
+        "assets": 9,
+        "findings": 9,
+    }
+    assert payload["asset_criticality_distribution"] == {
+        "low": 2,
+        "medium": 2,
+        "high": 2,
+        "critical": 2,
+        "unscored": 1,
+    }
+    assert payload["asset_type_distribution"] == [
+        {"label": "Server", "count": 3},
+        {"label": "Firewall", "count": 2},
+        {"label": "Network", "count": 1},
+        {"label": "Proxy", "count": 1},
+        {"label": "Router", "count": 1},
+    ]
+
+    missing = client.get(
+        "/topology/business-units/online-store/business-services/does-not-exist/analytics"
+    )
+    assert missing.status_code == 404
 
 
 def test_assets_routes_preserve_legacy_filters_and_asset_findings_after_fk_expansion(
@@ -1113,6 +1239,12 @@ def test_topology_routes_return_503_when_normalized_tables_are_not_initialized(
     topology_response = client.get("/topology/business-units")
     assert topology_response.status_code == 503
     assert "topology-expansion.sql" in topology_response.json()["detail"]
+
+    business_service_analytics_response = client.get(
+        "/topology/business-units/online-store/business-services/digital-media/analytics"
+    )
+    assert business_service_analytics_response.status_code == 503
+    assert "topology-expansion.sql" in business_service_analytics_response.json()["detail"]
 
     business_unit_filter_response = client.get("/assets?business_unit=Online%20Store")
     assert business_unit_filter_response.status_code == 503

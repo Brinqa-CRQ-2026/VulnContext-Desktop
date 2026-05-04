@@ -35,11 +35,18 @@ describe("api/topology", () => {
   });
 
   it("calls GET /topology/business-units/{business_unit_slug}/business-services/{business_service_slug}", async () => {
-    const { getBusinessServiceDetail } = await loadTopologyApi();
+    const { getBusinessServiceDetail, getBusinessServiceAnalytics } = await loadTopologyApi();
+    getFetchMock()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true })))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true })));
     await getBusinessServiceDetail("online-store", "digital-storefront");
+    await getBusinessServiceAnalytics("online-store", "digital-storefront");
 
     expect(getFetchMock()).toHaveBeenCalledWith(
       "https://api.example.com/topology/business-units/online-store/business-services/digital-storefront"
+    );
+    expect(getFetchMock()).toHaveBeenCalledWith(
+      "https://api.example.com/topology/business-units/online-store/business-services/digital-storefront/analytics"
     );
   });
 
