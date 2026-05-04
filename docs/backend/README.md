@@ -6,6 +6,7 @@
 - [docs/backend/current/backend-review-overview.md](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/backend-review-overview.md)
 - [docs/backend/current/api-endpoints.md](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/api-endpoints.md)
 - [docs/backend/current/asset-pull-workflow.md](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/asset-pull-workflow.md)
+- [docs/backend/current/fair/README.md](current/fair/README.md)
 - `docs/backend/current/scoring-model.md`
 - `docs/backend/current/crq-finding-scoring-v4.md`
 - `docs/backend/current/crq-asset-scoring-v1.md`

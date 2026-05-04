@@ -19,7 +19,9 @@ vi.mock("../components/layout/Header", () => ({
     shutdownPending,
   }: {
     page: string;
-    onNavigate: (page: "findings" | "integrations" | "business-services") => void;
+    onNavigate: (
+      page: "findings" | "integrations" | "business-services" | "controls"
+    ) => void;
     onLogout: () => void;
     onShutdown: () => void;
     logoutPending?: boolean;
@@ -33,6 +35,7 @@ vi.mock("../components/layout/Header", () => ({
       <button onClick={() => onNavigate("business-services")}>
         header-business-services
       </button>
+      <button onClick={() => onNavigate("controls")}>header-controls</button>
       <button disabled={logoutPending} onClick={onLogout}>
         header-logout
       </button>
@@ -108,6 +111,10 @@ vi.mock("../components/integrations/IntegrationsPage", () => ({
       <div>{`integrations:${refreshToken}`}</div>
     </div>
   ),
+}));
+
+vi.mock("../components/controls/SecurityQuestionnairePage", () => ({
+  SecurityQuestionnairePage: () => <div>security-questionnaire</div>,
 }));
 
 vi.mock("../components/business-services/BusinessServicesOverview", () => ({
@@ -282,6 +289,15 @@ describe("App", () => {
     await screen.findByText("table:0");
     fireEvent.click(screen.getByText("open-integrations"));
     await screen.findByText("integrations:0");
+  });
+
+  it("navigates to the controls questionnaire from the header", async () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByText("header-controls"));
+    await screen.findByText("security-questionnaire");
+
+    expect(screen.getByRole("heading", { name: "Security Questionnaire" })).toBeInTheDocument();
   });
 
   it("navigates through the topology drill-down route", async () => {

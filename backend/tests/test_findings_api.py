@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
 from app import models
+from app.api import controls as controls_api
 from app.api import findings as findings_api
 from app.services.brinqa_detail import DetailResult
 
@@ -123,6 +124,219 @@ def test_findings_detail_returns_thin_persisted_data_only(client, db_session):
     assert payload["summary"] is None
     assert payload["description"] is None
     assert payload["detail_source"] is None
+
+
+def test_control_questionnaire_score_endpoint_accepts_nested_answers(client):
+    response = client.post(
+        "/controls/questionnaire-score",
+        json={
+            "answers": {
+                "prevent": {
+                    "patch_maturity": 4,
+                    "mfa_maturity": 4,
+                    "segmentation_maturity": 3,
+                    "hardening_maturity": 4,
+                },
+                "detect": {
+                    "logging_maturity": 2,
+                    "siem_maturity": 3,
+                    "speed_maturity": 1,
+                },
+                "respond": {
+                    "plan_maturity": 4,
+                    "speed_maturity": 3,
+                    "automation_maturity": 4,
+                },
+                "contain": {
+                    "edr_maturity": 1,
+                    "privilege_maturity": 3,
+                    "data_maturity": 4,
+                },
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["confidence"] == 1.0
+    assert payload["prevent_score"] == (4 + 4 + 3 + 4) / 20
+    assert payload["detect_score"] == (2 + 3 + 1) / 15
+    assert payload["respond_score"] == (4 + 3 + 4) / 15
+    assert payload["contain_score"] == (1 + 3 + 4) / 15
+    assert payload["control_score"] == (
+        0.35 * payload["prevent_score"]
+        + 0.25 * payload["detect_score"]
+        + 0.25 * payload["respond_score"]
+        + 0.15 * payload["contain_score"]
+    )
+    assert payload["flat_context"]["prevent_patch_maturity"] == 4
+    assert payload["answers"]["detect"]["speed_maturity"] == 1
+
+
+def test_control_assessment_save_and_retrieve_use_supabase_table(client, monkeypatch):
+    class FakeResponse:
+        def __init__(self, data):
+            self.data = data
+
+    class FakeQuery:
+        def __init__(self, rows):
+            self.rows = rows
+            self.action = "select"
+            self.payload = None
+            self.filters = {}
+
+        def select(self, *_args):
+            self.action = "select"
+            return self
+
+        def insert(self, payload):
+            self.action = "insert"
+            self.payload = payload
+            return self
+
+        def update(self, payload):
+            self.action = "update"
+            self.payload = payload
+            return self
+
+        def eq(self, key, value):
+            self.filters[key] = value
+            return self
+
+        def order(self, *_args, **_kwargs):
+            return self
+
+        def limit(self, *_args):
+            return self
+
+        def execute(self):
+            if self.action == "insert":
+                row = {
+                    "id": "assessment-1",
+                    "created_at": "2026-05-03T00:00:00Z",
+                    **self.payload,
+                }
+                self.rows.append(row)
+                return FakeResponse([row])
+
+            if self.action == "update":
+                for row in self.rows:
+                    if all(row.get(key) == value for key, value in self.filters.items()):
+                        row.update(self.payload)
+                        return FakeResponse([row])
+                return FakeResponse([])
+
+            return FakeResponse(self.rows[:1])
+
+    class FakeSupabase:
+        def __init__(self):
+            self.rows = []
+            self.table_names = []
+
+        def table(self, name):
+            self.table_names.append(name)
+            return FakeQuery(self.rows)
+
+    fake_supabase = FakeSupabase()
+    monkeypatch.setattr(controls_api, "get_supabase_client", lambda: fake_supabase)
+
+    response = client.put(
+        "/controls/current",
+        json={
+            "answers": {
+                "prevent": {
+                    "patch_maturity": 4,
+                    "mfa_maturity": 4,
+                    "segmentation_maturity": 3,
+                    "hardening_maturity": 4,
+                },
+                "detect": {
+                    "logging_maturity": 2,
+                    "siem_maturity": 3,
+                    "speed_maturity": 1,
+                },
+                "respond": {
+                    "plan_maturity": 4,
+                    "speed_maturity": 3,
+                    "automation_maturity": 4,
+                },
+                "contain": {
+                    "edr_maturity": 1,
+                    "privilege_maturity": 3,
+                    "data_maturity": 4,
+                },
+            },
+        },
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["answers"]["detect"]["speed_maturity"] == 1
+    assert "control_assessments" in fake_supabase.table_names
+
+    current = client.get("/controls/current")
+    assert current.status_code == 200
+    assert current.json()["id"] == "assessment-1"
+
+
+def test_fair_loss_prediction_uses_questionnaire_context(client, db_session):
+    asset, finding = seed_asset_and_finding(
+        db_session,
+        idx=8,
+        risk=8.1,
+        crq_finding_score=8.8,
+        crq_finding_risk_band="High",
+        crq_finding_is_kev=True,
+    )
+    asset.crq_asset_exposure_score = 0.8
+    asset.crq_asset_type_score = 0.7
+    asset.crq_asset_data_sensitivity_score = 0.9
+    asset.crq_asset_environment_score = 0.8
+    asset.crq_asset_context_score = 8.0
+    asset.crq_asset_aggregated_finding_risk = 7.5
+    db_session.commit()
+
+    response = client.post(
+        f"/findings/{finding.finding_id}/fair-loss",
+        json={
+            "control_context": {
+                "prevent": {
+                    "patch_maturity": 4,
+                    "mfa_maturity": 5,
+                    "segmentation_maturity": 3,
+                    "hardening_maturity": 4,
+                },
+                "detect": {
+                    "logging_maturity": 3,
+                    "siem_maturity": 4,
+                    "speed_maturity": 3,
+                },
+                "respond": {
+                    "plan_maturity": 4,
+                    "speed_maturity": 3,
+                    "automation_maturity": 2,
+                },
+                "contain": {
+                    "edr_maturity": 4,
+                    "privilege_maturity": 3,
+                    "data_maturity": 5,
+                },
+            },
+            "primary_loss_mean": 50000,
+            "secondary_loss_mean": 15000,
+            "iterations": 1000,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert 0 <= payload["control_score"] <= 1
+    assert payload["tef_mean"] >= 0
+    assert payload["lef_mean"] >= 0
+    assert payload["loss_p50"] >= 0
+    assert payload["loss_p90"] >= payload["loss_p50"]
+    assert payload["loss_p95"] >= payload["loss_p90"]
+    assert payload["worst_loss"] >= payload["loss_p95"]
+    assert len(payload["histogram"]) > 0
 
 
 def test_findings_enrichment_route_returns_explicit_narrative_payload(
