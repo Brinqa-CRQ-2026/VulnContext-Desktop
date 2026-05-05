@@ -58,6 +58,7 @@ def test_health_docs_and_openapi_are_available(client):
     assert client.get("/health").json() == {"status": "ok"}
     assert client.get("/docs").status_code == 200
     assert client.get("/openapi.json").status_code == 200
+    assert client.get("/api/v1/health").status_code == 200
 
 
 def test_findings_summary_and_list_use_thin_runtime_models(client, db_session):
@@ -81,6 +82,9 @@ def test_findings_summary_and_list_use_thin_runtime_models(client, db_session):
     assert payload["risk_bands"]["Low"] == 1
     assert payload["kevFindingsTotal"] == 1
     assert payload["kevRiskBands"]["Medium"] == 1
+
+    versioned_summary = client.get("/api/v1/findings/summary")
+    assert versioned_summary.status_code == 200
 
     response = client.get("/findings?page=1&page_size=10&sort_by=risk_score&sort_order=desc")
     assert response.status_code == 200

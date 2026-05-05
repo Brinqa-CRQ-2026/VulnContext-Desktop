@@ -25,6 +25,7 @@ Desktop runtime behavior:
 
 - Electron owns the Brinqa login/logout/reset lifecycle
 - `Log Out` returns the running desktop app to the Brinqa login window
+- `Skip Brinqa` / `UI Only` bypasses Brinqa login and enrichment calls
 - `Shut Down` quits Electron and lets the launcher stop backend and renderer
 - normal window close behaves the same as `Shut Down`
 - next startup prompts for a fresh Brinqa login after shutdown cleanup
@@ -83,10 +84,9 @@ The current project expects operational data to be managed through backend scrip
 
 The main scripts live under `backend/scripts/`:
 
-- Brinqa export helpers: `pull_asset_business_context.py`, `pull_asset_findings.py`, `export_assets_for_supabase.py`, `export_findings_for_supabase.py`
-- Supabase asset reseed: `reseed_assets_for_supabase.py`
-- Enrichment sync: `sync_epss.py`, `sync_kev.py`, `sync_nvd.py`, `sync_daily.py`
-- CRQ scoring: `score_crq_findings_v1.py`, `score_crq_assets_v1.py`
+- Manual operator scripts: `manual/pull_asset_business_context.py`, `manual/pull_asset_findings.py`, `manual/export_assets_for_supabase.py`, `manual/export_findings_for_supabase.py`, `manual/reseed_assets_for_supabase.py`
+- Manual CRQ scoring: `manual/score_crq_findings_v1.py`, `manual/score_crq_assets_v1.py`
+- GitHub Actions sync jobs: `automation/sync_epss.py`, `automation/sync_kev.py`, `automation/sync_nvd.py`, `automation/sync_daily.py`
 
 ## Documentation
 

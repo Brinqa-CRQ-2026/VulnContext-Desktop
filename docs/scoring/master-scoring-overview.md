@@ -17,9 +17,9 @@ The goal is to explain three things clearly:
 
 Detailed implementation references remain in:
 
-- [scoring-model.md](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/scoring-model.md)
-- [crq-finding-scoring-v4.md](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/crq-finding-scoring-v4.md)
-- [crq-asset-scoring-v1.md](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/crq-asset-scoring-v1.md)
+- [Backend Scoring Overview](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/scoring/README.md)
+- [CRQ Finding Scoring V4](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/scoring/crq-finding-scoring-v4.md)
+- [CRQ Asset Scoring V1](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/scoring/crq-asset-scoring-v1.md)
 
 ## Executive Summary
 
@@ -309,8 +309,8 @@ This structure keeps the model practical for operators while making it legible t
 
 ## References
 
-- [Scoring Model](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/scoring-model.md)
-- [CRQ Finding Scoring V4](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/crq-finding-scoring-v4.md)
-- [Asset Context Scoring V1](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/crq-asset-scoring-v1.md)
-- [Supabase Database](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/supabase-database.md)
+- [Backend Scoring Overview](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/scoring/README.md)
+- [CRQ Finding Scoring V4](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/scoring/crq-finding-scoring-v4.md)
+- [Asset Context Scoring V1](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/scoring/crq-asset-scoring-v1.md)
+- [Backend Database Reference](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/architecture/database.md)
 - [Business Services Feature Tracker](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/BUSINESS_SERVICES_FEATURE.md)

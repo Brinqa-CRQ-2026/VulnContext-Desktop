@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { getAssetEnrichment } from "../../api/topology";
 import type { AssetEnrichment } from "../../api/types";
+import { isUiOnlyModeEnabled } from "../../auth/brinqaAuth";
 import { requestBrinqaSessionReset } from "../../auth/electronBrinqa";
 
 export function useAssetEnrichment(
@@ -23,6 +24,13 @@ export function useAssetEnrichment(
     if (!assetId) {
       setEnrichment(null);
       setError("Asset not found.");
+      setLoading(false);
+      return;
+    }
+
+    if (isUiOnlyModeEnabled()) {
+      setEnrichment(null);
+      setError(null);
       setLoading(false);
       return;
     }

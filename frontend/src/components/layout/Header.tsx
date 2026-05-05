@@ -8,8 +8,11 @@ interface HeaderProps {
   onNavigate: (page: AppPage) => void;
   onLogout: () => void;
   onShutdown: () => void;
+  onToggleUiOnlyMode: () => void;
+  uiOnlyMode: boolean;
   logoutPending?: boolean;
   shutdownPending?: boolean;
+  uiOnlyModePending?: boolean;
 }
 
 export function Header({
@@ -17,8 +20,11 @@ export function Header({
   onNavigate,
   onLogout,
   onShutdown,
+  onToggleUiOnlyMode,
+  uiOnlyMode,
   logoutPending = false,
   shutdownPending = false,
+  uiOnlyModePending = false,
 }: HeaderProps) {
   const pageLabel =
     page === "findings"
@@ -45,6 +51,19 @@ export function Header({
         </div>
 
         <div className="flex items-center gap-2">
+          <Button
+            variant={uiOnlyMode ? "default" : "outline"}
+            size="sm"
+            className={
+              uiOnlyMode
+                ? "bg-emerald-500 text-slate-950 hover:bg-emerald-400"
+                : "border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800 hover:text-white"
+            }
+            disabled={uiOnlyModePending || logoutPending || shutdownPending}
+            onClick={onToggleUiOnlyMode}
+          >
+            {uiOnlyModePending ? "Updating..." : uiOnlyMode ? "UI Only On" : "Skip Brinqa"}
+          </Button>
           <Button
             variant="outline"
             size="sm"

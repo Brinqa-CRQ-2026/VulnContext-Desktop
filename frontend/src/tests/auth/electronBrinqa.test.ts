@@ -16,7 +16,11 @@ describe("electronBrinqa", () => {
     window.localStorage.setItem("brinqaMfaResponse", "{\"token\":\"token-123\"}");
 
     const resetSession = vi.fn().mockResolvedValue(undefined);
-    window.brinqaDesktopAuth = { resetSession };
+    window.brinqaDesktopAuth = {
+      resetSession,
+      isUiOnlyMode: () => false,
+      setUiOnlyMode: vi.fn().mockResolvedValue(false),
+    };
 
     const { requestBrinqaSessionReset } = await loadModule();
 
@@ -40,7 +44,11 @@ describe("electronBrinqa", () => {
     window.localStorage.setItem("brinqaMfaResponse", "{\"token\":\"token-123\"}");
 
     const resetSession = vi.fn().mockResolvedValue(undefined);
-    window.brinqaDesktopAuth = { resetSession };
+    window.brinqaDesktopAuth = {
+      resetSession,
+      isUiOnlyMode: () => false,
+      setUiOnlyMode: vi.fn().mockResolvedValue(false),
+    };
 
     const { requestBrinqaSessionReset } = await loadModule();
 

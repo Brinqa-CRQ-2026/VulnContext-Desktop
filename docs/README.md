@@ -4,13 +4,13 @@ Docs are split into backend and frontend views of the current runtime.
 
 ## Scoring
 
-- [docs/scoring/README.md](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/scoring/README.md)
+- [docs/scoring/master-scoring-overview.md](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/scoring/master-scoring-overview.md)
   Master overview of implemented CRQ scoring, persisted scoring fields, and planned topology rollups.
 
 ## Backend
 
 - [docs/backend/README.md](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/README.md)
-  Current backend routes, services, scripts, and trimmed legacy notes.
+  Backend docs index and folder map.
 
 ## Frontend
 

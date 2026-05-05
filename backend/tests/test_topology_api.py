@@ -414,6 +414,7 @@ def test_business_unit_routes_return_seeded_topology_with_rollups(client, db_ses
     assert response.status_code == 200
     payload = response.json()
     assert [item["business_unit"] for item in payload] == ["Manufacturing", "Online Store"]
+    assert client.get("/api/v1/topology/business-units").status_code == 200
 
     online_store = next(item for item in payload if item["business_unit"] == "Online Store")
     assert online_store["company"]["name"] == "Virtucon"

@@ -10,6 +10,7 @@ EXIT_CODE=0
 IS_CLEANING_UP=0
 DEFAULT_BACKEND_PORT="${BACKEND_PORT:-8000}"
 DEFAULT_RENDERER_PORT="${RENDERER_PORT:-5173}"
+ELECTRON_EXTRA_ARGS=("$@")
 
 start_process() {
   local workdir="$1"
@@ -157,7 +158,11 @@ RENDERER_PID="$(start_process "$ROOT_DIR/frontend" env VITE_API_BASE_URL="$BACKE
 wait_for_url "renderer" "$RENDERER_URL" "$RENDERER_PID"
 
 echo "Starting Electron..."
-ELECTRON_PID="$(start_process "$ROOT_DIR/frontend" env NODE_ENV=development ELECTRON_RENDERER_URL="$RENDERER_URL" npm run dev:electron)"
+if [[ "${#ELECTRON_EXTRA_ARGS[@]}" -gt 0 ]]; then
+  ELECTRON_PID="$(start_process "$ROOT_DIR/frontend" env NODE_ENV=development ELECTRON_RENDERER_URL="$RENDERER_URL" npm run dev:electron -- "${ELECTRON_EXTRA_ARGS[@]}")"
+else
+  ELECTRON_PID="$(start_process "$ROOT_DIR/frontend" env NODE_ENV=development ELECTRON_RENDERER_URL="$RENDERER_URL" npm run dev:electron)"
+fi
 
 while true; do
   if ! process_running "$BACKEND_PID"; then

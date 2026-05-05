@@ -1,28 +1,33 @@
 # Backend Docs
 
-## Current Runtime
+## Start Here
 
-- [docs/backend/current/file-layout.md](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/file-layout.md)
-- [docs/backend/current/backend-review-overview.md](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/backend-review-overview.md)
-- [docs/backend/current/api-endpoints.md](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/api-endpoints.md)
-- [docs/backend/current/asset-pull-workflow.md](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/asset-pull-workflow.md)
-- `docs/backend/current/scoring-model.md`
-- `docs/backend/current/crq-finding-scoring-v4.md`
-- `docs/backend/current/crq-asset-scoring-v1.md`
-- `docs/backend/current/scheduled-data-sync.md`
-- `docs/backend/current/feature-test-matrix.md`
-- `docs/backend/current/supabase-database.md`
-
-## Legacy
-
-Only the deferred capabilities that still look reusable are kept as legacy references:
-
-- `docs/backend/legacy/legacy-csv-import.md`
-- `docs/backend/legacy/legacy-disposition-events.md`
-- `docs/backend/legacy/legacy-risk-weights.md`
-- `docs/backend/legacy/legacy-source-management.md`
-- `docs/backend/legacy/legacy-enrichment-model.md`
+- [docs/backend/current/README.md](current/README.md)
+  Backend docs index.
+- [docs/backend/current/overview/README.md](current/overview/README.md)
+  High-level runtime summary and request flow.
+- [docs/backend/current/api/README.md](current/api/README.md)
+  Entry point for the active HTTP surface.
+- [docs/backend/current/architecture/README.md](current/architecture/README.md)
+  Where the backend layers live.
+- [docs/backend/current/scoring/README.md](current/scoring/README.md)
+  Scoring summary plus detailed scoring references.
+- [docs/backend/current/workflows/README.md](current/workflows/README.md)
+  Manual scripts and GitHub Actions scripts.
+- [docs/backend/current/testing/README.md](current/testing/README.md)
+  Test coverage map and gaps.
 
 ## Seed Source Of Truth
 
 - `docs/backend/topology-seed/`
+
+## Layout Note
+
+The backend docs are grouped by purpose now:
+
+- overview
+- api
+- architecture
+- scoring
+- workflows
+- testing

@@ -45,6 +45,14 @@ def health():
     return {"status": "ok"}
 
 
+@app.get("/api/v1/health", include_in_schema=False)
+def health_v1():
+    return health()
+
+
+for router in ROUTERS:
+    app.include_router(router, prefix="/api/v1")
+
 for router in ROUTERS:
     app.include_router(router)
 

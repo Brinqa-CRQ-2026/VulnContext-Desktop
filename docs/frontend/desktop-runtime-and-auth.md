@@ -19,6 +19,14 @@ The supported primary startup path is:
 make desktop
 ```
 
+You can also skip Brinqa for one launch with:
+
+```bash
+bash scripts/run-desktop.sh --ui-only
+```
+
+Or use the in-app `Skip Brinqa` / `UI Only` toggle in the top-right header to persist that mode across launches.
+
 ## Main files
 
 - [scripts/run-desktop.sh](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/scripts/run-desktop.sh)
@@ -55,6 +63,7 @@ If Electron does not open, restart from the repo root and check the launcher out
 4. If the stored token is expired, Electron clears stored auth state and opens the Brinqa login window.
 5. If a stored token is still usable, Electron opens the dashboard directly.
 6. If there is no token, Electron opens the Brinqa login window.
+7. If `ui-only` mode is enabled, Electron skips the login window and opens the dashboard directly.
 
 ## MFA capture and token handling
 
@@ -64,6 +73,7 @@ Current behavior:
 - the shell looks for token-like fields such as `token`, `access_token`, `accessToken`, `id_token`, and `idToken`
 - the MFA payload and extracted token are stored in renderer `localStorage`
 - enrichment requests forward the stored token to the backend with `X-Brinqa-Auth-Token`
+- UI-only mode skips the enrichment request entirely and returns a blank enrichment state
 
 Current limitation:
 

@@ -10,7 +10,11 @@ import { AssetFindingsPage } from "./components/business-services/AssetFindingsP
 import { BusinessServiceDetailPage } from "./components/business-services/BusinessServiceDetailPage";
 import { BusinessUnitDetailPage } from "./components/business-services/BusinessUnitDetailPage";
 import { BusinessServicesOverview } from "./components/business-services/BusinessServicesOverview";
-import { requestBrinqaSessionReset } from "./auth/electronBrinqa";
+import {
+  readUiOnlyModeFromRenderer,
+  requestBrinqaSessionReset,
+  setUiOnlyMode,
+} from "./auth/electronBrinqa";
 import { Button } from "./components/ui/button";
 import { cn } from "./lib/utils";
 import type {
@@ -201,6 +205,8 @@ function App() {
   const [refreshToken, setRefreshToken] = useState(0);
   const [logoutPending, setLogoutPending] = useState(false);
   const [shutdownPending, setShutdownPending] = useState(false);
+  const [uiOnlyMode, setUiOnlyModeState] = useState(() => readUiOnlyModeFromRenderer());
+  const [uiOnlyModePending, setUiOnlyModePending] = useState(false);
 
   useEffect(() => {
     if (!window.location.hash && !parsePathRoute(window.location.pathname)) {
@@ -256,6 +262,17 @@ function App() {
       });
     } finally {
       setShutdownPending(false);
+    }
+  };
+
+  const handleToggleUiOnlyMode = async () => {
+    setUiOnlyModePending(true);
+
+    try {
+      const nextMode = await setUiOnlyMode(!uiOnlyMode);
+      setUiOnlyModeState(nextMode);
+    } finally {
+      setUiOnlyModePending(false);
     }
   };
 
@@ -444,8 +461,11 @@ function App() {
         onNavigate={navigateTo}
         onLogout={handleLogout}
         onShutdown={handleShutdown}
+        onToggleUiOnlyMode={handleToggleUiOnlyMode}
+        uiOnlyMode={uiOnlyMode}
         logoutPending={logoutPending}
         shutdownPending={shutdownPending}
+        uiOnlyModePending={uiOnlyModePending}
       />
       <div className="flex min-h-0 flex-1">
         <aside className="hidden w-64 shrink-0 border-r border-slate-200 bg-neutral-100 p-3 md:block">
@@ -484,6 +504,11 @@ function App() {
               </h1>
               {pageMeta[page].description ? (
                 <p className="mt-1 text-sm text-slate-500">{pageMeta[page].description}</p>
+              ) : null}
+              {uiOnlyMode ? (
+                <p className="mt-2 text-xs font-medium uppercase tracking-wide text-emerald-700">
+                  UI-only mode is on. Brinqa login and enrichment calls are skipped.
+                </p>
               ) : null}
             </section>
 

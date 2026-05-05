@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain, session } from "electron";
+import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
 import {
   buildDashboardLogoutScript,
@@ -9,7 +10,9 @@ import {
 } from "./src/auth/brinqaAuth";
 import type { StoredAuthState } from "./src/auth/brinqaAuth";
 import {
+  BRINQA_GET_UI_ONLY_MODE_CHANNEL,
   BRINQA_RESET_SESSION_CHANNEL,
+  BRINQA_SET_UI_ONLY_MODE_CHANNEL,
   type BrinqaResetRequest,
 } from "./src/auth/brinqaDesktopBridge";
 import { performBrinqaRemoteLogout } from "./src/auth/brinqaRemoteLogout";
@@ -21,6 +24,9 @@ const brinqaOrigin = new URL(loginUrl).origin;
 const mfaUrlPrefix = "https://ucsc.brinqa.net/api/auth/mfa";
 const mfaUrlPattern = "https://ucsc.brinqa.net/api/auth/mfa*";
 const preloadPath = path.join(__dirname, "src", "preload.js");
+const runtimePreferencesPath = () => path.join(app.getPath("userData"), "runtime-preferences.json");
+const startupUiOnlyMode =
+  process.argv.includes("--ui-only") || process.argv.includes("--skip-brinqa");
 
 let mainWindow: BrowserWindow | null = null;
 let loginWindow: BrowserWindow | null = null;
@@ -32,6 +38,69 @@ let skipBeforeQuitCleanup = false;
 let allowLoginWindowClose = false;
 let allowMainWindowClose = false;
 let isAppShuttingDown = false;
+let uiOnlyMode = false;
+
+type RuntimePreferences = {
+  uiOnlyMode: boolean;
+};
+
+async function loadRuntimePreferences(): Promise<RuntimePreferences> {
+  try {
+    const raw = await readFile(runtimePreferencesPath(), "utf8");
+    const parsed = JSON.parse(raw) as Partial<RuntimePreferences>;
+    return {
+      uiOnlyMode: parsed.uiOnlyMode === true,
+    };
+  } catch {
+    return { uiOnlyMode: false };
+  }
+}
+
+async function saveRuntimePreferences() {
+  const preferences = JSON.stringify({ uiOnlyMode }, null, 2);
+  await mkdir(path.dirname(runtimePreferencesPath()), { recursive: true });
+  await writeFile(runtimePreferencesPath(), preferences, "utf8");
+}
+
+async function syncUiOnlyMode(enabled: boolean) {
+  uiOnlyMode = enabled;
+  await saveRuntimePreferences();
+}
+
+async function applyUiOnlyMode(enabled: boolean) {
+  const nextMode = Boolean(enabled);
+  if (uiOnlyMode === nextMode) {
+    return uiOnlyMode;
+  }
+
+  await syncUiOnlyMode(nextMode);
+
+  if (nextMode) {
+    await resetBrinqaSession({
+      reason: "logout",
+      reopenLogin: false,
+      includeRemoteLogout: false,
+    });
+
+    if (loginWindow && !loginWindow.isDestroyed()) {
+      allowLoginWindowClose = true;
+      loginWindow.close();
+      allowLoginWindowClose = false;
+    }
+
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      createWindow();
+    }
+  } else {
+    await resetBrinqaSession({
+      reason: "logout",
+      reopenLogin: true,
+      includeRemoteLogout: false,
+    });
+  }
+
+  return uiOnlyMode;
+}
 
 function buildWindowWebPreferences() {
   return {
@@ -184,6 +253,11 @@ function ensureLoginWindow({ fresh = false }: { fresh?: boolean } = {}) {
 }
 
 async function attemptRemoteBrinqaLogout() {
+  if (uiOnlyMode) {
+    console.log("[Brinqa Logout] UI-only mode enabled; skipping remote logout");
+    return;
+  }
+
   const [{ authToken }, sessionCookie] = await Promise.all([
     readStoredAuthState(),
     readBrinqaSessionCookie(),
@@ -207,16 +281,19 @@ async function doResetBrinqaSession({
   quitApp = false,
   reason,
 }: BrinqaResetRequest) {
+  const reopenLoginNext = uiOnlyMode ? false : reopenLogin;
+  const includeRemoteLogoutNext = uiOnlyMode ? false : includeRemoteLogout;
+
   console.log(
     `[Brinqa Session] Reset requested: ${JSON.stringify({
       reason,
-      reopenLogin,
-      includeRemoteLogout,
+      reopenLogin: reopenLoginNext,
+      includeRemoteLogout: includeRemoteLogoutNext,
       quitApp,
     })}`
   );
 
-  if (includeRemoteLogout) {
+  if (includeRemoteLogoutNext) {
     try {
       await attemptRemoteBrinqaLogout();
     } catch (error) {
@@ -228,7 +305,7 @@ async function doResetBrinqaSession({
   await clearBrinqaSessionData();
   hasCompletedMfa = false;
 
-  if (reopenLogin) {
+  if (reopenLoginNext) {
     if (mainWindow && !mainWindow.isDestroyed()) {
       allowMainWindowClose = true;
       mainWindow.destroy();
@@ -466,8 +543,12 @@ function createWindow(mfaResponseBody?: string) {
   });
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   registerMfaCompletionListener();
+  const preferences = await loadRuntimePreferences();
+  uiOnlyMode = startupUiOnlyMode || preferences.uiOnlyMode;
+  console.log(`[Brinqa Startup] UI-only mode ${uiOnlyMode ? "enabled" : "disabled"}`);
+
   ipcMain.handle(BRINQA_RESET_SESSION_CHANNEL, async (_event, request: BrinqaResetRequest) => {
     await resetBrinqaSession(request);
     if (request.quitApp) {
@@ -478,20 +559,29 @@ app.whenReady().then(() => {
       app.quit();
     }
   });
+  ipcMain.on(BRINQA_GET_UI_ONLY_MODE_CHANNEL, (event) => {
+    event.returnValue = uiOnlyMode;
+  });
+  ipcMain.handle(BRINQA_SET_UI_ONLY_MODE_CHANNEL, async (_event, enabled: boolean) => {
+    return applyUiOnlyMode(enabled);
+  });
 
-  void (async () => {
+  if (uiOnlyMode) {
+    hasCompletedMfa = true;
+    console.log("[Brinqa Startup] UI-only mode active, opening dashboard without login");
+    createWindow();
+  } else {
     const storedAuthState = await readValidatedAuthState();
 
     if (storedAuthState.authToken) {
       hasCompletedMfa = true;
       console.log("[Brinqa Startup] Existing auth token found, opening dashboard directly");
       createWindow(storedAuthState.mfaResponse ?? "");
-      return;
+    } else {
+      console.log("[Brinqa Startup] No saved auth token found, opening login window");
+      createLoginWindow();
     }
-
-    console.log("[Brinqa Startup] No saved auth token found, opening login window");
-    createLoginWindow();
-  })();
+  }
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length > 0) {
@@ -499,6 +589,12 @@ app.whenReady().then(() => {
     }
 
     void (async () => {
+      if (uiOnlyMode) {
+        hasCompletedMfa = true;
+        createWindow();
+        return;
+      }
+
       const storedAuthState = await readValidatedAuthState();
       if (storedAuthState.authToken) {
         hasCompletedMfa = true;

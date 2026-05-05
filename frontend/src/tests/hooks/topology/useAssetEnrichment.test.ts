@@ -9,8 +9,16 @@ const { requestBrinqaSessionReset } = vi.hoisted(() => ({
   requestBrinqaSessionReset: vi.fn(),
 }));
 
+const { isUiOnlyModeEnabled } = vi.hoisted(() => ({
+  isUiOnlyModeEnabled: vi.fn(),
+}));
+
 vi.mock("../../../api/topology", () => ({
   getAssetEnrichment,
+}));
+
+vi.mock("../../../auth/brinqaAuth", () => ({
+  isUiOnlyModeEnabled,
 }));
 
 vi.mock("../../../auth/electronBrinqa", () => ({
@@ -23,6 +31,8 @@ describe("useAssetEnrichment", () => {
   beforeEach(() => {
     getAssetEnrichment.mockReset();
     requestBrinqaSessionReset.mockReset();
+    isUiOnlyModeEnabled.mockReset();
+    isUiOnlyModeEnabled.mockReturnValue(false);
     requestBrinqaSessionReset.mockResolvedValue(undefined);
   });
 
@@ -109,5 +119,16 @@ describe("useAssetEnrichment", () => {
     });
 
     await waitFor(() => expect(getAssetEnrichment).toHaveBeenCalledWith("asset-10"));
+  });
+
+  it("skips enrichment calls entirely in UI-only mode", async () => {
+    isUiOnlyModeEnabled.mockReturnValue(true);
+
+    const { result } = renderHook(() => useAssetEnrichment("asset-10", 0));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(getAssetEnrichment).not.toHaveBeenCalled();
+    expect(result.current.enrichment).toBeNull();
+    expect(result.current.error).toBeNull();
   });
 });
