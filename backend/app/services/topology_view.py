@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from collections import defaultdict
+from datetime import datetime
+
 from fastapi import HTTPException
 from sqlalchemy import case, func, or_
 from sqlalchemy.orm import joinedload
@@ -7,6 +10,8 @@ from sqlalchemy.orm import joinedload
 from app import models, schemas
 from app.api.common import (
     display_score_expression,
+    derive_risk_band,
+    finding_display_score,
     normalize_risk_band,
     resolve_sorting,
     summary_band_filter,
@@ -27,6 +32,7 @@ from app.repositories.topology import (
     business_unit_counts,
     finding_count_for_asset,
     finding_counts_for_asset_ids,
+    findings_for_business_unit,
     has_topology_schema,
 )
 from app.services.brinqa_detail import BrinqaAuthContext, asset_detail_service
@@ -56,11 +62,15 @@ def get_business_units(db):
             company=_company_summary(business_unit.company),
             business_unit=business_unit.name,
             slug=business_unit.slug,
+            description=business_unit.description,
             metrics=schemas.TopologyMetrics(
                 total_business_services=int(service_counts.get(business_unit.id, 0)),
                 total_assets=int(asset_counts.get(business_unit.id, 0)),
                 total_findings=int(finding_counts.get(business_unit.id, 0)),
             ),
+            risk_score=None,
+            risk_band=None,
+            risk_trend=None,
         )
         for business_unit in business_units
     ]
@@ -121,6 +131,148 @@ def get_business_unit_detail(business_unit_slug: str, db):
             for service in business_services
         ],
     )
+
+
+def get_business_unit_risk_overview(business_unit_slug: str, db):
+    _require_topology_schema(db)
+    business_unit = business_unit_by_slug(db, business_unit_slug)
+    if business_unit is None:
+        raise HTTPException(status_code=404, detail="Business unit not found.")
+
+    findings = findings_for_business_unit(db, business_unit.id, include_asset=True).all()
+    scores: list[float] = []
+    severity_counts = {"Critical": 0, "High": 0, "Medium": 0, "Low": 0}
+    trend_points = _build_business_unit_risk_trend(findings)
+
+    for finding in findings:
+        score = finding_display_score(finding)
+        if score is None:
+            continue
+        scores.append(score)
+        band = derive_risk_band(score)
+        if band in severity_counts:
+            severity_counts[band] += 1
+
+    risk_score = round(sum(scores) / len(scores), 2) if scores else None
+
+    return schemas.BusinessUnitRiskOverview(
+        business_unit=business_unit.name,
+        slug=business_unit.slug,
+        risk_score=risk_score,
+        risk_band=derive_risk_band(risk_score),
+        risk_trend=trend_points,
+        severity_counts=schemas.RiskBandSummary(**severity_counts),
+        finding_risk_distribution=_build_asset_score_distribution(scores),
+    )
+
+
+def get_business_unit_findings(
+    business_unit_slug: str,
+    *,
+    page: int,
+    page_size: int,
+    sort_by: str,
+    sort_order: str,
+    source: str | None,
+    risk_band: str | None,
+    search: str | None,
+    db,
+):
+    _require_topology_schema(db)
+    business_unit = business_unit_by_slug(db, business_unit_slug)
+    if business_unit is None:
+        raise HTTPException(status_code=404, detail="Business unit not found.")
+
+    if source is not None and source.strip() and source.strip().lower() != "brinqa":
+        return schemas.PaginatedFindings(items=[], total=0, page=page, page_size=page_size)
+
+    sort_primary, sort_tie_breaker = resolve_sorting(sort_by, sort_order)
+    query = findings_for_business_unit(db, business_unit.id, include_asset=True)
+    count_query = db.query(func.count(models.Finding.id)).join(
+        models.Asset, models.Finding.asset_id == models.Asset.asset_id
+    )
+    count_query = count_query.filter(models.Asset.business_unit_id == business_unit.id)
+
+    if risk_band is not None:
+        band_filter = summary_band_filter(normalize_risk_band(risk_band))
+        query = query.filter(band_filter)
+        count_query = count_query.filter(band_filter)
+
+    if search is not None and search.strip():
+        term = f"%{search.strip()}%"
+        query = query.filter(
+            or_(
+                models.Finding.finding_name.ilike(term),
+                models.Finding.cve_id.ilike(term),
+                models.Finding.finding_id.ilike(term),
+            )
+        )
+        count_query = count_query.filter(
+            or_(
+                models.Finding.finding_name.ilike(term),
+                models.Finding.cve_id.ilike(term),
+                models.Finding.finding_id.ilike(term),
+            )
+        )
+
+    total = count_query.scalar() or 0
+    if total == 0:
+        return schemas.PaginatedFindings(items=[], total=0, page=page, page_size=page_size)
+
+    offset = (page - 1) * page_size
+    findings = (
+        query.order_by(sort_primary, sort_tie_breaker)
+        .offset(offset)
+        .limit(page_size)
+        .all()
+    )
+    return schemas.PaginatedFindings(
+        items=[to_finding_summary(finding) for finding in findings],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
+
+
+def _month_start(value: datetime) -> datetime:
+    return value.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+
+def _shift_months(value: datetime, months: int) -> datetime:
+    month_index = value.month - 1 + months
+    year = value.year + month_index // 12
+    month = month_index % 12 + 1
+    return value.replace(year=year, month=month, day=1, hour=0, minute=0, second=0, microsecond=0)
+
+
+def _build_business_unit_risk_trend(findings: list[models.Finding]) -> list[schemas.BusinessUnitRiskTrendPoint]:
+    dated_findings: list[tuple[datetime, float]] = []
+    for finding in findings:
+        score = finding_display_score(finding)
+        if score is None:
+            continue
+        timestamp = finding.last_found or finding.first_found or finding.date_created or finding.last_updated
+        if timestamp is None:
+            continue
+        dated_findings.append((timestamp, score))
+
+    if not dated_findings:
+        return []
+
+    latest_month = _month_start(max(timestamp for timestamp, _ in dated_findings))
+    by_month: dict[str, list[float]] = defaultdict(list)
+    for timestamp, score in dated_findings:
+        by_month[_month_start(timestamp).strftime("%b %Y")].append(score)
+
+    trend: list[schemas.BusinessUnitRiskTrendPoint] = []
+    for offset in range(-5, 1):
+        month = _shift_months(latest_month, offset)
+        label = month.strftime("%b %Y")
+        month_scores = by_month.get(label, [])
+        average = round(sum(month_scores) / len(month_scores), 2) if month_scores else 0.0
+        trend.append(schemas.BusinessUnitRiskTrendPoint(period=label, score=average))
+
+    return trend
 
 
 def get_business_service_detail(business_unit_slug: str, business_service_slug: str, db):

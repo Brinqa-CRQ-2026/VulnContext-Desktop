@@ -132,46 +132,45 @@ export function TopologyPageSkeleton({
 export function TopologyOverviewSkeleton() {
   return (
     <section className="space-y-4">
-      <TopologyBreadcrumbs items={[{ label: "Business Units" }]} />
-
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
         {Array.from({ length: 3 }, (_, index) => (
-          <Card key={index}>
-            <CardHeader className="pb-3">
-              <CardTitle>
-                <Skeleton className="h-3 w-28" />
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Skeleton className="h-8 w-20" />
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        {Array.from({ length: 4 }, (_, index) => (
           <div
             key={index}
-            className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+            className="flex aspect-square flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
           >
-            <div className="space-y-5">
-              <div className="space-y-2">
-                <Skeleton className="h-3 w-24" />
-                <Skeleton className="h-8 w-56 max-w-full" />
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <Skeleton className="h-11 w-11 rounded-xl" />
+                <div className="space-y-2">
+                  <Skeleton className="h-3 w-24" />
+                  <Skeleton className="h-8 w-44 max-w-full" />
+                </div>
               </div>
-              <div className="grid gap-3 md:grid-cols-3">
-                {Array.from({ length: 3 }, (_, metricIndex) => (
-                  <div
-                    key={metricIndex}
-                    className="rounded-xl border border-slate-200 bg-slate-50 p-4"
-                  >
-                    <Skeleton className="h-3 w-20" />
-                    <Skeleton className="mt-3 h-7 w-12" />
-                  </div>
-                ))}
-              </div>
+              <Skeleton className="h-7 w-24 rounded-full" />
             </div>
+            <div className="mt-3 space-y-2">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-5/6" />
+            </div>
+            <div className="mt-5 flex items-center justify-between">
+              <Skeleton className="h-3 w-28" />
+              <Skeleton className="h-3 w-24" />
+            </div>
+            <div className="mt-2 flex-1">
+              <Skeleton className="h-full w-full rounded-xl" />
+            </div>
+            <div className="mt-4 grid grid-cols-3 gap-3">
+              {Array.from({ length: 3 }, (_, metricIndex) => (
+                <div
+                  key={metricIndex}
+                  className="rounded-xl border border-slate-200 bg-slate-50 p-3"
+                >
+                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="mt-2 h-7 w-12" />
+                </div>
+              ))}
+            </div>
+            <Skeleton className="mt-4 h-4 w-4/5 border-t border-slate-100 pt-3" />
           </div>
         ))}
       </div>

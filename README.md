@@ -25,7 +25,6 @@ Desktop runtime behavior:
 
 - Electron owns the Brinqa login/logout/reset lifecycle
 - `Log Out` returns the running desktop app to the Brinqa login window
-- `Skip Brinqa` / `UI Only` bypasses Brinqa login and enrichment calls
 - `Shut Down` quits Electron and lets the launcher stop backend and renderer
 - normal window close behaves the same as `Shut Down`
 - next startup prompts for a fresh Brinqa login after shutdown cleanup

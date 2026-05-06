@@ -3,10 +3,7 @@ import {
   readStoredAuthStateFromLocalStorage,
   mfaResponseStorageKey,
 } from "./brinqaAuth";
-import type {
-  BrinqaDesktopAuthApi,
-  BrinqaResetRequest,
-} from "./brinqaDesktopBridge";
+import type { BrinqaDesktopAuthApi, BrinqaResetRequest } from "./brinqaDesktopBridge";
 
 declare global {
   interface Window {
@@ -21,22 +18,6 @@ export function clearBrinqaAuthStateFromRenderer() {
 
   window.localStorage.removeItem(mfaResponseStorageKey);
   window.localStorage.removeItem(brinqaTokenStorageKey);
-}
-
-export function readUiOnlyModeFromRenderer() {
-  if (typeof window === "undefined" || !window.brinqaDesktopAuth) {
-    return false;
-  }
-
-  return window.brinqaDesktopAuth.isUiOnlyMode();
-}
-
-export async function setUiOnlyMode(enabled: boolean) {
-  if (!window.brinqaDesktopAuth) {
-    return false;
-  }
-
-  return window.brinqaDesktopAuth.setUiOnlyMode(enabled);
 }
 
 let pendingSessionReset: Promise<void> | null = null;

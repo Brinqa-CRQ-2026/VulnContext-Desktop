@@ -10,9 +10,11 @@ import type {
   BusinessServiceAnalytics,
   BusinessServiceDetail,
   BusinessUnitDetail,
+  BusinessUnitRiskOverview,
   BusinessUnitSummary,
   FindingsSortBy,
   PaginatedAssets,
+  PaginatedFindings,
   SortOrder,
 } from "./types";
 
@@ -31,6 +33,63 @@ export async function getBusinessUnitDetail(
   return parseJsonOrThrow(
     res,
     `Failed to fetch business unit detail: ${res.status} ${res.statusText}`
+  );
+}
+
+export async function getBusinessUnitRiskOverview(
+  businessUnitSlug: string
+): Promise<BusinessUnitRiskOverview> {
+  const res = await fetch(
+    buildApiUrl(`/topology/business-units/${businessUnitSlug}/risk-overview`)
+  );
+  return parseJsonOrThrow(
+    res,
+    `Failed to fetch business unit risk overview: ${res.status} ${res.statusText}`
+  );
+}
+
+export async function getBusinessUnitFindings(
+  businessUnitSlug: string,
+  {
+    page = 1,
+    pageSize = 10,
+    sortBy = "risk_score",
+    sortOrder = "desc",
+    source = null,
+    riskBand = null,
+    search = null,
+  }: {
+    page?: number;
+    pageSize?: number;
+    sortBy?: FindingsSortBy;
+    sortOrder?: SortOrder;
+    source?: string | null;
+    riskBand?: string | null;
+    search?: string | null;
+  } = {}
+): Promise<PaginatedFindings> {
+  const params = new URLSearchParams({
+    page: String(page),
+    page_size: String(pageSize),
+    sort_by: sortBy,
+    sort_order: sortOrder,
+  });
+  if (source && source.trim()) {
+    params.set("source", source.trim());
+  }
+  if (riskBand && riskBand.trim()) {
+    params.set("risk_band", riskBand.trim());
+  }
+  if (search && search.trim()) {
+    params.set("search", search.trim());
+  }
+
+  const res = await fetch(
+    buildApiUrl(`/topology/business-units/${businessUnitSlug}/findings`, params)
+  );
+  return parseJsonOrThrow(
+    res,
+    `Failed to fetch business unit findings: ${res.status} ${res.statusText}`
   );
 }
 

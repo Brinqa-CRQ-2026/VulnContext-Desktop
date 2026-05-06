@@ -1,22 +1,23 @@
-import { Building2, Network, ShieldAlert } from "lucide-react";
+import { Building2 } from "lucide-react";
 
-import { useBusinessUnits } from "../../hooks/topology/useBusinessUnits";
 import type { BusinessUnitSummary } from "../../api/types";
-import {
-  Empty,
-  EmptyActions,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyIcon,
-  EmptyTitle,
-} from "../ui/empty";
-import { Button } from "../ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
-import { TopologyBreadcrumbs, TopologyOverviewSkeleton } from "./TopologyChrome";
+import { cn } from "../../lib/utils";
+import { useBusinessUnits } from "../../hooks/topology/useBusinessUnits";
+import { TopologyOverviewSkeleton } from "./TopologyChrome";
 
 interface BusinessServicesOverviewProps {
   refreshToken: number;
   onOpenBusinessUnit: (businessUnit: BusinessUnitSummary) => void;
+}
+
+interface CompanyCardModel {
+  businessUnit: BusinessUnitSummary;
+  companyName: string;
+  businessUnitName: string;
+  description: string;
+  initials: string;
+  businessServices: number;
+  assets: number;
 }
 
 export function BusinessServicesOverview({
@@ -32,11 +33,15 @@ export function BusinessServicesOverview({
   if (error) {
     return (
       <TopologyEmptyState
-        title={isTopologyUnavailable(error) ? "Topology schema not initialized" : "Unable to load business units"}
+        title={
+          isTopologyUnavailable(error)
+            ? "Topology schema not initialized"
+            : "Unable to load companies"
+        }
         description={
           isTopologyUnavailable(error)
             ? error
-            : "The business-unit overview could not be loaded from the backend."
+            : "The company overview could not be loaded from the backend."
         }
       />
     );
@@ -45,120 +50,152 @@ export function BusinessServicesOverview({
   if (businessUnits.length === 0) {
     return (
       <TopologyEmptyState
-        title="No business units found"
-        description="The topology endpoints are live, but the backend returned no business units."
+        title="No companies found"
+        description="The topology endpoints are live, but the backend returned no company records."
       />
     );
   }
 
-  const totals = businessUnits.reduce(
-    (acc, businessUnit) => ({
-      totalBusinessUnits: acc.totalBusinessUnits + 1,
-      totalBusinessServices:
-        acc.totalBusinessServices + businessUnit.metrics.total_business_services,
-      totalFindings: acc.totalFindings + businessUnit.metrics.total_findings,
-    }),
-    { totalBusinessUnits: 0, totalBusinessServices: 0, totalFindings: 0 }
-  );
-
+  const cards = buildCompanyCards(businessUnits);
   return (
     <section className="space-y-4">
-      <TopologyBreadcrumbs items={[{ label: "Business Units" }]} />
-
-      <div className="grid gap-4 md:grid-cols-3">
-        <SummaryCard label="Business units" value={totals.totalBusinessUnits} />
-        <SummaryCard
-          label="Business services"
-          value={totals.totalBusinessServices}
-        />
-        <SummaryCard label="Open findings" value={totals.totalFindings} />
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        {businessUnits.map((businessUnit) => (
-          <button
-            key={businessUnit.slug}
-            type="button"
-            onClick={() => onOpenBusinessUnit(businessUnit)}
-            className="rounded-2xl border border-slate-200 bg-white p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"
-          >
-            <div className="flex h-full flex-col gap-6">
-              <div className="space-y-2">
-                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                  {businessUnit.company?.name ?? "Unassigned company"}
-                </div>
-                <div className="text-2xl font-semibold tracking-tight text-slate-950">
-                  {businessUnit.business_unit}
-                </div>
-              </div>
-
-              <div className="grid gap-3 md:grid-cols-3">
-                <InlineMetric
-                  icon={Building2}
-                  value={businessUnit.metrics.total_business_services}
-                  label="Business services"
-                />
-                <InlineMetric
-                  icon={Network}
-                  value={businessUnit.metrics.total_assets}
-                  label="Assets"
-                />
-                <InlineMetric
-                  icon={ShieldAlert}
-                  value={businessUnit.metrics.total_findings}
-                  label="Findings"
-                />
-              </div>
-            </div>
-          </button>
+      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+        {cards.map((card) => (
+          <CompanyCard
+            key={card.businessUnit.slug}
+            card={card}
+            onClick={() => onOpenBusinessUnit(card.businessUnit)}
+          />
         ))}
       </div>
     </section>
   );
 }
 
-interface SummaryCardProps {
-  label: string;
-  value: number;
-}
-
-function SummaryCard({ label, value }: SummaryCardProps) {
+function CompanyCard({
+  card,
+  onClick,
+}: {
+  card: CompanyCardModel;
+  onClick: () => void;
+}) {
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-          {label}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="text-3xl font-bold text-slate-900">
-          {value.toLocaleString()}
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={`Open ${card.companyName} company card`}
+      className="group flex h-full w-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-slate-950/10"
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0 space-y-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-100 text-sm font-semibold tracking-[0.16em] text-slate-700 shadow-none">
+            {card.initials}
+          </div>
+          <div className="space-y-1">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+              {card.businessUnitName}
+            </div>
+            <h3 className="text-2xl font-semibold tracking-tight text-slate-950">
+              {card.companyName}
+            </h3>
+          </div>
         </div>
-      </CardContent>
-    </Card>
+        <span className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600">
+          Risk pending
+        </span>
+      </div>
+
+      <p
+        className="mt-3 text-sm leading-6 text-slate-500"
+        style={{
+          display: "-webkit-box",
+          WebkitBoxOrient: "vertical",
+          WebkitLineClamp: 2,
+          overflow: "hidden",
+        }}
+      >
+        {card.description}
+      </p>
+
+      <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Risk over time
+            </div>
+            <p className="mt-1 text-sm text-slate-500">
+              No historical risk data is available yet
+            </p>
+          </div>
+          <span className="text-sm font-semibold tracking-tight text-slate-500">
+            No data
+          </span>
+        </div>
+        <div className="mt-3 flex h-[156px] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white text-sm font-medium text-slate-400">
+          No risk trend data yet
+        </div>
+      </div>
+
+      <div className="mt-4 border-t border-slate-100 pt-3">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm leading-6 lg:grid-cols-3">
+          <InlineMetric label="Business services" value={card.businessServices} />
+          <InlineMetric label="Assets" value={card.assets} />
+          <InlineMetric label="Findings" value={card.businessUnit.metrics.total_findings} />
+        </div>
+      </div>
+    </button>
   );
 }
 
 function InlineMetric({
-  icon: Icon,
-  value,
   label,
+  value,
+  valueClassName,
 }: {
-  icon: typeof Building2;
-  value: number;
   label: string;
+  value: number;
+  valueClassName?: string;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-      <div className="flex items-center gap-2 text-slate-500">
-        <Icon className="h-4 w-4" />
-        <span className="text-xs font-semibold uppercase tracking-wide">{label}</span>
-      </div>
-      <div className="mt-3 text-2xl font-semibold text-slate-950">
+    <div className="flex items-baseline gap-2">
+      <span className={cn("text-xl font-semibold tracking-tight text-slate-950", valueClassName)}>
         {value.toLocaleString()}
-      </div>
+      </span>
+      <span className="text-sm font-medium text-slate-500">{label}</span>
     </div>
   );
+}
+
+function buildCompanyCards(businessUnits: BusinessUnitSummary[]): CompanyCardModel[] {
+  const sortedBusinessUnits = [...businessUnits].sort(
+    (left, right) => right.metrics.total_findings - left.metrics.total_findings
+  );
+
+  return sortedBusinessUnits.map((businessUnit) => {
+    const companyName = businessUnit.company?.name ?? "Unassigned company";
+    const description =
+      businessUnit.description ??
+      `Live business-unit coverage for ${businessUnit.business_unit} with ${businessUnit.metrics.total_business_services.toLocaleString()} services and ${businessUnit.metrics.total_assets.toLocaleString()} assets.`;
+
+    return {
+      businessUnit,
+      companyName,
+      businessUnitName: businessUnit.business_unit,
+      description,
+      initials: buildInitials(companyName),
+      businessServices: businessUnit.metrics.total_business_services,
+      assets: businessUnit.metrics.total_assets,
+    };
+  });
+}
+
+function buildInitials(value: string) {
+  return value
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join("");
 }
 
 function TopologyEmptyState({
@@ -169,20 +206,17 @@ function TopologyEmptyState({
   description: string;
 }) {
   return (
-    <Empty>
-      <EmptyIcon>
-        <Building2 className="h-5 w-5" />
-      </EmptyIcon>
-      <EmptyHeader>
-        <EmptyTitle>{title}</EmptyTitle>
-        <EmptyDescription>{description}</EmptyDescription>
-      </EmptyHeader>
-      <EmptyActions>
-        <Button variant="outline" disabled>
-          Live topology only
-        </Button>
-      </EmptyActions>
-    </Empty>
+    <div className="rounded-2xl border border-slate-200 bg-white p-10 shadow-sm">
+      <div className="flex flex-col items-center gap-3 text-center">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-500">
+          <Building2 className="h-5 w-5" />
+        </div>
+        <div className="space-y-1">
+          <h2 className="text-lg font-semibold tracking-tight text-slate-950">{title}</h2>
+          <p className="max-w-xl text-sm leading-6 text-slate-500">{description}</p>
+        </div>
+      </div>
+    </div>
   );
 }
 

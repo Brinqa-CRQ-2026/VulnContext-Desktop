@@ -131,11 +131,20 @@ class CompanySummary(BaseModel):
     name: str
 
 
+class BusinessUnitRiskTrendPoint(BaseModel):
+    period: str
+    score: float
+
+
 class BusinessUnitSummary(BaseModel):
     company: CompanySummary | None = None
     business_unit: str
     slug: str
+    description: str | None = None
     metrics: TopologyMetrics
+    risk_score: float | None = None
+    risk_band: str | None = None
+    risk_trend: list[BusinessUnitRiskTrendPoint] | None = None
 
 
 class BusinessServiceSummary(BaseModel):
@@ -360,6 +369,18 @@ class BusinessUnitDetail(BaseModel):
     source_updated_at: datetime | None = None
     metrics: TopologyMetrics
     business_services: list[BusinessServiceSummary]
+
+
+class BusinessUnitRiskOverview(BaseModel):
+    business_unit: str
+    slug: str
+    risk_score: float | None = None
+    risk_band: str | None = None
+    risk_trend: list[BusinessUnitRiskTrendPoint] = Field(default_factory=list)
+    severity_counts: RiskBandSummary = Field(default_factory=RiskBandSummary)
+    finding_risk_distribution: AssetScoreDistribution = Field(
+        default_factory=AssetScoreDistribution
+    )
 
 
 class BusinessServiceDetail(BaseModel):

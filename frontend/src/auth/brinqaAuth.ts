@@ -1,5 +1,3 @@
-import type { BrinqaDesktopAuthApi } from "./brinqaDesktopBridge";
-
 export const mfaResponseStorageKey = "brinqaMfaResponse";
 export const brinqaTokenStorageKey = "brinqaAuthToken";
 
@@ -114,20 +112,7 @@ export function readStoredAuthStateFromLocalStorage(): StoredAuthState {
   };
 }
 
-export function isUiOnlyModeEnabled(): boolean {
-  if (typeof window === "undefined") {
-    return false;
-  }
-
-  const api = (window as Window & { brinqaDesktopAuth?: BrinqaDesktopAuthApi }).brinqaDesktopAuth;
-  return api?.isUiOnlyMode?.() ?? false;
-}
-
 export function buildStoredBrinqaAuthHeaders(): Record<string, string> {
-  if (isUiOnlyModeEnabled()) {
-    return {};
-  }
-
   const { authToken } = readStoredAuthStateFromLocalStorage();
   if (!authToken) {
     return {};

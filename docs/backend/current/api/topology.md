@@ -31,7 +31,8 @@ These routes power the topology drill-down experience and the asset browsing sur
 ### `GET /topology/business-units`
 
 - returns a list of business units ordered by name
-- includes company data and aggregate counts for services, assets, and findings
+- includes company data, business-unit description, and aggregate counts for services, assets, and findings
+- includes nullable `risk_score`, `risk_band`, and `risk_trend` placeholders until business-unit scoring is implemented
 - returns `503` when the normalized topology tables are missing
 
 ### `GET /topology/business-units/{business_unit_slug}`
@@ -168,4 +169,3 @@ Behavior notes:
 - summarizes the full filtered finding set for the asset
 - returns total findings, KEV findings, critical/high findings, highest risk band, average and max risk scores, oldest priority age, and risk-band counts
 - uses the same finding filters as the asset findings list route
-

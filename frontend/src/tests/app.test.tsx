@@ -5,18 +5,8 @@ const { requestBrinqaSessionReset } = vi.hoisted(() => ({
   requestBrinqaSessionReset: vi.fn(),
 }));
 
-const { readUiOnlyModeFromRenderer } = vi.hoisted(() => ({
-  readUiOnlyModeFromRenderer: vi.fn(),
-}));
-
-const { setUiOnlyMode } = vi.hoisted(() => ({
-  setUiOnlyMode: vi.fn(),
-}));
-
 vi.mock("../auth/electronBrinqa", () => ({
   requestBrinqaSessionReset,
-  readUiOnlyModeFromRenderer,
-  setUiOnlyMode,
 }));
 
 vi.mock("../components/layout/Header", () => ({
@@ -25,33 +15,23 @@ vi.mock("../components/layout/Header", () => ({
     onNavigate,
     onLogout,
     onShutdown,
-    onToggleUiOnlyMode,
-    uiOnlyMode,
     logoutPending,
     shutdownPending,
-    uiOnlyModePending,
   }: {
     page: string;
     onNavigate: (page: "findings" | "integrations" | "business-services") => void;
     onLogout: () => void;
     onShutdown: () => void;
-    onToggleUiOnlyMode: () => void;
-    uiOnlyMode: boolean;
     logoutPending?: boolean;
     shutdownPending?: boolean;
-    uiOnlyModePending?: boolean;
   }) => (
     <div>
       <div>{`header:${page}`}</div>
-      <div>{`header-ui-only:${uiOnlyMode ? "on" : "off"}`}</div>
       <a href="#/business-services">header-home</a>
       <button onClick={() => onNavigate("findings")}>header-findings</button>
       <button onClick={() => onNavigate("integrations")}>header-integrations</button>
       <button onClick={() => onNavigate("business-services")}>
         header-business-services
-      </button>
-      <button disabled={uiOnlyModePending} onClick={onToggleUiOnlyMode}>
-        header-ui-only-toggle
       </button>
       <button disabled={logoutPending} onClick={onLogout}>
         header-logout
@@ -280,10 +260,6 @@ describe("App", () => {
   beforeEach(() => {
     window.location.hash = "";
     requestBrinqaSessionReset.mockReset();
-    readUiOnlyModeFromRenderer.mockReset();
-    setUiOnlyMode.mockReset();
-    readUiOnlyModeFromRenderer.mockReturnValue(false);
-    setUiOnlyMode.mockResolvedValue(false);
     requestBrinqaSessionReset.mockResolvedValue(undefined);
   });
 
@@ -292,7 +268,7 @@ describe("App", () => {
 
     expect(screen.getByText("business-services-overview")).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "Business Unit Overview" })
+      screen.getByRole("heading", { name: "Company Overview" })
     ).toBeInTheDocument();
   });
 
@@ -314,7 +290,7 @@ describe("App", () => {
     fireEvent.click(screen.getByText("header-business-services"));
     await screen.findByText("business-services-overview");
     expect(
-      screen.getByRole("heading", { name: "Business Unit Overview" })
+      screen.getByRole("heading", { name: "Company Overview" })
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByText("open-business-unit"));
@@ -432,15 +408,5 @@ describe("App", () => {
         quitApp: true,
       })
     );
-  });
-
-  it("can toggle ui-only mode from the header", async () => {
-    setUiOnlyMode.mockResolvedValue(true);
-
-    render(<App />);
-
-    fireEvent.click(screen.getByText("header-ui-only-toggle"));
-
-    await waitFor(() => expect(setUiOnlyMode).toHaveBeenCalledWith(true));
   });
 });

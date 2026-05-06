@@ -42,6 +42,27 @@ def finding_counts_for_asset_ids(db: Session, asset_ids: list[str]) -> dict[str,
     return {asset_id: int(count) for asset_id, count in rows}
 
 
+def findings_for_business_unit(db: Session, business_unit_id: str, *, include_asset: bool = False):
+    query = (
+        db.query(models.Finding)
+        .join(models.Asset, models.Finding.asset_id == models.Asset.asset_id)
+        .filter(models.Asset.business_unit_id == business_unit_id)
+    )
+    if include_asset:
+        query = query.options(joinedload(models.Finding.asset))
+    return query
+
+
+def finding_count_for_business_unit(db: Session, business_unit_id: str) -> int:
+    return (
+        db.query(func.count(models.Finding.id))
+        .join(models.Asset, models.Finding.asset_id == models.Asset.asset_id)
+        .filter(models.Asset.business_unit_id == business_unit_id)
+        .scalar()
+        or 0
+    )
+
+
 def business_unit_counts(db: Session) -> tuple[dict[str, int], dict[str, int], dict[str, int]]:
     service_counts = dict(
         db.query(models.BusinessService.business_unit_id, func.count(models.BusinessService.id))
@@ -170,4 +191,3 @@ def asset_by_id(db: Session, asset_id: str):
 
 def finding_count_for_asset(db: Session, asset_id: str) -> int:
     return db.query(func.count(models.Finding.id)).filter(models.Finding.asset_id == asset_id).scalar() or 0
-

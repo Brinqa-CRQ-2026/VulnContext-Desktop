@@ -217,11 +217,30 @@ export interface CompanySummary {
   name: string;
 }
 
+export interface BusinessUnitRiskTrendPoint {
+  period: string;
+  score: number;
+}
+
 export interface BusinessUnitSummary {
   company: CompanySummary | null;
   business_unit: string;
   slug: string;
+  description: string | null;
   metrics: TopologyMetrics;
+  risk_score: number | null;
+  risk_band: "High" | "Medium" | "Low" | string | null;
+  risk_trend: BusinessUnitRiskTrendPoint[] | null;
+}
+
+export interface BusinessUnitRiskOverview {
+  business_unit: string;
+  slug: string;
+  risk_score: number | null;
+  risk_band: "Critical" | "High" | "Medium" | "Low" | string | null;
+  risk_trend: BusinessUnitRiskTrendPoint[];
+  severity_counts: RiskBandSummary;
+  finding_risk_distribution: AssetScoreDistribution;
 }
 
 export interface BusinessServiceSummary {

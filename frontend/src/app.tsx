@@ -10,11 +10,7 @@ import { AssetFindingsPage } from "./components/business-services/AssetFindingsP
 import { BusinessServiceDetailPage } from "./components/business-services/BusinessServiceDetailPage";
 import { BusinessUnitDetailPage } from "./components/business-services/BusinessUnitDetailPage";
 import { BusinessServicesOverview } from "./components/business-services/BusinessServicesOverview";
-import {
-  readUiOnlyModeFromRenderer,
-  requestBrinqaSessionReset,
-  setUiOnlyMode,
-} from "./auth/electronBrinqa";
+import { requestBrinqaSessionReset } from "./auth/electronBrinqa";
 import { Button } from "./components/ui/button";
 import { cn } from "./lib/utils";
 import type {
@@ -205,8 +201,6 @@ function App() {
   const [refreshToken, setRefreshToken] = useState(0);
   const [logoutPending, setLogoutPending] = useState(false);
   const [shutdownPending, setShutdownPending] = useState(false);
-  const [uiOnlyMode, setUiOnlyModeState] = useState(() => readUiOnlyModeFromRenderer());
-  const [uiOnlyModePending, setUiOnlyModePending] = useState(false);
 
   useEffect(() => {
     if (!window.location.hash && !parsePathRoute(window.location.pathname)) {
@@ -262,17 +256,6 @@ function App() {
       });
     } finally {
       setShutdownPending(false);
-    }
-  };
-
-  const handleToggleUiOnlyMode = async () => {
-    setUiOnlyModePending(true);
-
-    try {
-      const nextMode = await setUiOnlyMode(!uiOnlyMode);
-      setUiOnlyModeState(nextMode);
-    } finally {
-      setUiOnlyModePending(false);
     }
   };
 
@@ -431,7 +414,7 @@ function App() {
             ? "Business Service Detail"
             : inBusinessUnitDetail
               ? "Business Unit Detail"
-              : "Business Unit Overview",
+              : "Company Overview",
       description: inAssetFindings
         ? "Read-only drill-down for all findings attached to the selected asset."
         : inApplicationDetail
@@ -440,7 +423,7 @@ function App() {
             ? "Applications and direct assets under the selected business service."
             : inBusinessUnitDetail
               ? "Business services and current counts for the selected business unit."
-              : "Live topology landing page using business units as the top-level entry point.",
+              : "Company-first landing page using live business units as the source data.",
     },
   } as const;
 
@@ -449,7 +432,7 @@ function App() {
     label: string;
     icon: typeof ListFilter;
   }> = [
-    { id: "business-services", label: "Business Services", icon: BriefcaseBusiness },
+    { id: "business-services", label: "Companies", icon: BriefcaseBusiness },
     { id: "findings", label: "Findings", icon: ListFilter },
     { id: "integrations", label: "Sources", icon: PlugZap },
   ];
@@ -461,11 +444,8 @@ function App() {
         onNavigate={navigateTo}
         onLogout={handleLogout}
         onShutdown={handleShutdown}
-        onToggleUiOnlyMode={handleToggleUiOnlyMode}
-        uiOnlyMode={uiOnlyMode}
         logoutPending={logoutPending}
         shutdownPending={shutdownPending}
-        uiOnlyModePending={uiOnlyModePending}
       />
       <div className="flex min-h-0 flex-1">
         <aside className="hidden w-64 shrink-0 border-r border-slate-200 bg-neutral-100 p-3 md:block">
@@ -504,11 +484,6 @@ function App() {
               </h1>
               {pageMeta[page].description ? (
                 <p className="mt-1 text-sm text-slate-500">{pageMeta[page].description}</p>
-              ) : null}
-              {uiOnlyMode ? (
-                <p className="mt-2 text-xs font-medium uppercase tracking-wide text-emerald-700">
-                  UI-only mode is on. Brinqa login and enrichment calls are skipped.
-                </p>
               ) : null}
             </section>
 

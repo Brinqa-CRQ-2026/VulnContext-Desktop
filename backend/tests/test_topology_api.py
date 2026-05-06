@@ -418,15 +418,29 @@ def test_business_unit_routes_return_seeded_topology_with_rollups(client, db_ses
 
     online_store = next(item for item in payload if item["business_unit"] == "Online Store")
     assert online_store["company"]["name"] == "Virtucon"
+    assert online_store["description"] == (
+        "All online presence and operation including storefront and inventory "
+        "systems as well as customer facing interactions."
+    )
     assert online_store["metrics"]["total_business_services"] == 3
     assert online_store["metrics"]["total_assets"] == 4
     assert online_store["metrics"]["total_findings"] == 5
+    assert online_store["risk_score"] is None
+    assert online_store["risk_band"] is None
+    assert online_store["risk_trend"] is None
 
     manufacturing = next(item for item in payload if item["business_unit"] == "Manufacturing")
     assert manufacturing["company"]["name"] == "Cyberdyne Systems"
+    assert manufacturing["description"] == (
+        "All development procedures and device manufacturing related services "
+        "from warehouses to automated robotics."
+    )
     assert manufacturing["metrics"]["total_business_services"] == 2
     assert manufacturing["metrics"]["total_assets"] == 1
     assert manufacturing["metrics"]["total_findings"] == 2
+    assert manufacturing["risk_score"] is None
+    assert manufacturing["risk_band"] is None
+    assert manufacturing["risk_trend"] is None
 
     online_store_detail = client.get("/topology/business-units/online-store")
     assert online_store_detail.status_code == 200
@@ -439,6 +453,89 @@ def test_business_unit_routes_return_seeded_topology_with_rollups(client, db_ses
     manufacturing_payload = manufacturing_detail.json()
     assert manufacturing_payload["business_unit"] == "Manufacturing"
     assert len(manufacturing_payload["business_services"]) == 2
+
+
+def test_business_unit_risk_overview_and_findings_routes_scope_and_aggregate_data(
+    client, db_session
+):
+    seed_topology(db_session)
+    seed_asset(
+        db_session,
+        asset_id="asset-risk-1",
+        hostname="asset-risk-1-host",
+        business_service="Digital Storefront",
+        application="Identity Verify",
+        finding_risks=[9.0, 7.0],
+    )
+    seed_asset(
+        db_session,
+        asset_id="asset-risk-2",
+        hostname="asset-risk-2-host",
+        business_service="Digital Storefront",
+        application="Identity Verify",
+        finding_risks=[3.0],
+    )
+    backfill_asset_topology_foreign_keys(db_session)
+    db_session.commit()
+
+    overview = client.get("/topology/business-units/online-store/risk-overview")
+    assert overview.status_code == 200
+    overview_payload = overview.json()
+    assert overview_payload["business_unit"] == "Online Store"
+    assert overview_payload["slug"] == "online-store"
+    assert overview_payload["risk_score"] == 6.33
+    assert overview_payload["risk_band"] == "Medium"
+    assert overview_payload["severity_counts"] == {
+        "Critical": 1,
+        "High": 1,
+        "Medium": 0,
+        "Low": 1,
+    }
+    assert overview_payload["finding_risk_distribution"] == {
+        "low": 1,
+        "medium": 0,
+        "high": 1,
+        "critical": 1,
+        "unscored": 0,
+    }
+    assert len(overview_payload["risk_trend"]) == 6
+    assert overview_payload["risk_trend"][-1] == {"period": "Jan 2024", "score": 6.33}
+
+    findings = client.get(
+        "/topology/business-units/online-store/findings?page=1&page_size=2&sort_by=risk_score&sort_order=desc"
+    )
+    assert findings.status_code == 200
+    findings_payload = findings.json()
+    assert findings_payload["total"] == 3
+    assert findings_payload["page"] == 1
+    assert findings_payload["page_size"] == 2
+    assert [item["id"] for item in findings_payload["items"]] == [
+        "asset-risk-1-finding-1",
+        "asset-risk-1-finding-2",
+    ]
+    assert findings_payload["items"][0]["target_names"] == "asset-risk-1-host"
+
+    filtered = client.get("/topology/business-units/online-store/findings?risk_band=High")
+    assert filtered.status_code == 200
+    filtered_payload = filtered.json()
+    assert filtered_payload["total"] == 1
+    assert filtered_payload["items"][0]["risk_band"] == "High"
+
+    missing = client.get("/topology/business-units/does-not-exist/risk-overview")
+    assert missing.status_code == 404
+
+
+def test_business_unit_risk_routes_return_503_when_topology_schema_is_missing(
+    client, db_session, monkeypatch
+):
+    seed_topology(db_session)
+    monkeypatch.setattr(topology_api, "_has_topology_schema", lambda db: False)
+
+    overview = client.get("/topology/business-units/online-store/risk-overview")
+    findings = client.get("/topology/business-units/online-store/findings")
+
+    assert overview.status_code == 503
+    assert findings.status_code == 503
 
 
 def test_business_service_and_application_routes_return_direct_assets_and_asset_lists(client, db_session):

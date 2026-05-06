@@ -64,6 +64,9 @@ export function AssetDistributionChartCard({
   countUnit,
   loading,
   error,
+  cardClassName,
+  chartContainerClassName,
+  emptyMessage,
 }: {
   title: string;
   description: string;
@@ -72,12 +75,20 @@ export function AssetDistributionChartCard({
   countUnit: string;
   loading: boolean;
   error: string | null;
+  cardClassName?: string;
+  chartContainerClassName?: string;
+  emptyMessage?: string;
 }) {
   const chartData = toChartRows(distribution);
   const hasData = chartData.some((row) => row.count > 0);
 
   return (
-    <Card className="overflow-hidden border-slate-200 bg-white">
+    <Card
+      className={cn(
+        "overflow-hidden border-slate-200 bg-white",
+        cardClassName ?? ""
+      )}
+    >
       <CardHeader className="gap-2 border-b border-slate-200/80 bg-white">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -89,16 +100,22 @@ export function AssetDistributionChartCard({
           </div>
         </div>
       </CardHeader>
-      <CardContent className="pt-5">
+      <CardContent className="flex flex-1 flex-col pt-5">
         {loading ? (
           <ChartPlaceholder>Loading distribution…</ChartPlaceholder>
         ) : error ? (
           <ChartPlaceholder tone="error">{error}</ChartPlaceholder>
         ) : !hasData ? (
-          <ChartPlaceholder>No assets match the current filters.</ChartPlaceholder>
+          <ChartPlaceholder>{emptyMessage ?? "No assets match the current filters."}</ChartPlaceholder>
         ) : (
           <>
-            <ChartContainer config={chartConfig} className="h-[250px] w-full">
+            <ChartContainer
+              config={chartConfig}
+              className={cn(
+                "h-[250px] w-full",
+                chartContainerClassName ?? ""
+              )}
+            >
               <BarChart
                 accessibilityLayer
                 data={chartData}
@@ -153,7 +170,8 @@ function ChartPlaceholder({
   return (
     <div
       className={cn(
-        "flex h-[260px] items-center justify-center rounded-xl border border-dashed text-sm",
+        "flex items-center justify-center rounded-xl border border-dashed text-sm",
+        "min-h-[250px]",
         tone === "error"
           ? "border-rose-200 bg-rose-50 text-rose-700"
           : "border-slate-200 bg-slate-50/70 text-slate-500"

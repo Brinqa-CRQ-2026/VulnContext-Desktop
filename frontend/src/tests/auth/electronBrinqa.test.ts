@@ -18,8 +18,6 @@ describe("electronBrinqa", () => {
     const resetSession = vi.fn().mockResolvedValue(undefined);
     window.brinqaDesktopAuth = {
       resetSession,
-      isUiOnlyMode: () => false,
-      setUiOnlyMode: vi.fn().mockResolvedValue(false),
     };
 
     const { requestBrinqaSessionReset } = await loadModule();
@@ -46,8 +44,6 @@ describe("electronBrinqa", () => {
     const resetSession = vi.fn().mockResolvedValue(undefined);
     window.brinqaDesktopAuth = {
       resetSession,
-      isUiOnlyMode: () => false,
-      setUiOnlyMode: vi.fn().mockResolvedValue(false),
     };
 
     const { requestBrinqaSessionReset } = await loadModule();
