@@ -4,6 +4,7 @@
 
 - API tests cover the active read-only findings, sources, topology, and shared client modules.
 - Hook tests cover dashboard, findings, topology, and source-summary loading behavior.
+- Type tests cover shared frontend type unions and contract-critical DTO assumptions.
 - App-shell tests cover routing through findings, sources, topology drill-down paths, and header-triggered logout/shutdown actions.
 - Component tests cover active page components such as integrations/source summary and topology pages.
 - Auth bridge tests cover renderer reset behavior and deduping.
@@ -27,3 +28,12 @@ The suite no longer needs direct coverage for:
 - source rename/delete helpers
 
 Those features are not part of the active runtime.
+
+## Frontend Change Checklist
+
+For frontend code changes, run:
+
+- `cd frontend && npm test`
+- `cd frontend && npm run build`
+
+For docs-only changes, validate links and stale path references with `rg` before committing.
