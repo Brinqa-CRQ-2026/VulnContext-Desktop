@@ -77,6 +77,19 @@ describe("FindingDetailPage", () => {
       />
     );
 
+    expect(screen.getAllByText("Finding").length).toBeGreaterThan(0);
+    expect(screen.getByText("OpenSSL Vulnerability")).toBeInTheDocument();
+    expect(screen.getByText("Source: Qualys")).toBeInTheDocument();
+    expect(screen.getByText("High / 8.7")).toBeInTheDocument();
+    expect(screen.getByText("CVE: CVE-2025-0001")).toBeInTheDocument();
+    expect(screen.getByText("Status: Open / Active")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Back to Findings/i })).toBeInTheDocument();
+    expect(screen.getByText("Display Risk")).toBeInTheDocument();
+    expect(screen.getByText("Vendor Risk")).toBeInTheDocument();
+    expect(screen.getByText("CVSS")).toBeInTheDocument();
+    expect(screen.getByText("EPSS")).toBeInTheDocument();
+    expect(screen.getByText("Age")).toBeInTheDocument();
+    expect(screen.getByText("Percentile 0.9912")).toBeInTheDocument();
     expect(screen.getByText("Action Snapshot")).toBeInTheDocument();
     expect(screen.getByText("Finding Overview")).toBeInTheDocument();
     expect(screen.getByText("Remediation")).toBeInTheDocument();

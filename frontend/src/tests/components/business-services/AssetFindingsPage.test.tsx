@@ -198,23 +198,32 @@ describe("AssetFindingsPage", () => {
       />
     );
 
-    expect(screen.getByText("Asset overview")).toBeInTheDocument();
+    expect(screen.queryByText("Asset overview")).not.toBeInTheDocument();
     expect(screen.getByText("Finding risk spread")).toBeInTheDocument();
-    expect(screen.getByText("Priority spotlight")).toBeInTheDocument();
-    expect(screen.getByText("Enrichment loaded")).toBeInTheDocument();
-    expect(screen.getByText("Asset criticality score")).toBeInTheDocument();
-    expect(screen.getByText("Asset risk score")).toBeInTheDocument();
-    expect(screen.getByText("9.0")).toBeInTheDocument();
-    expect(screen.getByText("8.7")).toBeInTheDocument();
-    expect(screen.getByText("KEV findings")).toBeInTheDocument();
-    const priorityCard = screen.getByText("Priority spotlight").closest("div");
+    expect(screen.queryByText("Asset Findings")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Digital Storefront").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("identity-verify-01").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Server").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Asset ID asset-10")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Back to Asset List/i })).toBeInTheDocument();
+    expect(screen.getAllByText("Active").length).toBeGreaterThan(0);
+    expect(screen.getByText("production")).toBeInTheDocument();
+    expect(screen.getByText("Compute")).toBeInTheDocument();
+    expect(screen.getByText("Internal")).toBeInTheDocument();
+    expect(screen.getByText("High Risk Findings")).toBeInTheDocument();
+    expect(screen.queryByText("Enrichment loaded")).not.toBeInTheDocument();
+    expect(screen.getByText("Asset Criticality Score")).toBeInTheDocument();
+    expect(screen.getByText("Asset Risk Score")).toBeInTheDocument();
+    expect(screen.getByText("7.3")).toBeInTheDocument();
+    expect(screen.getByText("9.3")).toBeInTheDocument();
+    expect(screen.getByText("KEV Findings")).toBeInTheDocument();
+    const priorityCard = screen.getByText("High Risk Findings").closest(".rounded-xl");
     expect(priorityCard).not.toBeNull();
-    expect(within(priorityCard as HTMLElement).getByText("3")).toBeInTheDocument();
-    expect(within(priorityCard as HTMLElement).getByText("High risk findings")).toBeInTheDocument();
+    expect(within(priorityCard as HTMLElement).getByText("26")).toBeInTheDocument();
     expect(screen.queryByText("Highest band")).not.toBeInTheDocument();
     expect(screen.queryByText("Brinqa Enrichment Probe")).not.toBeInTheDocument();
     expect(screen.queryByText("Run Brinqa enrichment")).not.toBeInTheDocument();
-    expect(screen.getByText("asset-owner")).toBeInTheDocument();
+    expect(screen.queryByText("asset-owner")).not.toBeInTheDocument();
     expect(screen.queryByText("Business Unit")).not.toBeInTheDocument();
     expect(screen.queryByText("Last Scanned")).not.toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: /Risk band/i })).toBeInTheDocument();
@@ -287,9 +296,11 @@ describe("AssetFindingsPage", () => {
       />
     );
 
-    expect(screen.getByText("Missing Brinqa token")).toBeInTheDocument();
+    expect(screen.queryByText("Missing Brinqa token")).not.toBeInTheDocument();
     expect(screen.getByRole("table")).toBeInTheDocument();
-    expect(screen.getByText("Asset overview")).toBeInTheDocument();
+    expect(screen.queryByText("Asset overview")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Active").length).toBeGreaterThan(0);
+    expect(screen.getByText("production")).toBeInTheDocument();
   });
 
   it("shows partial or unauthorized enrichment states without hiding findings", () => {
@@ -310,7 +321,7 @@ describe("AssetFindingsPage", () => {
       />
     );
 
-    expect(screen.getByText("Partial enrichment")).toBeInTheDocument();
+    expect(screen.queryByText("Partial enrichment")).not.toBeInTheDocument();
     expect(screen.getByText("Remote Code Execution")).toBeInTheDocument();
 
     seedFindingsHook();
@@ -329,7 +340,7 @@ describe("AssetFindingsPage", () => {
       />
     );
 
-    expect(screen.getByText("Unauthorized")).toBeInTheDocument();
+    expect(screen.queryByText("Unauthorized")).not.toBeInTheDocument();
     expect(screen.getByRole("table")).toBeInTheDocument();
   });
 

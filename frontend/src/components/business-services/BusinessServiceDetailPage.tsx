@@ -1,5 +1,5 @@
 import { Layers3 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Bar, BarChart, CartesianGrid, Pie, PieChart, XAxis } from "recharts";
 
 import type {
@@ -9,15 +9,9 @@ import type {
 import { useBusinessServiceDetail } from "../../hooks/topology/useBusinessServiceDetail";
 import type { ApplicationSummary, AssetSummary } from "../../api/types";
 import { useBusinessServiceAnalytics } from "../../hooks/topology/useBusinessServiceAnalytics";
-import {
-  type ApplicationSortKey,
-  ApplicationsDrillDownTable,
-  type SortState,
-} from "./DrillDownTables";
 import { AssetInventoryPanel } from "./AssetInventoryPanel";
 import {
   formatSlugLabel,
-  TopologyBreadcrumbs,
   TopologyPageSkeleton,
 } from "./TopologyChrome";
 import {
@@ -37,7 +31,10 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "../ui/chart";
-import { getBusinessServicePageMockData } from "./businessServicePageMockData";
+import { ChartPanel } from "./shared/ChartPanel";
+import { ApplicationEntityCard } from "./shared/EntityCard";
+import { EntityHero } from "./shared/EntityHero";
+import { MetricCard, MetricGrid } from "./shared/MetricCard";
 
 interface BusinessServiceDetailPageProps {
   businessUnitSlug: string | null;
@@ -60,10 +57,6 @@ export function BusinessServiceDetailPage({
   onOpenApplication,
   onOpenAssetFindings,
 }: BusinessServiceDetailPageProps) {
-  const [applicationSort, setApplicationSort] = useState<SortState<ApplicationSortKey>>({
-    key: "finding_count",
-    order: "desc",
-  });
   const { businessService, loading, error } = useBusinessServiceDetail(
     businessUnitSlug,
     businessServiceSlug,
@@ -74,17 +67,6 @@ export function BusinessServiceDetailPage({
     loading: businessServiceAnalyticsLoading,
     error: businessServiceAnalyticsError,
   } = useBusinessServiceAnalytics(businessUnitSlug, businessServiceSlug, refreshToken);
-  const pageMock = getBusinessServicePageMockData(businessServiceSlug);
-
-  const businessCriticalityValue =
-    businessServiceAnalytics?.business_criticality_score != null
-      ? `${businessServiceAnalytics.business_criticality_score}/${businessServiceAnalytics.business_criticality_max}`
-      : pageMock.businessCriticality;
-  const totals = businessServiceAnalytics?.totals ?? {
-    applications: businessService?.metrics.total_applications ?? 0,
-    assets: businessService?.metrics.total_assets ?? 0,
-    findings: businessService?.metrics.total_findings ?? 0,
-  };
 
   if (loading) {
     return (
@@ -123,67 +105,37 @@ export function BusinessServiceDetailPage({
 
   return (
     <div className="vc-page-stack">
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px] xl:items-stretch">
-        <Card className="h-full">
-          <CardHeader className="gap-4 p-5">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <TopologyBreadcrumbs
-                items={[
-                  { label: "Business Units", onClick: onOpenOverview },
-                  { label: businessService.business_unit, onClick: onOpenBusinessUnit },
-                  { label: businessService.business_service },
-                ]}
-              />
-              <Button variant="outline" onClick={onBack}>
-                Back to Business Unit
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="p-5 pt-0">
-            <div className="grid gap-6 lg:grid-cols-[minmax(260px,0.7fr)_minmax(0,1fr)] lg:items-start">
-              <div>
-                <p className="vc-eyebrow">
-                  {businessService.company?.name ?? "Unassigned company"}
-                </p>
-                <CardTitle className="vc-entity-title mt-2">
-                  {businessService.business_service}
-                </CardTitle>
-                <p className="vc-context-line mt-1">
-                  Business unit: {businessService.business_unit}
-                </p>
-              </div>
+      <EntityHero
+        breadcrumbs={[
+          { label: "Business Units", onClick: onOpenOverview },
+          { label: businessService.business_unit, onClick: onOpenBusinessUnit },
+          { label: businessService.business_service },
+        ]}
+        label={businessService.business_unit}
+        title={businessService.business_service}
+        description={businessService.description}
+        fallbackDescription="Description for this business service will appear here when it is available."
+        backLabel="Back"
+        onBack={onBack}
+      />
 
-              <div className="rounded-lg border border-slate-200 bg-slate-50/40 p-4">
-                <div className="vc-eyebrow">Description</div>
-                <p className="mt-2 text-base leading-7 text-slate-900">
-                  {businessService.description?.trim()
-                    || "Description for this business service will appear here when it is available."}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <MetricGrid className="sm:grid-cols-2 xl:grid-cols-5">
+        <MetricCard
+          label="Service Risk Score"
+          value="8.4"
+          valueClassName="text-rose-600"
+        />
+        <MetricCard
+          label="Business Criticality"
+          value="3/5"
+          valueClassName="text-orange-500"
+        />
+        <MetricCard label="Total Applications" value={1} />
+        <MetricCard label="Total Assets" value={37} />
+        <MetricCard label="Total Findings" value={1132} />
+      </MetricGrid>
 
-        <div className="grid w-full max-w-[420px] gap-4 xl:h-full xl:w-[420px] xl:max-w-[420px] xl:flex-none xl:grid-rows-2">
-          <KpiCard
-            label="Service Risk Score"
-            value={pageMock.serviceRiskScore}
-            valueClassName="text-rose-600"
-          />
-          <KpiCard
-            label="Business Criticality"
-            value={businessCriticalityValue}
-            valueClassName="text-orange-500"
-          />
-        </div>
-      </div>
-
-      <div className="grid items-stretch gap-4 md:grid-cols-2 xl:grid-cols-[300px_repeat(3,minmax(0,1fr))]">
-        <div className="grid min-h-[220px] max-w-[300px] grid-rows-3 gap-3">
-          <InfoTile label="Total Applications" value={totals.applications} />
-          <InfoTile label="Total Assets" value={totals.assets} />
-          <InfoTile label="Total Findings" value={totals.findings} />
-        </div>
+      <div className="grid items-stretch gap-4 lg:grid-cols-3">
         <AssetCriticalityDistributionCard
           businessService={businessService.business_service}
           distribution={businessServiceAnalytics?.asset_criticality_distribution ?? null}
@@ -196,37 +148,41 @@ export function BusinessServiceDetailPage({
           loading={businessServiceAnalyticsLoading}
           error={businessServiceAnalyticsError}
         />
-        <Card>
-          <CardContent className="min-h-[220px]" />
-        </Card>
+        <FindingRiskSpreadPlaceholder
+          loading={businessServiceAnalyticsLoading}
+          error={businessServiceAnalyticsError}
+        />
       </div>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm uppercase tracking-[0.16em] text-slate-500">
-            Applications
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {businessService.applications.length === 0 ? (
-            <Empty className="min-h-[12rem]">
-              <EmptyHeader>
-                <EmptyTitle>No applications</EmptyTitle>
-                <EmptyDescription>
-                  This business service currently has no application drill-down rows.
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          ) : (
-            <ApplicationsDrillDownTable
-              applications={businessService.applications}
-              sort={applicationSort}
-              onSortChange={setApplicationSort}
-              onOpenApplication={onOpenApplication}
-            />
-          )}
-        </CardContent>
-      </Card>
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-base font-semibold text-slate-950">Applications</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Click an application to inspect its assets and scoped findings.
+          </p>
+        </div>
+
+        {businessService.applications.length === 0 ? (
+          <Empty className="min-h-[12rem]">
+            <EmptyHeader>
+              <EmptyTitle>No applications</EmptyTitle>
+              <EmptyDescription>
+                This business service currently has no application drill-down rows.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        ) : (
+          <div className="grid gap-4 lg:grid-cols-3">
+            {businessService.applications.map((application) => (
+              <ApplicationEntityCard
+                key={application.slug}
+                application={application}
+                onOpen={() => onOpenApplication(application)}
+              />
+            ))}
+          </div>
+        )}
+      </section>
 
       <Card>
         <CardHeader className="pb-3">
@@ -263,29 +219,6 @@ const assetTypeChartConfig = {
   },
 } satisfies ChartConfig;
 
-function KpiCard({
-  label,
-  value,
-  valueClassName,
-}: {
-  label: string;
-  value: string;
-  valueClassName: string;
-}) {
-  return (
-    <Card className="h-full w-full max-w-[420px]">
-      <CardContent className="grid h-full min-h-[84px] grid-cols-[minmax(126px,1fr)_auto] items-center gap-2 p-4">
-        <div className="vc-kpi-label max-w-[8.5rem]">
-          {label}
-        </div>
-        <div className={`vc-kpi-value justify-self-end text-right ${valueClassName}`}>
-          {value}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
 function AssetCriticalityDistributionCard({
   businessService,
   distribution,
@@ -301,41 +234,38 @@ function AssetCriticalityDistributionCard({
   const legendData = useMemo(() => toCriticalityLegendRows(distribution), [distribution]);
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-sm text-slate-700">
-          Asset Criticality Distribution
-        </CardTitle>
-        <p className="text-sm text-slate-500">All assets under {businessService}</p>
-      </CardHeader>
-      <CardContent className="min-h-[220px]">
-        {loading ? (
-          <PanelPlaceholder>Loading distribution…</PanelPlaceholder>
-        ) : error ? (
-          <PanelPlaceholder tone="error">{error}</PanelPlaceholder>
-        ) : chartData.length === 0 ? (
-          <PanelPlaceholder>No assets available.</PanelPlaceholder>
-        ) : (
-          <ChartContainer
-            config={severityChartConfig}
-            className="mx-auto h-[180px] w-full"
-          >
-            <PieChart>
-              <Pie data={chartData} dataKey="count" nameKey="key" outerRadius={58} />
-              <ChartTooltip
-                cursor={false}
-                content={<ChartTooltipContent nameKey="key" hideLabel />}
-              />
-              <ChartLegend
-                payload={legendData}
-                content={<ChartLegendContent nameKey="key" />}
-                className="flex-nowrap justify-center gap-4 pt-4 text-xs"
-              />
-            </PieChart>
-          </ChartContainer>
-        )}
-      </CardContent>
-    </Card>
+    <ChartPanel
+      title="Asset Criticality Distribution"
+      description={`All assets under ${businessService}`}
+      loading={loading}
+      error={error}
+      empty={chartData.length === 0}
+      emptyMessage="No assets available."
+      loadingMessage="Loading distribution…"
+      headerClassName="pb-3"
+      titleClassName="text-sm text-slate-700"
+      contentClassName="min-h-[220px]"
+      placeholderClassName="h-[180px] min-h-0 rounded-lg border-slate-200 bg-slate-50/60 text-slate-500"
+      errorPlaceholderClassName="h-[180px] min-h-0 rounded-lg border-rose-200 bg-rose-50 text-rose-700"
+    >
+      <ChartContainer
+        config={severityChartConfig}
+        className="mx-auto h-[180px] w-full"
+      >
+        <PieChart>
+          <Pie data={chartData} dataKey="count" nameKey="key" outerRadius={58} />
+          <ChartTooltip
+            cursor={false}
+            content={<ChartTooltipContent nameKey="key" hideLabel />}
+          />
+          <ChartLegend
+            payload={legendData}
+            content={<ChartLegendContent nameKey="key" />}
+            className="flex-nowrap justify-center gap-4 pt-4 text-xs"
+          />
+        </PieChart>
+      </ChartContainer>
+    </ChartPanel>
   );
 }
 
@@ -351,72 +281,65 @@ function AssetTypeDistributionCard({
   error: string | null;
 }) {
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-sm text-slate-700">Asset Type Distribution</CardTitle>
-        <p className="text-sm text-slate-500">Top 5 asset types under {businessService}</p>
-      </CardHeader>
-      <CardContent className="min-h-[220px]">
-        {loading ? (
-          <PanelPlaceholder>Loading asset types…</PanelPlaceholder>
-        ) : error ? (
-          <PanelPlaceholder tone="error">{error}</PanelPlaceholder>
-        ) : assetTypes.length === 0 ? (
-          <PanelPlaceholder>No assets available.</PanelPlaceholder>
-        ) : (
-          <ChartContainer config={assetTypeChartConfig} className="h-[180px] w-full">
-            <BarChart accessibilityLayer data={assetTypes}>
-              <CartesianGrid vertical={false} />
-              <XAxis
-                dataKey="label"
-                tickLine={false}
-                tickMargin={10}
-                axisLine={false}
-                interval={0}
-              />
-              <ChartTooltip
-                cursor={false}
-                content={<ChartTooltipContent hideLabel />}
-              />
-              <Bar dataKey="count" fill="var(--color-count)" radius={6} />
-            </BarChart>
-          </ChartContainer>
-        )}
-      </CardContent>
-    </Card>
+    <ChartPanel
+      title="Asset Type Distribution"
+      description={`Top 5 asset types under ${businessService}`}
+      loading={loading}
+      error={error}
+      empty={assetTypes.length === 0}
+      emptyMessage="No assets available."
+      loadingMessage="Loading asset types…"
+      headerClassName="pb-3"
+      titleClassName="text-sm text-slate-700"
+      contentClassName="min-h-[220px]"
+      placeholderClassName="h-[180px] min-h-0 rounded-lg border-slate-200 bg-slate-50/60 text-slate-500"
+      errorPlaceholderClassName="h-[180px] min-h-0 rounded-lg border-rose-200 bg-rose-50 text-rose-700"
+    >
+      <ChartContainer config={assetTypeChartConfig} className="h-[180px] w-full">
+        <BarChart accessibilityLayer data={assetTypes}>
+          <CartesianGrid vertical={false} />
+          <XAxis
+            dataKey="label"
+            tickLine={false}
+            tickMargin={10}
+            axisLine={false}
+            interval={0}
+          />
+          <ChartTooltip
+            cursor={false}
+            content={<ChartTooltipContent hideLabel />}
+          />
+          <Bar dataKey="count" fill="var(--color-count)" radius={6} />
+        </BarChart>
+      </ChartContainer>
+    </ChartPanel>
   );
 }
 
-function InfoTile({ label, value }: { label: string; value: number }) {
-  return (
-    <Card className="h-full">
-      <CardContent className="grid h-full grid-cols-[minmax(104px,1fr)_auto] items-center gap-2 px-3 py-4">
-        <div className="vc-kpi-label max-w-[7rem] text-slate-700">{label}</div>
-        <div className="w-full min-w-[72px] justify-self-end text-right text-2xl font-semibold leading-none tracking-tight text-slate-900 tabular-nums">
-          {value.toLocaleString()}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function PanelPlaceholder({
-  children,
-  tone = "neutral",
+function FindingRiskSpreadPlaceholder({
+  loading,
+  error,
 }: {
-  children: string;
-  tone?: "neutral" | "error";
+  loading: boolean;
+  error: string | null;
 }) {
   return (
-    <div
-      className={`flex h-[180px] items-center justify-center rounded-lg border border-dashed text-sm ${
-        tone === "error"
-          ? "border-rose-200 bg-rose-50 text-rose-700"
-          : "border-slate-200 bg-slate-50/60 text-slate-500"
-      }`}
+    <ChartPanel
+      title="Finding Risk Spread"
+      description="Finding risk distribution for this business service"
+      loading={loading}
+      error={error}
+      empty
+      emptyMessage="Finding risk distribution is not available yet."
+      loadingMessage="Loading finding risk spread..."
+      headerClassName="pb-3"
+      titleClassName="text-sm text-slate-700"
+      contentClassName="min-h-[220px]"
+      placeholderClassName="h-[180px] min-h-0 rounded-lg border-slate-200 bg-slate-50/60 text-slate-500"
+      errorPlaceholderClassName="h-[180px] min-h-0 rounded-lg border-rose-200 bg-rose-50 text-rose-700"
     >
-      {children}
-    </div>
+      <div />
+    </ChartPanel>
   );
 }
 

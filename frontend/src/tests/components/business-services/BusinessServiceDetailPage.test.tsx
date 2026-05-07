@@ -26,7 +26,7 @@ const mockedUsePaginatedAssets = vi.mocked(usePaginatedAssets);
 const mockedUseAssetsAnalytics = vi.mocked(useAssetsAnalytics);
 
 describe("BusinessServiceDetailPage", () => {
-  it("renders applications and direct assets in sortable tables", () => {
+  it("renders application cards and direct assets in the explorer table", () => {
     mockedUseBusinessServiceDetail.mockReturnValue({
       businessService: {
         company: { name: "Virtucon" },
@@ -231,13 +231,12 @@ describe("BusinessServiceDetailPage", () => {
     ).not.toBeInTheDocument();
     expect(screen.getByText("Service Risk Score")).toBeInTheDocument();
     expect(screen.getByText("Business Criticality")).toBeInTheDocument();
-    expect(screen.getByText("9.2")).toBeInTheDocument();
+    expect(screen.getByText("8.4")).toBeInTheDocument();
     const businessCriticalityCard = screen
       .getByText("Business Criticality")
       .closest(".rounded-xl");
     expect(businessCriticalityCard).not.toBeNull();
-    expect(within(businessCriticalityCard as HTMLElement).getByText("4/5")).toBeInTheDocument();
-    expect(screen.getByText("Description")).toBeInTheDocument();
+    expect(within(businessCriticalityCard as HTMLElement).getByText("3/5")).toBeInTheDocument();
     expect(
       screen.getByText(
         "Description for this business service will appear here when it is available."
@@ -247,18 +246,19 @@ describe("BusinessServiceDetailPage", () => {
     expect(screen.getByText("Total Applications")).toBeInTheDocument();
     expect(screen.getByText("Total Assets")).toBeInTheDocument();
     expect(screen.getByText("Total Findings")).toBeInTheDocument();
-    expect(screen.getByText("146")).toBeInTheDocument();
-    expect(screen.getByText("5,162")).toBeInTheDocument();
+    expect(screen.getByText("37")).toBeInTheDocument();
+    expect(screen.getByText("1,132")).toBeInTheDocument();
     expect(screen.getByText("Asset Criticality Distribution")).toBeInTheDocument();
     expect(screen.getByText("All assets under Digital Storefront")).toBeInTheDocument();
     expect(screen.getByText("Asset Type Distribution")).toBeInTheDocument();
     expect(screen.getByText("Top 5 asset types under Digital Storefront")).toBeInTheDocument();
+    expect(screen.getByText("Finding Risk Spread")).toBeInTheDocument();
     expect(screen.getByText("Load Balancer")).toBeInTheDocument();
     expect(screen.getByText("Proxy")).toBeInTheDocument();
     expect(screen.queryByText("Chart / Visual / Info")).not.toBeInTheDocument();
     expect(screen.getByText("Applications")).toBeInTheDocument();
     expect(screen.getByText("Direct Assets")).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: /Application/i })).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: /Application/i })).not.toBeInTheDocument();
     expect(screen.getByText("Asset criticality spread")).toBeInTheDocument();
     expect(screen.getByText("Finding risk spread")).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: /^Asset$/i })).toBeInTheDocument();
@@ -271,7 +271,7 @@ describe("BusinessServiceDetailPage", () => {
     expect(screen.getByRole("columnheader", { name: /^Criticality$/i })).toBeInTheDocument();
     expect(screen.getByText("identity-verify")).toBeInTheDocument();
     expect(screen.queryByRole("columnheader", { name: /^Asset ID$/i })).not.toBeInTheDocument();
-    const [, assetsTable] = screen.getAllByRole("table");
+    const [assetsTable] = screen.getAllByRole("table");
     expect(within(assetsTable).getByText("Firewall")).toBeInTheDocument();
     expect(within(assetsTable).getByText("Server")).toBeInTheDocument();
     expect(within(assetsTable).getAllByText("Endpoint").length).toBeGreaterThan(0);
@@ -297,7 +297,7 @@ describe("BusinessServiceDetailPage", () => {
     );
   });
 
-  it("re-sorts applications and preserves API order for direct assets", () => {
+  it("renders application cards and preserves API order for direct assets", () => {
     mockedUseBusinessServiceDetail.mockReturnValue({
       businessService: {
         company: { name: "Virtucon" },
@@ -422,21 +422,15 @@ describe("BusinessServiceDetailPage", () => {
     expect(
       screen.getByText("Customer-facing storefront for digital checkout and browsing.")
     ).toBeInTheDocument();
-    const [applicationsTable, assetsTable] = screen.getAllByRole("table");
-    let applicationRows = within(applicationsTable).getAllByRole("button", {
-      name: /^Open /i,
+    const [assetsTable] = screen.getAllByRole("table");
+    const applicationButtons = screen.getAllByRole("button", {
+      name: /^Open .* App$/i,
     });
     let assetRows = within(assetsTable).getAllByRole("button", { name: /^Open /i });
 
-    expect(applicationRows[0]).toHaveAccessibleName("Open Alpha App");
+    expect(applicationButtons[0]).toHaveAccessibleName("Open Zulu App");
+    expect(applicationButtons[1]).toHaveAccessibleName("Open Alpha App");
     expect(assetRows[0]).toHaveAccessibleName("Open z-host");
-
-    fireEvent.click(screen.getAllByRole("button", { name: /^Application$/i })[0]);
-    applicationRows = within(applicationsTable).getAllByRole("button", {
-      name: /^Open /i,
-    });
-    expect(applicationRows[0]).toHaveAccessibleName("Open Alpha App");
-    expect(applicationRows[1]).toHaveAccessibleName("Open Zulu App");
 
     expect(screen.getByPlaceholderText("Search asset or ID")).toBeInTheDocument();
     assetRows = within(assetsTable).getAllByRole("button", { name: /^Open /i });

@@ -79,6 +79,7 @@ logs/
 local/
 temp/
 tmp/
+.agent-skills/
 backend/data/synthetic_qualys_findings_v2.csv
 backend/vulncontext.db
 backend/data/known_exploited_vulnerabilities.csv

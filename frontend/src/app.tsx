@@ -10,6 +10,7 @@ import { AssetFindingsPage } from "./components/business-services/AssetFindingsP
 import { BusinessServiceDetailPage } from "./components/business-services/BusinessServiceDetailPage";
 import { BusinessUnitDetailPage } from "./components/business-services/BusinessUnitDetailPage";
 import { BusinessServicesOverview } from "./components/business-services/BusinessServicesOverview";
+import { PageIntro } from "./components/business-services/shared/PageIntro";
 import { requestBrinqaSessionReset } from "./auth/electronBrinqa";
 import { Button } from "./components/ui/button";
 import { cn } from "./lib/utils";
@@ -478,14 +479,10 @@ function App() {
 
         <div className="min-w-0 flex-1 overflow-auto bg-white">
           <div className="mx-auto flex w-full max-w-[1800px] flex-col gap-4 px-4 py-4 md:px-6">
-            <section className="rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-none">
-              <h1 className="text-xl font-semibold tracking-tight text-slate-900">
-                {pageMeta[page].title}
-              </h1>
-              {pageMeta[page].description ? (
-                <p className="mt-1 text-sm text-slate-500">{pageMeta[page].description}</p>
-              ) : null}
-            </section>
+            <PageIntro
+              title={pageMeta[page].title}
+              description={pageMeta[page].description}
+            />
 
             {page === "findings" ? (
               inFindingDetail && route.findingId ? (

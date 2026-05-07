@@ -44,13 +44,6 @@ function formatNumber(value?: number | null, digits = 1) {
   return value.toFixed(digits);
 }
 
-function formatDate(value?: string | null) {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString();
-}
-
 function getDisplayFindingTitle(finding: ScoredFinding) {
   const raw = (finding.display_name || "").trim();
   const cve = (finding.cve_id || "").trim().toUpperCase();
