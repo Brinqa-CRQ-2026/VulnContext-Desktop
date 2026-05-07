@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 
-import { getAssetFindingsAnalytics } from "../../api/topology";
+import { getAssetFindingsAnalytics } from "../../../api/topology";
 import type {
   AssetFindingsAnalyticsResponse,
   RiskBandFilter,
-} from "../../api/types";
+} from "../../../types";
 
 export function useAssetFindingsAnalytics(
   assetId: string | null,

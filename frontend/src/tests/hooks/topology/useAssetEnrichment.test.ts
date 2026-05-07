@@ -17,7 +17,7 @@ vi.mock("../../../auth/electronBrinqa", () => ({
   requestBrinqaSessionReset,
 }));
 
-import { useAssetEnrichment } from "../../../hooks/topology/useAssetEnrichment";
+import { useAssetEnrichment } from "../../../hooks/topology/assets/useAssetEnrichment";
 
 describe("useAssetEnrichment", () => {
   beforeEach(() => {

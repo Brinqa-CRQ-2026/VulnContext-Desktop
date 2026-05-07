@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
-import { getBusinessUnitRiskOverview } from "../../api/topology";
-import type { BusinessUnitRiskOverview } from "../../api/types";
+import { getBusinessUnitRiskOverview } from "../../../api/topology";
+import type { BusinessUnitRiskOverview } from "../../../types";
 
 export function useBusinessUnitRiskOverview(
   businessUnitSlug: string | null,

@@ -1,8 +1,22 @@
 import type { ReactNode } from "react";
 
-import type { FindingRouteOrigin, ScoredFinding } from "../../api";
+import type { FindingRouteOrigin, ScoredFinding } from "../../types";
+import { formatAgeDays, formatDate } from "../../lib/formatting/dates";
+import { formatNumber } from "../../lib/formatting/numbers";
+import { isPopulatedText, joinDisplayText } from "../../lib/formatting/text";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+
+export { formatDate } from "../../lib/formatting/dates";
+export { formatNumber } from "../../lib/formatting/numbers";
+export {
+  isPopulatedText as isPopulated,
+  joinDisplayText as joinText,
+} from "../../lib/formatting/text";
+
+export function formatAge(value?: number | null) {
+  return formatAgeDays(value);
+}
 
 export function FindingOverviewSection({
   finding,
@@ -38,12 +52,11 @@ export function FindingOverviewSection({
         ) : null}
         <DetailList
           items={[
-            { label: "Vulnerability type", value: finding.type_display_name || "-" },
             { label: "Severity", value: finding.severity || finding.cvss_severity || "-" },
             { label: "Attack vector", value: finding.attack_vector || "-" },
             { label: "Attack complexity", value: finding.attack_complexity || "-" },
           ]}
-          className="sm:grid-cols-2 xl:grid-cols-4"
+          className="sm:grid-cols-2 xl:grid-cols-3"
         />
       </div>
     </Section>
@@ -114,7 +127,7 @@ export function FindingRemediationSection({
                   { label: "Remediation status", value: finding.remediation_status || "-" },
                   {
                     label: "Urgency",
-                    value: dueDateValue ? `Due ${formatDate(dueDateValue)}` : formatAge(finding.age_in_days),
+                    value: dueDateValue ? `Due ${formatDate(dueDateValue)}` : formatAgeDays(finding.age_in_days),
                   },
                 ]}
               />
@@ -122,22 +135,12 @@ export function FindingRemediationSection({
           </div>
         ) : null}
 
-        {finding.remediation_notes ? (
-          <InlineNarrative label="Remediation notes" value={finding.remediation_notes} />
-        ) : null}
         <CompactDetailList
           items={[
             { label: "Remediation owner", value: finding.remediation_owner_name || "-" },
             { label: "Risk owner", value: finding.risk_owner_name || "-" },
             { label: "Remediation status", value: finding.remediation_status || "-" },
-            { label: "Remediation due date", value: formatDate(finding.remediation_due_date) },
-            {
-              label: "Last remediation update",
-              value: joinText(
-                [formatDate(finding.remediation_updated_at, true), finding.remediation_updated_by],
-                "-"
-              ),
-            },
+            { label: "Due date", value: formatDate(dueDateValue) },
           ]}
         />
       </div>
@@ -161,12 +164,11 @@ export function FindingAffectedContextSection({
       <CompactDetailList
         items={[
           { label: "Affected asset", value: assetLabel },
-          { label: "Asset ID", value: origin?.assetId || "-" },
-          { label: "Target count", value: finding.target_count?.toLocaleString() || "-" },
+          { label: "Asset ID", value: origin?.assetId || finding.asset_id || "-" },
+          { label: "Target ID", value: finding.target_ids || finding.asset_id || "-" },
           { label: "Target names", value: finding.target_names || "-" },
           { label: "Business context", value: businessContext || "-" },
           { label: "Asset criticality", value: formatNumber(finding.asset_criticality) },
-          { label: "Context score", value: formatNumber(finding.context_score) },
           { label: "Risk owner", value: finding.risk_owner_name || "-" },
         ]}
       />
@@ -186,16 +188,13 @@ export function FindingSupportingDetailsSection({
     { label: "CVE", value: finding.cve_id || "-" },
   ].concat(
     finding.uid && finding.uid !== finding.id ? [{ label: "Source UID", value: finding.uid }] : [],
-    isPopulated(finding.cwe_ids) ? [{ label: "CWE", value: finding.cwe_ids || "-" }] : [],
+    isPopulatedText(finding.cwe_ids) ? [{ label: "CWE", value: finding.cwe_ids || "-" }] : [],
     finding.record_link ? [{ label: "Record link", value: renderLink(finding.record_link) }] : [],
-    finding.last_updated || finding.date_created
+    finding.detail_fetched_at
       ? [
           {
-            label: "Created / updated",
-            value: joinText(
-              [formatDate(finding.date_created, true), formatDate(finding.last_updated, true)],
-              "-"
-            ),
+            label: "Detail fetched",
+            value: formatDate(finding.detail_fetched_at, true),
           },
         ]
       : []
@@ -204,23 +203,20 @@ export function FindingSupportingDetailsSection({
     { label: "Display risk source", value: finding.score_source || "Vendor fallback" },
     {
       label: "CRQ score version / timestamp",
-      value: joinText([finding.crq_score_version, formatDate(finding.crq_scored_at, true)], "-"),
+      value: joinDisplayText([finding.crq_score_version, formatDate(finding.crq_scored_at, true)], "-"),
     },
     {
       label: "Vendor risk score / band / rating",
-      value: joinText(
+      value: joinDisplayText(
         [formatNumber(finding.source_risk_score), finding.source_risk_band, finding.source_risk_rating],
         "-"
       ),
     },
-    {
-      label: "Internal risk score / band",
-      value: joinText([formatNumber(finding.internal_risk_score), finding.internal_risk_band], "-"),
-    },
+    { label: "CRQ score", value: formatNumber(finding.risk_score) },
     { label: "Base risk score", value: formatNumber(finding.base_risk_score) },
     {
       label: "CRQ modifiers",
-      value: joinText(
+      value: joinDisplayText(
         [
           finding.crq_kev_bonus !== null && finding.crq_kev_bonus !== undefined
             ? `KEV bonus ${formatNumber(finding.crq_kev_bonus)}`
@@ -268,7 +264,6 @@ export function FindingSupportingDetailsSection({
                   { label: "Attack pattern", value: finding.attack_pattern_names || "-" },
                   { label: "Attack technique", value: finding.attack_technique_names || "-" },
                   { label: "Attack tactic", value: finding.attack_tactic_names || "-" },
-                  { label: "Confidence", value: finding.confidence || "-" },
                 ]}
               />
             </div>
@@ -287,7 +282,7 @@ export function FindingSupportingDetailsSection({
               { label: "Ransomware use", value: finding.kevRansomwareUse || "-" },
               {
                 label: "KEV vendor / project",
-                value: joinText([finding.kevVendorProject, finding.kevProduct], "-"),
+                value: joinDisplayText([finding.kevVendorProject, finding.kevProduct], "-"),
               },
             ]}
           />
@@ -295,31 +290,6 @@ export function FindingSupportingDetailsSection({
       ) : null}
     </Section>
   );
-}
-
-export function formatDate(value?: string | null, withTime = false) {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return withTime ? date.toLocaleString() : date.toLocaleDateString();
-}
-
-export function formatNumber(value?: number | null, digits = 1) {
-  if (value === null || value === undefined || Number.isNaN(value)) return "-";
-  return value.toFixed(digits);
-}
-
-export function formatAge(value?: number | null) {
-  if (value === null || value === undefined || Number.isNaN(value)) return "-";
-  return `${value.toFixed(0)}d`;
-}
-
-export function isPopulated(value?: string | null) {
-  return Boolean(value && value.trim());
-}
-
-export function joinText(values: Array<string | null | undefined>, fallback = "-") {
-  return values.filter((value) => isPopulated(value ?? null)).join(" / ") || fallback;
 }
 
 function Section({
@@ -404,7 +374,7 @@ function NarrativeBlock({
     >
       <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</div>
       <div className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-800">
-        {isPopulated(value) ? value : placeholder}
+        {isPopulatedText(value) ? value : placeholder}
       </div>
     </div>
   );
@@ -417,7 +387,7 @@ function InlineNarrative({
   label: string;
   value?: string | null;
 }) {
-  if (!isPopulated(value)) return null;
+  if (!isPopulatedText(value)) return null;
 
   return (
     <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
@@ -428,7 +398,7 @@ function InlineNarrative({
 }
 
 function renderLink(value?: string | null) {
-  if (!isPopulated(value)) return "-";
+  if (!isPopulatedText(value)) return "-";
   return (
     <a
       className="text-sky-700 underline underline-offset-2"

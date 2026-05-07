@@ -1,6 +1,7 @@
 import { Bar, BarChart, CartesianGrid, LabelList, XAxis, YAxis } from "recharts";
 
-import type { AssetAnalyticsResponse, AssetScoreDistribution } from "../../api/types";
+import type { AssetAnalyticsResponse, AssetScoreDistribution } from "../../types";
+import { toAssetDistributionChartRows } from "../../lib/charts/assetDistribution";
 import { cn } from "../../lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import {
@@ -79,7 +80,7 @@ export function AssetDistributionChartCard({
   chartContainerClassName?: string;
   emptyMessage?: string;
 }) {
-  const chartData = toChartRows(distribution);
+  const chartData = toAssetDistributionChartRows(distribution);
   const hasData = chartData.some((row) => row.count > 0);
 
   return (
@@ -180,23 +181,4 @@ function ChartPlaceholder({
       {children}
     </div>
   );
-}
-
-function toChartRows(distribution: AssetScoreDistribution | null) {
-  if (!distribution) {
-    return [];
-  }
-
-  const rows = [
-    { key: "critical", label: "Critical", count: distribution.critical },
-    { key: "high", label: "High", count: distribution.high },
-    { key: "medium", label: "Medium", count: distribution.medium },
-    { key: "low", label: "Low", count: distribution.low },
-  ];
-
-  if (distribution.unscored > 0) {
-    rows.push({ key: "unscored", label: "Unscored", count: distribution.unscored });
-  }
-
-  return rows;
 }

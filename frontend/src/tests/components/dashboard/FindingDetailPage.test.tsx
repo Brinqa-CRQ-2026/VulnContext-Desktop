@@ -16,6 +16,7 @@ describe("FindingDetailPage", () => {
       finding: {
         id: "finding-42",
         source: "Qualys",
+        asset_id: "asset-42",
         display_name: "OpenSSL Vulnerability",
         risk_score: 8.7,
         risk_band: "High",
@@ -30,7 +31,6 @@ describe("FindingDetailPage", () => {
         age_in_days: 29,
         cve_id: "CVE-2025-0001",
         cwe_ids: "CWE-79",
-        type_display_name: "Remote Code Execution",
         description: "Primary finding description.",
         cveDescription: "Separate CVE description.",
         record_id: "SRC-77",
@@ -45,15 +45,10 @@ describe("FindingDetailPage", () => {
         crq_scored_at: "2026-04-20T10:30:00Z",
         crq_notes: "Score elevated due to exploitable attack path.",
         isKev: false,
-        target_count: 1,
+        target_ids: "asset-42",
         target_names: "api-gateway-01",
-        remediation_plan: "Patch the affected OpenSSL package.",
-        remediation_notes: "Change window approved for tonight.",
         remediation_status: "Planned",
         remediation_owner_name: "Blue Team",
-        remediation_due_date: "2026-05-10",
-        remediation_updated_at: "2026-04-21T11:00:00Z",
-        remediation_updated_by: "analyst@example.com",
         attack_pattern_names: "Exploit Public-Facing Application",
         attack_technique_names: "T1190",
         attack_tactic_names: "Initial Access",
@@ -96,9 +91,9 @@ describe("FindingDetailPage", () => {
     expect(screen.getByText("Affected Asset & Business Context")).toBeInTheDocument();
     expect(screen.getByText("Supporting Details")).toBeInTheDocument();
     expect(screen.queryByText("KEV Details")).not.toBeInTheDocument();
-    expect(screen.getAllByText("Recommendation").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Recommendation")).not.toBeInTheDocument();
     expect(screen.queryByText("Short Summary")).not.toBeInTheDocument();
-    expect(screen.getAllByText("Patch the affected OpenSSL package.").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Patch the affected OpenSSL package.")).not.toBeInTheDocument();
     expect(screen.getByText("Primary Description")).toBeInTheDocument();
     expect(screen.getByText("Separate CVE description.")).toBeInTheDocument();
     expect(screen.getByText("Identifiers")).toBeInTheDocument();
@@ -112,6 +107,7 @@ describe("FindingDetailPage", () => {
       finding: {
         id: "finding-88",
         source: "Qualys",
+        asset_id: "asset-88",
         display_name: "Critical Edge Vulnerability",
         risk_score: 9.9,
         risk_band: "Critical",
@@ -178,6 +174,7 @@ describe("FindingDetailPage", () => {
       finding: {
         id: "finding-12",
         source: "Brinqa",
+        asset_id: "asset-12",
         risk_score: 6.2,
         risk_band: "Medium",
       },

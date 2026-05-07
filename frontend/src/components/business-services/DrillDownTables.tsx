@@ -1,8 +1,26 @@
 import type { PropsWithChildren } from "react";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 
-import type { ApplicationSummary, AssetSummary, ScoredFinding, SortOrder } from "../../api/types";
+import type { ApplicationSummary, AssetSummary, ScoredFinding, SortOrder } from "../../types";
+import {
+  deriveAssetStatus,
+  formatCategory,
+  formatEnvironment,
+  getAssetName,
+  getAssetType,
+  getComplianceBadges,
+} from "../../lib/assets/assetFormatters";
+import { formatNumber as formatDisplayNumber } from "../../lib/formatting/numbers";
+import { formatText as formatDisplayText } from "../../lib/formatting/text";
+import { getNormalizedFindingTitle } from "../../lib/findings";
+import { riskBandPillClass, riskBandWeight } from "../../lib/findings/findingRisk";
+import {
+  compareSortValues,
+  toggleSort,
+  type SortState,
+} from "../../lib/sorting/sortState";
 import { cn } from "../../lib/utils";
+import type { ApplicationSortKey, AssetSortKey, FindingSortKey } from "./types";
 import { Pill } from "../ui/pill";
 import {
   Table,
@@ -13,31 +31,11 @@ import {
   TableRow,
 } from "../ui/table";
 
-export type ApplicationSortKey = "application" | "slug" | "asset_count" | "finding_count";
-export type AssetSortKey =
-  | "name"
-  | "asset_type"
-  | "business_service"
-  | "application"
-  | "asset_criticality"
-  | "status"
-  | "finding_count";
-export type FindingSortKey =
-  | "title"
-  | "finding_id"
-  | "status"
-  | "risk_band"
-  | "risk_score"
-  | "source_risk_score"
-  | "cvss_score"
-  | "epss_score"
-  | "age_in_days"
-  | "kev";
+export type { SortState } from "../../lib/sorting/sortState";
 
-export interface SortState<TSortKey extends string> {
-  key: TSortKey;
-  order: SortOrder;
-}
+const formatNullable = (value?: number | null, digits = 1) =>
+  formatDisplayNumber(value, digits, "—");
+const formatText = (value?: string | null) => formatDisplayText(value, "—");
 
 interface ApplicationsDrillDownTableProps {
   applications: ApplicationSummary[];
@@ -71,7 +69,7 @@ export function ApplicationsDrillDownTable({
   onOpenApplication,
 }: ApplicationsDrillDownTableProps) {
   const sortedApplications = [...applications].sort((left, right) =>
-    compareValues(
+    compareSortValues(
       getApplicationSortValue(left, sort.key),
       getApplicationSortValue(right, sort.key),
       sort.order
@@ -145,7 +143,7 @@ export function AssetsDrillDownTable({
 }: AssetsDrillDownTableProps) {
   const sortedAssets = enableSorting
     ? [...assets].sort((left, right) =>
-        compareValues(
+        compareSortValues(
           getAssetSortValue(left, sort.key),
           getAssetSortValue(right, sort.key),
           sort.order
@@ -302,7 +300,7 @@ export function FindingsDrillDownTable({
 }: FindingsDrillDownTableProps) {
   const sortedFindings = enableSorting
     ? [...findings].sort((left, right) =>
-        compareValues(
+        compareSortValues(
           getFindingSortValue(left, sort.key),
           getFindingSortValue(right, sort.key),
           sort.order
@@ -396,11 +394,11 @@ export function FindingsDrillDownTable({
         {sortedFindings.map((finding) => (
           <InteractiveRow
             key={finding.id}
-            label={`Open ${getDisplayFindingTitle(finding)}`}
+            label={`Open ${getNormalizedFindingTitle(finding)}`}
             onClick={() => onOpenFinding(finding)}
           >
             <TableCell>
-              <div className="font-medium text-slate-900">{getDisplayFindingTitle(finding)}</div>
+              <div className="font-medium text-slate-900">{getNormalizedFindingTitle(finding)}</div>
             </TableCell>
             <TableCell className="text-slate-500">
               {finding.cve_id ?? finding.record_id ?? `ID ${finding.id}`}
@@ -417,7 +415,7 @@ export function FindingsDrillDownTable({
               </div>
             </TableCell>
             <TableCell>
-              <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold", bandPillClass(finding.risk_band))}>
+              <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold", riskBandPillClass(finding.risk_band))}>
                 {finding.risk_band ?? "Unscored"}
               </span>
             </TableCell>
@@ -509,37 +507,6 @@ function Tag({
   return <Pill tone={tone}>{children}</Pill>;
 }
 
-function toggleSort<TSortKey extends string>(
-  currentSort: SortState<TSortKey>,
-  nextKey: TSortKey
-): SortState<TSortKey> {
-  if (currentSort.key === nextKey) {
-    return {
-      key: nextKey,
-      order: currentSort.order === "asc" ? "desc" : "asc",
-    };
-  }
-
-  return {
-    key: nextKey,
-    order: "asc",
-  };
-}
-
-function compareValues(left: string | number | boolean | null, right: string | number | boolean | null, order: SortOrder) {
-  const direction = order === "asc" ? 1 : -1;
-
-  if (typeof left === "string" || typeof right === "string") {
-    const normalizedLeft = String(left ?? "").toLowerCase();
-    const normalizedRight = String(right ?? "").toLowerCase();
-    return normalizedLeft.localeCompare(normalizedRight) * direction;
-  }
-
-  const normalizedLeft = typeof left === "boolean" ? Number(left) : (left ?? Number.NEGATIVE_INFINITY);
-  const normalizedRight = typeof right === "boolean" ? Number(right) : (right ?? Number.NEGATIVE_INFINITY);
-  return (normalizedLeft - normalizedRight) * direction;
-}
-
 function getApplicationSortValue(application: ApplicationSummary, key: ApplicationSortKey) {
   switch (key) {
     case "application":
@@ -575,7 +542,7 @@ function getAssetSortValue(asset: AssetSummary, key: AssetSortKey) {
 function getFindingSortValue(finding: ScoredFinding, key: FindingSortKey) {
   switch (key) {
     case "title":
-      return getDisplayFindingTitle(finding);
+      return getNormalizedFindingTitle(finding);
     case "finding_id":
       return finding.cve_id ?? finding.record_id ?? finding.id;
     case "status":
@@ -599,38 +566,6 @@ function getFindingSortValue(finding: ScoredFinding, key: FindingSortKey) {
   }
 }
 
-function getDisplayFindingTitle(finding: ScoredFinding) {
-  const raw = (finding.display_name || "").trim();
-  const cve = (finding.cve_id || "").trim().toUpperCase();
-
-  if (!raw) {
-    return cve || `Finding ${finding.id}`;
-  }
-  if (!cve) {
-    return raw;
-  }
-
-  const suffixPattern = new RegExp(`:\\s*${cve}$`, "i");
-  const exactPattern = new RegExp(`^${cve}$`, "i");
-
-  if (suffixPattern.test(raw)) {
-    const stripped = raw.replace(suffixPattern, "").trim();
-    if (stripped) return stripped;
-  }
-  if (exactPattern.test(raw)) {
-    return cve;
-  }
-  return raw;
-}
-
-function getAssetName(asset: AssetSummary) {
-  return asset.hostname ?? asset.asset_id;
-}
-
-function getAssetType(asset: AssetSummary) {
-  return formatText(asset.device_type);
-}
-
 function AssetStatusBadge({ status }: { status?: string | null }) {
   const normalized = deriveAssetStatus(status);
   return <Tag tone={normalized === "Active" ? "success" : "neutral"}>{normalized}</Tag>;
@@ -650,77 +585,4 @@ function AssetComplianceBadges({ asset }: { asset: AssetSummary }) {
       ))}
     </div>
   );
-}
-
-function getComplianceBadges(asset: AssetSummary) {
-  const badges = new Set<string>();
-  if (asset.pci) badges.add("PCI");
-  if (asset.pii) badges.add("PII");
-  const rawFlags = (asset.compliance_flags ?? "")
-    .split(/[;,|]/)
-    .map((value) => value.trim())
-    .filter(Boolean);
-  rawFlags.forEach((flag) => {
-    const normalized = flag.toUpperCase();
-    if (normalized !== "PCI" && normalized !== "PII") {
-      badges.add(normalized);
-    }
-  });
-  return Array.from(badges);
-}
-
-function formatEnvironment(value?: string | null) {
-  const normalized = (value ?? "").trim().toLowerCase();
-  if (!normalized) return "Unknown";
-  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
-}
-
-function formatCategory(value?: string | null) {
-  return formatText(value);
-}
-
-function deriveAssetStatus(status?: string | null) {
-  const normalized = (status ?? "").trim().toLowerCase();
-  if (normalized && /fixed|closed|resolved|inactive|retired/.test(normalized)) {
-    return "Not active";
-  }
-  if (normalized && /active|open|new/.test(normalized)) {
-    return "Active";
-  }
-  return "Not active";
-}
-
-function formatNullable(value?: number | null, digits = 1) {
-  if (value === null || value === undefined || Number.isNaN(value)) {
-    return "—";
-  }
-  return value.toFixed(digits);
-}
-
-function formatText(value?: string | null) {
-  return value && value.trim() ? value : "—";
-}
-
-function riskBandWeight(value?: string | null) {
-  switch ((value ?? "").toLowerCase()) {
-    case "critical":
-      return 4;
-    case "high":
-      return 3;
-    case "medium":
-      return 2;
-    case "low":
-      return 1;
-    default:
-      return 0;
-  }
-}
-
-function bandPillClass(band?: string | null) {
-  const value = (band || "").toLowerCase();
-  if (value === "critical") return "bg-rose-100 text-rose-700";
-  if (value === "high") return "bg-orange-100 text-orange-700";
-  if (value === "medium") return "bg-amber-100 text-amber-700";
-  if (value === "low") return "bg-emerald-100 text-emerald-700";
-  return "bg-slate-100 text-slate-700";
 }

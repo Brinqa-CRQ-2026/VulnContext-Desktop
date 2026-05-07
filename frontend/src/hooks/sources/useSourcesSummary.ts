@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { getSourcesSummary } from "../../api/sources";
-import type { SourceSummary } from "../../api/types";
+import type { SourceSummary } from "../../types";
 
 export function useSourcesSummary(refreshToken: number) {
   const [sources, setSources] = useState<SourceSummary[]>([]);

@@ -2,7 +2,7 @@
 
 import { Pie, PieChart } from "recharts";
 
-import type { ScoresSummary } from "../../api";
+import type { ScoresSummary } from "../../types";
 import {
   Card,
   CardContent,

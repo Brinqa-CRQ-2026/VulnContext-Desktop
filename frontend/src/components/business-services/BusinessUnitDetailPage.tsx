@@ -6,10 +6,11 @@ import type {
   AssetScoreDistribution,
   BusinessServiceSummary,
   ScoredFinding,
-} from "../../api/types";
-import { useBusinessUnitDetail } from "../../hooks/topology/useBusinessUnitDetail";
-import { useBusinessUnitRiskOverview } from "../../hooks/topology/useBusinessUnitRiskOverview";
-import { useBusinessUnitTopFindings } from "../../hooks/topology/useBusinessUnitTopFindings";
+} from "../../types";
+import { useBusinessUnitDetail } from "../../hooks/topology/business-units/useBusinessUnitDetail";
+import { useBusinessUnitRiskOverview } from "../../hooks/topology/business-units/useBusinessUnitRiskOverview";
+import { useBusinessUnitTopFindings } from "../../hooks/topology/business-units/useBusinessUnitTopFindings";
+import { isTopologyUnavailable } from "../../lib/topology/topologyStatus";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
@@ -31,7 +32,10 @@ import {
   formatSlugLabel,
   TopologyPageSkeleton,
 } from "./TopologyChrome";
-import { type BusinessUnitRiskBand, type RiskTrendPoint } from "./types";
+import {
+  type BusinessUnitRiskBand,
+  type BusinessUnitRiskTrendChartPoint,
+} from "./types";
 import { ChartPanel } from "./shared/ChartPanel";
 import { BusinessServiceEntityCard } from "./shared/EntityCard";
 import { EntityHero } from "./shared/EntityHero";
@@ -255,7 +259,7 @@ function RiskOverview({
   businessUnitName: string;
   riskBand: BusinessUnitRiskBand | null;
   riskScore: number | null;
-  trend: RiskTrendPoint[] | undefined;
+  trend: BusinessUnitRiskTrendChartPoint[] | undefined;
   loading: boolean;
   error: string | null;
   severityCounts: Record<Lowercase<BusinessUnitRiskBand>, number> | null;
@@ -385,8 +389,4 @@ function DetailEmptyState({
       </Button>
     </Empty>
   );
-}
-
-function isTopologyUnavailable(message: string | null) {
-  return (message ?? "").toLowerCase().includes("normalized topology");
 }

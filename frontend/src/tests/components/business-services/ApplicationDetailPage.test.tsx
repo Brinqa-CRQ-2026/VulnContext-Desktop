@@ -2,17 +2,17 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { ApplicationDetailPage } from "../../../components/business-services/ApplicationDetailPage";
-import { useApplicationDetail } from "../../../hooks/topology/useApplicationDetail";
-import { useAssetsAnalytics } from "../../../hooks/topology/useAssetsAnalytics";
-import { usePaginatedAssets } from "../../../hooks/topology/usePaginatedAssets";
+import { useApplicationDetail } from "../../../hooks/topology/applications/useApplicationDetail";
+import { useAssetsAnalytics } from "../../../hooks/topology/assets/useAssetsAnalytics";
+import { usePaginatedAssets } from "../../../hooks/topology/assets/usePaginatedAssets";
 
-vi.mock("../../../hooks/topology/useApplicationDetail", () => ({
+vi.mock("../../../hooks/topology/applications/useApplicationDetail", () => ({
   useApplicationDetail: vi.fn(),
 }));
-vi.mock("../../../hooks/topology/usePaginatedAssets", () => ({
+vi.mock("../../../hooks/topology/assets/usePaginatedAssets", () => ({
   usePaginatedAssets: vi.fn(),
 }));
-vi.mock("../../../hooks/topology/useAssetsAnalytics", () => ({
+vi.mock("../../../hooks/topology/assets/useAssetsAnalytics", () => ({
   useAssetsAnalytics: vi.fn(),
 }));
 

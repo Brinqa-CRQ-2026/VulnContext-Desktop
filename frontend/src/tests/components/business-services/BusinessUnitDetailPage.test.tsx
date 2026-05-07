@@ -2,19 +2,19 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { BusinessUnitDetailPage } from "../../../components/business-services/BusinessUnitDetailPage";
-import { useBusinessUnitDetail } from "../../../hooks/topology/useBusinessUnitDetail";
-import { useBusinessUnitRiskOverview } from "../../../hooks/topology/useBusinessUnitRiskOverview";
-import { useBusinessUnitTopFindings } from "../../../hooks/topology/useBusinessUnitTopFindings";
+import { useBusinessUnitDetail } from "../../../hooks/topology/business-units/useBusinessUnitDetail";
+import { useBusinessUnitRiskOverview } from "../../../hooks/topology/business-units/useBusinessUnitRiskOverview";
+import { useBusinessUnitTopFindings } from "../../../hooks/topology/business-units/useBusinessUnitTopFindings";
 
-vi.mock("../../../hooks/topology/useBusinessUnitDetail", () => ({
+vi.mock("../../../hooks/topology/business-units/useBusinessUnitDetail", () => ({
   useBusinessUnitDetail: vi.fn(),
 }));
 
-vi.mock("../../../hooks/topology/useBusinessUnitRiskOverview", () => ({
+vi.mock("../../../hooks/topology/business-units/useBusinessUnitRiskOverview", () => ({
   useBusinessUnitRiskOverview: vi.fn(),
 }));
 
-vi.mock("../../../hooks/topology/useBusinessUnitTopFindings", () => ({
+vi.mock("../../../hooks/topology/business-units/useBusinessUnitTopFindings", () => ({
   useBusinessUnitTopFindings: vi.fn(),
 }));
 

@@ -1,17 +1,18 @@
 import { ShieldAlert } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
-import { useAssetFindings } from "../../hooks/topology/useAssetFindings";
-import { useAssetFindingsAnalytics } from "../../hooks/topology/useAssetFindingsAnalytics";
-import { useAssetDetail } from "../../hooks/topology/useAssetDetail";
-import { useAssetEnrichment } from "../../hooks/topology/useAssetEnrichment";
+import { useAssetFindings } from "../../hooks/topology/assets/useAssetFindings";
+import { useAssetFindingsAnalytics } from "../../hooks/topology/assets/useAssetFindingsAnalytics";
+import { useAssetDetail } from "../../hooks/topology/assets/useAssetDetail";
+import { useAssetEnrichment } from "../../hooks/topology/assets/useAssetEnrichment";
+import { getPaginationWindow } from "../../lib/pagination/getPaginationWindow";
 import type {
   FindingRouteOrigin,
   FindingsSortBy,
   RiskBandFilter,
   ScoredFinding,
   SortOrder,
-} from "../../api/types";
+} from "../../types";
 import {
   formatSlugLabel,
   TopologyPageSkeleton,
@@ -109,13 +110,10 @@ export function AssetFindingsPage({
 
   const total = assetFindings?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const pageNumbers = useMemo(() => {
-    const start = Math.max(1, page - 3);
-    const end = Math.min(totalPages, page + 3);
-    const values: number[] = [];
-    for (let index = start; index <= end; index += 1) values.push(index);
-    return values;
-  }, [page, totalPages]);
+  const pageNumbers = useMemo(
+    () => getPaginationWindow({ page, totalPages, windowSize: 3 }),
+    [page, totalPages]
+  );
   const analyticsSummary = analytics?.analytics;
   const summaryAsset = analytics?.asset;
 

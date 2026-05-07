@@ -16,7 +16,7 @@ import type {
   PaginatedAssets,
   PaginatedFindings,
   SortOrder,
-} from "./types";
+} from "../types";
 
 export async function getBusinessUnits(): Promise<BusinessUnitSummary[]> {
   const res = await fetch(buildApiUrl("/topology/business-units"));

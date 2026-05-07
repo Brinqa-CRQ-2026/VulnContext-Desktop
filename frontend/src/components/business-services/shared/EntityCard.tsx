@@ -1,6 +1,6 @@
 import type { PropsWithChildren, ReactNode } from "react";
 
-import type { ApplicationSummary, BusinessServiceSummary } from "../../../api/types";
+import type { ApplicationSummary, BusinessServiceSummary } from "../../../types";
 import { cn } from "../../../lib/utils";
 import { InitialsBadge } from "./TopologyBadges";
 

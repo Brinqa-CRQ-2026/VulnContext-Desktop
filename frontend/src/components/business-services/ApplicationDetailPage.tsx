@@ -1,7 +1,8 @@
 import { Network, ShieldAlert } from "lucide-react";
 
-import { useApplicationDetail } from "../../hooks/topology/useApplicationDetail";
-import type { AssetSummary } from "../../api/types";
+import { useApplicationDetail } from "../../hooks/topology/applications/useApplicationDetail";
+import type { AssetSummary } from "../../types";
+import { isTopologyUnavailable } from "../../lib/topology/topologyStatus";
 import { AssetInventoryPanel } from "./AssetInventoryPanel";
 import {
   formatSlugLabel,
@@ -167,8 +168,4 @@ function DetailEmptyState({ title, description, onBack }: { title: string; descr
       </Button>
     </Empty>
   );
-}
-
-function isTopologyUnavailable(message: string | null) {
-  return (message ?? "").toLowerCase().includes("normalized topology");
 }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
-import { getBusinessUnits } from "../../api/topology";
-import type { BusinessUnitSummary } from "../../api/types";
+import { getBusinessUnits } from "../../../api/topology";
+import type { BusinessUnitSummary } from "../../../types";
 
 export function useBusinessUnits(refreshToken: number) {
   const [businessUnits, setBusinessUnits] = useState<BusinessUnitSummary[]>([]);

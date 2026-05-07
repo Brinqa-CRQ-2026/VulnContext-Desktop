@@ -2,9 +2,9 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { BusinessServicesOverview } from "../../../components/business-services/BusinessServicesOverview";
-import { useBusinessUnits } from "../../../hooks/topology/useBusinessUnits";
+import { useBusinessUnits } from "../../../hooks/topology/business-units/useBusinessUnits";
 
-vi.mock("../../../hooks/topology/useBusinessUnits", () => ({
+vi.mock("../../../hooks/topology/business-units/useBusinessUnits", () => ({
   useBusinessUnits: vi.fn(),
 }));
 

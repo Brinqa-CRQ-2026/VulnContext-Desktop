@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import type { FindingRouteOrigin, ScoredFinding } from "../../api";
+import type { FindingRouteOrigin, ScoredFinding } from "../../types";
 import type { BreadcrumbEntry } from "../business-services/TopologyChrome";
 import { useFindingDetails } from "../../hooks/findings/useFindingDetails";
 import { EntityHero } from "../business-services/shared/EntityHero";
@@ -185,27 +185,23 @@ export function FindingDetailPage({
     [assetLabel !== "-" ? assetLabel : null, businessContext || null, finding.source || null],
     finding.source || "Finding detail"
   );
-  const recommendationText =
-    finding.remediation_plan || finding.remediation_summary || null;
+  const recommendationText = finding.kevRequiredAction || null;
   const hasDistinctCveDescription =
     isPopulated(finding.cveDescription) &&
     finding.cveDescription?.trim() !== finding.description?.trim();
-  const dueDateValue = finding.due_date || finding.remediation_due_date || finding.kevDueDate;
+  const dueDateValue = finding.due_date || finding.kevDueDate;
   const hasRemediationSnapshot = Boolean(
     recommendationText
       || isPopulated(finding.kevRequiredAction)
       || isPopulated(finding.remediation_owner_name)
       || isPopulated(finding.remediation_status)
-      || isPopulated(finding.remediation_notes)
       || finding.due_date
-      || finding.remediation_due_date
       || finding.kevDueDate
   );
   const hasAttackContext = Boolean(
     isPopulated(finding.attack_pattern_names)
       || isPopulated(finding.attack_technique_names)
       || isPopulated(finding.attack_tactic_names)
-      || isPopulated(finding.confidence)
   );
 
   return (

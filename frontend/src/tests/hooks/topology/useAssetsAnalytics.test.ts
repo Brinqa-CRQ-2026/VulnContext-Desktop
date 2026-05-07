@@ -9,7 +9,7 @@ vi.mock("../../../api/topology", () => ({
   getAssetsAnalytics,
 }));
 
-import { useAssetsAnalytics } from "../../../hooks/topology/useAssetsAnalytics";
+import { useAssetsAnalytics } from "../../../hooks/topology/assets/useAssetsAnalytics";
 
 describe("useAssetsAnalytics", () => {
   beforeEach(() => {

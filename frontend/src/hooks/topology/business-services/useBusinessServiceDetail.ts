@@ -1,24 +1,25 @@
 import { useEffect, useState } from "react";
 
-import { getBusinessServiceAnalytics } from "../../api/topology";
-import type { BusinessServiceAnalytics } from "../../api/types";
+import { getBusinessServiceDetail } from "../../../api/topology";
+import type { BusinessServiceDetail } from "../../../types";
 
-export function useBusinessServiceAnalytics(
+export function useBusinessServiceDetail(
   businessUnitSlug: string | null,
   businessServiceSlug: string | null,
   refreshToken: number
 ) {
-  const [analytics, setAnalytics] = useState<BusinessServiceAnalytics | null>(null);
+  const [businessService, setBusinessService] =
+    useState<BusinessServiceDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
 
-    async function loadAnalytics() {
+    async function loadBusinessService() {
       if (!businessUnitSlug || !businessServiceSlug) {
-        setAnalytics(null);
-        setError("Business service analytics not found.");
+        setBusinessService(null);
+        setError("Business service not found.");
         setLoading(false);
         return;
       }
@@ -26,19 +27,19 @@ export function useBusinessServiceAnalytics(
       try {
         setLoading(true);
         setError(null);
-        const data = await getBusinessServiceAnalytics(
+        const data = await getBusinessServiceDetail(
           businessUnitSlug,
           businessServiceSlug
         );
         if (!active) return;
-        setAnalytics(data);
+        setBusinessService(data);
       } catch (err) {
         if (!active) return;
-        setAnalytics(null);
+        setBusinessService(null);
         setError(
           err instanceof Error
             ? err.message
-            : "Failed to load business service analytics."
+            : "Failed to load business service detail."
         );
       } finally {
         if (active) {
@@ -47,11 +48,11 @@ export function useBusinessServiceAnalytics(
       }
     }
 
-    loadAnalytics();
+    loadBusinessService();
     return () => {
       active = false;
     };
   }, [businessUnitSlug, businessServiceSlug, refreshToken]);
 
-  return { analytics, loading, error };
+  return { businessService, loading, error };
 }

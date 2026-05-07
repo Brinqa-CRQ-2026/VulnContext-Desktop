@@ -1,5 +1,5 @@
 import { buildApiUrl, parseJsonOrThrow } from "./client";
-import type { SourceSummary } from "./types";
+import type { SourceSummary } from "../types";
 
 export async function getSourcesSummary(): Promise<SourceSummary[]> {
   const res = await fetch(buildApiUrl("/sources"));

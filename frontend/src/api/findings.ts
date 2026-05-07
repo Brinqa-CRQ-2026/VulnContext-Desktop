@@ -7,7 +7,7 @@ import type {
   ScoresSummary,
   ScoredFinding,
   SortOrder,
-} from "./types";
+} from "../types";
 
 export async function getTopScores(): Promise<ScoredFinding[]> {
   const res = await fetch(buildApiUrl("/findings/top"));

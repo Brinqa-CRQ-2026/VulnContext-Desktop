@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
-import { getAssetDetail } from "../../api/topology";
-import type { AssetDetail } from "../../api/types";
+import { getAssetDetail } from "../../../api/topology";
+import type { AssetDetail } from "../../../types";
 
 export function useAssetDetail(assetId: string | null, refreshToken: number) {
   const [assetDetail, setAssetDetail] = useState<AssetDetail | null>(null);

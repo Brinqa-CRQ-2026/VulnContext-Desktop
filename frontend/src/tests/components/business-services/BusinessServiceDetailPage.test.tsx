@@ -2,21 +2,21 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { BusinessServiceDetailPage } from "../../../components/business-services/BusinessServiceDetailPage";
-import { useAssetsAnalytics } from "../../../hooks/topology/useAssetsAnalytics";
-import { useBusinessServiceAnalytics } from "../../../hooks/topology/useBusinessServiceAnalytics";
-import { useBusinessServiceDetail } from "../../../hooks/topology/useBusinessServiceDetail";
-import { usePaginatedAssets } from "../../../hooks/topology/usePaginatedAssets";
+import { useAssetsAnalytics } from "../../../hooks/topology/assets/useAssetsAnalytics";
+import { useBusinessServiceAnalytics } from "../../../hooks/topology/business-services/useBusinessServiceAnalytics";
+import { useBusinessServiceDetail } from "../../../hooks/topology/business-services/useBusinessServiceDetail";
+import { usePaginatedAssets } from "../../../hooks/topology/assets/usePaginatedAssets";
 
-vi.mock("../../../hooks/topology/useBusinessServiceDetail", () => ({
+vi.mock("../../../hooks/topology/business-services/useBusinessServiceDetail", () => ({
   useBusinessServiceDetail: vi.fn(),
 }));
-vi.mock("../../../hooks/topology/useBusinessServiceAnalytics", () => ({
+vi.mock("../../../hooks/topology/business-services/useBusinessServiceAnalytics", () => ({
   useBusinessServiceAnalytics: vi.fn(),
 }));
-vi.mock("../../../hooks/topology/usePaginatedAssets", () => ({
+vi.mock("../../../hooks/topology/assets/usePaginatedAssets", () => ({
   usePaginatedAssets: vi.fn(),
 }));
-vi.mock("../../../hooks/topology/useAssetsAnalytics", () => ({
+vi.mock("../../../hooks/topology/assets/useAssetsAnalytics", () => ({
   useAssetsAnalytics: vi.fn(),
 }));
 

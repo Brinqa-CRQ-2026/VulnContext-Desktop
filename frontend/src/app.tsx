@@ -21,7 +21,7 @@ import type {
   BusinessUnitSummary,
   FindingRouteOrigin,
   ScoredFinding,
-} from "./api";
+} from "./types";
 import { formatSlugLabel } from "./components/business-services/TopologyChrome";
 
 type BasePage = "findings" | "integrations" | "business-services";

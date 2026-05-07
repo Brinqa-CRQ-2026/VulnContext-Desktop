@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
-import { getBusinessUnitDetail } from "../../api/topology";
-import type { BusinessUnitDetail } from "../../api/types";
+import { getBusinessUnitDetail } from "../../../api/topology";
+import type { BusinessUnitDetail } from "../../../types";
 
 export function useBusinessUnitDetail(
   businessUnitSlug: string | null,

@@ -9,7 +9,7 @@ vi.mock("../../../api/topology", () => ({
   getBusinessUnitRiskOverview,
 }));
 
-import { useBusinessUnitRiskOverview } from "../../../hooks/topology/useBusinessUnitRiskOverview";
+import { useBusinessUnitRiskOverview } from "../../../hooks/topology/business-units/useBusinessUnitRiskOverview";
 
 describe("useBusinessUnitRiskOverview", () => {
   beforeEach(() => {

@@ -6,7 +6,7 @@ import type {
   PaginatedFindings,
   RiskBandFilter,
   SortOrder,
-} from "../../api/types";
+} from "../../types";
 
 export function usePaginatedFindings(
   initialPageSize: number = 50,

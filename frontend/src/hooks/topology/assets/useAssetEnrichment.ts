@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 
-import { getAssetEnrichment } from "../../api/topology";
-import type { AssetEnrichment } from "../../api/types";
-import { requestBrinqaSessionReset } from "../../auth/electronBrinqa";
+import { getAssetEnrichment } from "../../../api/topology";
+import type { AssetEnrichment } from "../../../types";
+import { requestBrinqaSessionReset } from "../../../auth/electronBrinqa";
 
 export function useAssetEnrichment(
   assetId: string | null,

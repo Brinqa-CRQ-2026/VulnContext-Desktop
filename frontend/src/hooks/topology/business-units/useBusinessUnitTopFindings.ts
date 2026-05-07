@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
-import { getBusinessUnitFindings } from "../../api/topology";
-import type { FindingsSortBy, PaginatedFindings, SortOrder } from "../../api/types";
+import { getBusinessUnitFindings } from "../../../api/topology";
+import type { FindingsSortBy, PaginatedFindings, SortOrder } from "../../../types";
 
 export function useBusinessUnitTopFindings(
   businessUnitSlug: string | null,

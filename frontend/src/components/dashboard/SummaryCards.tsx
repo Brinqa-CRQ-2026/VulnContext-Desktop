@@ -1,6 +1,6 @@
 import React from "react";
 
-import type { ScoresSummary, SourceSummary } from "../../api";
+import type { ScoresSummary, SourceSummary } from "../../types";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 
 interface SummaryCardsProps {

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
-import { getAssetsAnalytics } from "../../api/topology";
-import type { AssetAnalyticsResponse } from "../../api/types";
+import { getAssetsAnalytics } from "../../../api/topology";
+import type { AssetAnalyticsResponse } from "../../../types";
 
 export function useAssetsAnalytics({
   businessUnit,

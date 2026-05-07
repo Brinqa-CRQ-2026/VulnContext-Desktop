@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 
-import { getAssetFindingsPage } from "../../api/topology";
+import { getAssetFindingsPage } from "../../../api/topology";
 import type {
   AssetFindingsPage,
   FindingsSortBy,
   RiskBandFilter,
   SortOrder,
-} from "../../api/types";
+} from "../../../types";
 
 export function useAssetFindings(
   assetId: string | null,

@@ -5,9 +5,9 @@ import type {
   FindingsSortBy,
   RiskBandFilter,
   SourceSummary,
-} from "../../api/types";
+} from "../../types";
 
-describe("api/types", () => {
+describe("types", () => {
   it("exposes the expected string unions and source summary shape", () => {
     expectTypeOf<RiskBandFilter>().toEqualTypeOf<
       "All" | "Critical" | "High" | "Medium" | "Low"

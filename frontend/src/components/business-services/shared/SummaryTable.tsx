@@ -1,7 +1,12 @@
 import type { PropsWithChildren } from "react";
 
-import type { ScoredFinding } from "../../../api/types";
+import type { ScoredFinding } from "../../../types";
+import { formatNumber as formatDisplayNumber } from "../../../lib/formatting/numbers";
 import { getNormalizedFindingTitle } from "../../../lib/findings";
+import {
+  findingStatusTone,
+  normalizeFindingStatus,
+} from "../../../lib/findings/findingStatus";
 import {
   Table,
   TableBody,
@@ -11,6 +16,9 @@ import {
   TableRow,
 } from "../../ui/table";
 import { StatusBadge } from "./TopologyBadges";
+
+const formatNumber = (value?: number | null, digits = 1) =>
+  formatDisplayNumber(value, digits, "—");
 
 export function SummaryTable({
   children,
@@ -84,7 +92,7 @@ export function SummaryFindingsTable({
                 onClick={() => onOpenFinding(finding)}
               >
                 <TableCell className="px-4 py-4">
-                  <StatusBadge tone={statusTone(normalizedStatus)}>{normalizedStatus}</StatusBadge>
+                  <StatusBadge tone={findingStatusTone(normalizedStatus)}>{normalizedStatus}</StatusBadge>
                 </TableCell>
                 <TableCell className="px-4 py-4 text-center">
                   {finding.isKev ? <StatusBadge tone="dark">KEV</StatusBadge> : "—"}
@@ -123,33 +131,4 @@ export function SummaryFindingsTable({
       </TableBody>
     </SummaryTable>
   );
-}
-
-function formatNumber(value?: number | null, digits = 1) {
-  if (value === null || value === undefined || Number.isNaN(value)) return "—";
-  return value.toFixed(digits);
-}
-
-function normalizeFindingStatus(finding: ScoredFinding) {
-  const combined = [finding.status, finding.lifecycle_status]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-
-  if (/fixed|closed|resolved|remediated/.test(combined)) {
-    return "Fixed";
-  }
-  if (/inactive|unactive|retired/.test(combined)) {
-    return "Inactive";
-  }
-  if (/active|open|new/.test(combined)) {
-    return "Active";
-  }
-  return "Active";
-}
-
-function statusTone(status: "Active" | "Inactive" | "Fixed"): "low" | "neutral" | "dark" {
-  if (status === "Fixed") return "dark";
-  if (status === "Active") return "low";
-  return "neutral";
 }

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 import { getScoresSummary } from "../../api/findings";
 import { getSourcesSummary } from "../../api/sources";
-import type { ScoresSummary, SourceSummary } from "../../api/types";
+import type { ScoresSummary, SourceSummary } from "../../types";
 
 export function useDashboardOverviewData(refreshToken: number) {
   const [summary, setSummary] = useState<ScoresSummary | null>(null);

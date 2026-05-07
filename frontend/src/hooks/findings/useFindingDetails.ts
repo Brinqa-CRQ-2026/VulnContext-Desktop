@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { getFindingById } from "../../api/findings";
-import type { ScoredFinding } from "../../api/types";
+import type { ScoredFinding } from "../../types";
 
 export function useFindingDetails(findingId: string, refreshToken: number) {
   const [finding, setFinding] = useState<ScoredFinding | null>(null);

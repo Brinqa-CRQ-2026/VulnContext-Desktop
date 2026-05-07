@@ -2,21 +2,21 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { AssetFindingsPage } from "../../../components/business-services/AssetFindingsPage";
-import { useAssetDetail } from "../../../hooks/topology/useAssetDetail";
-import { useAssetEnrichment } from "../../../hooks/topology/useAssetEnrichment";
-import { useAssetFindings } from "../../../hooks/topology/useAssetFindings";
-import { useAssetFindingsAnalytics } from "../../../hooks/topology/useAssetFindingsAnalytics";
+import { useAssetDetail } from "../../../hooks/topology/assets/useAssetDetail";
+import { useAssetEnrichment } from "../../../hooks/topology/assets/useAssetEnrichment";
+import { useAssetFindings } from "../../../hooks/topology/assets/useAssetFindings";
+import { useAssetFindingsAnalytics } from "../../../hooks/topology/assets/useAssetFindingsAnalytics";
 
-vi.mock("../../../hooks/topology/useAssetFindings", () => ({
+vi.mock("../../../hooks/topology/assets/useAssetFindings", () => ({
   useAssetFindings: vi.fn(),
 }));
-vi.mock("../../../hooks/topology/useAssetDetail", () => ({
+vi.mock("../../../hooks/topology/assets/useAssetDetail", () => ({
   useAssetDetail: vi.fn(),
 }));
-vi.mock("../../../hooks/topology/useAssetEnrichment", () => ({
+vi.mock("../../../hooks/topology/assets/useAssetEnrichment", () => ({
   useAssetEnrichment: vi.fn(),
 }));
-vi.mock("../../../hooks/topology/useAssetFindingsAnalytics", () => ({
+vi.mock("../../../hooks/topology/assets/useAssetFindingsAnalytics", () => ({
   useAssetFindingsAnalytics: vi.fn(),
 }));
 

@@ -5,10 +5,15 @@ import { Bar, BarChart, CartesianGrid, Pie, PieChart, XAxis } from "recharts";
 import type {
   AssetScoreDistribution,
   AssetTypeDistributionItem,
-} from "../../api/types";
-import { useBusinessServiceDetail } from "../../hooks/topology/useBusinessServiceDetail";
-import type { ApplicationSummary, AssetSummary } from "../../api/types";
-import { useBusinessServiceAnalytics } from "../../hooks/topology/useBusinessServiceAnalytics";
+} from "../../types";
+import {
+  toAssetCriticalityLegendRows,
+  toAssetCriticalityPieRows,
+} from "../../lib/charts/assetDistribution";
+import { isTopologyUnavailable } from "../../lib/topology/topologyStatus";
+import { useBusinessServiceDetail } from "../../hooks/topology/business-services/useBusinessServiceDetail";
+import type { ApplicationSummary, AssetSummary } from "../../types";
+import { useBusinessServiceAnalytics } from "../../hooks/topology/business-services/useBusinessServiceAnalytics";
 import { AssetInventoryPanel } from "./AssetInventoryPanel";
 import {
   formatSlugLabel,
@@ -230,8 +235,8 @@ function AssetCriticalityDistributionCard({
   loading: boolean;
   error: string | null;
 }) {
-  const chartData = useMemo(() => toCriticalityPieRows(distribution), [distribution]);
-  const legendData = useMemo(() => toCriticalityLegendRows(distribution), [distribution]);
+  const chartData = useMemo(() => toAssetCriticalityPieRows(distribution), [distribution]);
+  const legendData = useMemo(() => toAssetCriticalityLegendRows(distribution), [distribution]);
 
   return (
     <ChartPanel
@@ -343,40 +348,6 @@ function FindingRiskSpreadPlaceholder({
   );
 }
 
-function toCriticalityPieRows(distribution: AssetScoreDistribution | null) {
-  if (!distribution) {
-    return [];
-  }
-
-  return [
-    { key: "critical", count: distribution.critical, fill: "var(--color-critical)" },
-    { key: "high", count: distribution.high, fill: "var(--color-high)" },
-    { key: "medium", count: distribution.medium, fill: "var(--color-medium)" },
-    { key: "low", count: distribution.low, fill: "var(--color-low)" },
-    { key: "unscored", count: distribution.unscored, fill: "var(--color-unscored)" },
-  ].filter((row) => row.count > 0);
-}
-
-function toCriticalityLegendRows(distribution: AssetScoreDistribution | null) {
-  const rows = [
-    { key: "critical", value: "critical", color: "var(--color-critical)", type: "square" as const },
-    { key: "high", value: "high", color: "var(--color-high)", type: "square" as const },
-    { key: "medium", value: "medium", color: "var(--color-medium)", type: "square" as const },
-    { key: "low", value: "low", color: "var(--color-low)", type: "square" as const },
-  ];
-
-  if ((distribution?.unscored ?? 0) > 0) {
-    rows.push({
-      key: "unscored",
-      value: "unscored",
-      color: "var(--color-unscored)",
-      type: "square" as const,
-    });
-  }
-
-  return rows;
-}
-
 function DetailEmptyState({
   title,
   description,
@@ -400,8 +371,4 @@ function DetailEmptyState({
       </Button>
     </Empty>
   );
-}
-
-function isTopologyUnavailable(message: string | null) {
-  return (message ?? "").toLowerCase().includes("normalized topology");
 }

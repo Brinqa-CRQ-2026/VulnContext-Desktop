@@ -1,8 +1,10 @@
 import { Building2 } from "lucide-react";
 
-import type { BusinessUnitSummary } from "../../api/types";
+import type { BusinessUnitSummary } from "../../types";
+import { buildInitials } from "../../lib/formatting/text";
+import { isTopologyUnavailable } from "../../lib/topology/topologyStatus";
 import { cn } from "../../lib/utils";
-import { useBusinessUnits } from "../../hooks/topology/useBusinessUnits";
+import { useBusinessUnits } from "../../hooks/topology/business-units/useBusinessUnits";
 import { TopologyOverviewSkeleton } from "./TopologyChrome";
 
 interface BusinessServicesOverviewProps {
@@ -189,15 +191,6 @@ function buildCompanyCards(businessUnits: BusinessUnitSummary[]): CompanyCardMod
   });
 }
 
-function buildInitials(value: string) {
-  return value
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part.charAt(0).toUpperCase())
-    .join("");
-}
-
 function TopologyEmptyState({
   title,
   description,
@@ -218,8 +211,4 @@ function TopologyEmptyState({
       </div>
     </div>
   );
-}
-
-function isTopologyUnavailable(message: string) {
-  return message.toLowerCase().includes("normalized topology");
 }

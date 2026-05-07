@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 
-import { getAssetsPage } from "../../api/topology";
+import { getAssetsPage } from "../../../api/topology";
 import type {
   AssetListSortBy,
   PaginatedAssets,
   SortOrder,
-} from "../../api/types";
+} from "../../../types";
 
 export function usePaginatedAssets({
   pageSize = 10,

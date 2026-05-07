@@ -1,11 +1,9 @@
 import { ArrowDown, ArrowUp, Search } from "lucide-react";
-import { useMemo, useState } from "react";
 
-import { usePaginatedAssets } from "../../hooks/topology/usePaginatedAssets";
-import { useAssetsAnalytics } from "../../hooks/topology/useAssetsAnalytics";
-import type { AssetListSortBy, AssetSummary, SortOrder } from "../../api/types";
+import { useAssetInventoryState } from "../../hooks/topology/assets/useAssetInventoryState";
+import type { AssetListSortBy, AssetSummary } from "../../types";
 import { AssetDistributionCharts } from "./AssetDistributionCharts";
-import { AssetsDrillDownTable, type SortState } from "./DrillDownTables";
+import { AssetsDrillDownTable } from "./DrillDownTables";
 import { Button } from "../ui/button";
 import {
   Pagination,
@@ -37,73 +35,43 @@ export function AssetInventoryPanel({
   refreshToken: number;
   onOpenAsset: (asset: AssetSummary) => void;
 }) {
-  const [searchDraft, setSearchDraft] = useState("");
-  const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<string>("All");
-  const [environment, setEnvironment] = useState<string>("All");
-  const [compliance, setCompliance] = useState<string>("All");
-  const [sortBy, setSortBy] = useState<AssetListSortBy>("finding_count");
-  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
-
-  const { data, loading, error, page, setPage, pageSize } = usePaginatedAssets({
-    pageSize: 10,
-    businessUnit,
-    businessService,
-    application,
-    status: status === "All" ? null : status,
-    environment: environment === "All" ? null : environment,
-    compliance: compliance === "All" ? null : compliance,
-    search,
-    directOnly,
-    sortBy,
-    sortOrder,
-    refreshToken,
-  });
   const {
+    searchDraft,
+    setSearchDraft,
+    applySearch,
+    status,
+    setStatus,
+    environment,
+    setEnvironment,
+    compliance,
+    setCompliance,
+    sortBy,
+    setSortBy,
+    sortOrder,
+    toggleSortOrder,
+    sortState,
+    data,
+    assets,
+    loading,
+    error,
     analytics,
-    loading: analyticsLoading,
-    error: analyticsError,
-  } = useAssetsAnalytics({
+    analyticsLoading,
+    analyticsError,
+    page,
+    pageSize,
+    totalPages,
+    pageNumbers,
+    goToPage,
+    statusOptions,
+    environmentOptions,
+    complianceOptions,
+  } = useAssetInventoryState({
     businessUnit,
     businessService,
     application,
-    status: status === "All" ? null : status,
-    environment: environment === "All" ? null : environment,
-    compliance: compliance === "All" ? null : compliance,
-    search,
     directOnly,
     refreshToken,
   });
-
-  const assets = data?.items ?? [];
-  const totalPages = Math.max(1, Math.ceil((data?.total ?? 0) / pageSize));
-  const pageNumbers = useMemo(() => {
-    const start = Math.max(1, page - 2);
-    const end = Math.min(totalPages, page + 2);
-    const values: number[] = [];
-    for (let index = start; index <= end; index += 1) values.push(index);
-    return values;
-  }, [page, totalPages]);
-  const statusOptions = useMemo(() => {
-    const values = new Set<string>();
-    assets.forEach((asset) => {
-      if (asset.status) values.add(asset.status);
-    });
-    return ["All", ...Array.from(values).sort((left, right) => left.localeCompare(right))];
-  }, [assets]);
-
-  const sortState: SortState<AssetListSortBy> = {
-    key: sortBy,
-    order: sortOrder,
-  };
-  const environmentOptions = useMemo(() => {
-    const values = new Set<string>();
-    assets.forEach((asset) => {
-      values.add(normalizeEnvironmentOption(asset.environment));
-    });
-    return ["All", ...Array.from(values).sort((left, right) => left.localeCompare(right))];
-  }, [assets]);
-  const complianceOptions = ["All", "Regulated", "PCI", "PII"];
 
   return (
     <div className="space-y-4">
@@ -118,7 +86,7 @@ export function AssetInventoryPanel({
           className="flex flex-wrap items-center gap-2"
           onSubmit={(event) => {
             event.preventDefault();
-            setSearch(searchDraft.trim());
+            applySearch();
           }}
         >
           <label className="flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">
@@ -195,7 +163,7 @@ export function AssetInventoryPanel({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))}
+            onClick={toggleSortOrder}
           >
             {sortOrder === "asc" ? (
               <>
@@ -245,7 +213,7 @@ export function AssetInventoryPanel({
                 href="#"
                 onClick={(event) => {
                   event.preventDefault();
-                  if (page > 1) setPage(page - 1);
+                  goToPage(page - 1);
                 }}
                 className={page <= 1 ? "pointer-events-none opacity-50" : ""}
               />
@@ -257,7 +225,7 @@ export function AssetInventoryPanel({
                   isActive={page === value}
                   onClick={(event) => {
                     event.preventDefault();
-                    setPage(value);
+                    goToPage(value);
                   }}
                 >
                   {value}
@@ -269,7 +237,7 @@ export function AssetInventoryPanel({
                 href="#"
                 onClick={(event) => {
                   event.preventDefault();
-                  if (page < totalPages) setPage(page + 1);
+                  goToPage(page + 1);
                 }}
                 className={page >= totalPages ? "pointer-events-none opacity-50" : ""}
               />
@@ -279,10 +247,4 @@ export function AssetInventoryPanel({
       ) : null}
     </div>
   );
-}
-
-function normalizeEnvironmentOption(environment?: string | null) {
-  const value = (environment ?? "").trim().toLowerCase();
-  if (!value) return "Unknown";
-  return value.charAt(0).toUpperCase() + value.slice(1);
 }
