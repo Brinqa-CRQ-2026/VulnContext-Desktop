@@ -217,6 +217,9 @@ def fetch_year_feed(year):
         headers={"User-Agent": "vulncontext-nvd-feed-sync"},
         timeout=180,
     )
+    if response.status_code == 404:
+        log(f"NVD year feed not available year={year}; skipping.")
+        return None
     response.raise_for_status()
     with gzip.open(BytesIO(response.content), "rt", encoding="utf-8") as feed:
         return json.load(feed)
@@ -245,6 +248,12 @@ def process_findings_only(*, scores_only=False, batch_size=BATCH_SIZE):
     for year in sorted(grouped):
         wanted = grouped[year]
         data = fetch_year_feed(year)
+        if data is None:
+            log(
+                "NVD findings-only year skipped "
+                f"year={year} wanted={len(wanted)} reason=feed_not_available."
+            )
+            continue
         records = []
         for item in data.get("vulnerabilities") or []:
             record = parse_nvd_record(item)
