@@ -48,6 +48,17 @@ def build_parser():
         default=None,
         help="Optional page limit for manual GitHub Actions testing.",
     )
+    parser.add_argument(
+        "--scores-only",
+        action="store_true",
+        help="Only upload CVSS score/severity fields, leaving existing descriptions unchanged.",
+    )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=BATCH_SIZE,
+        help=f"Supabase upsert batch size. Defaults to {BATCH_SIZE}.",
+    )
     return parser
 
 
@@ -143,8 +154,11 @@ def smoke_test():
         raise RuntimeError("NVD smoke test parsed a null CVSS score.")
 
 
-def process_and_upload(*, max_pages=None):
+def process_and_upload(*, max_pages=None, scores_only=False, batch_size=BATCH_SIZE):
     from supabase import create_client
+
+    if batch_size <= 0:
+        raise ValueError("--batch-size must be greater than 0.")
 
     require_env()
     supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -155,8 +169,9 @@ def process_and_upload(*, max_pages=None):
 
     log(
         "Starting NVD sync "
-        f"page_size={PAGE_SIZE} batch_size={BATCH_SIZE} "
-        f"api_key_configured={bool(NVD_API_KEY)} max_pages={max_pages}."
+        f"page_size={PAGE_SIZE} batch_size={batch_size} "
+        f"scores_only={scores_only} api_key_configured={bool(NVD_API_KEY)} "
+        f"max_pages={max_pages}."
     )
 
     while True:
@@ -182,12 +197,14 @@ def process_and_upload(*, max_pages=None):
                     continue
                 if record["cvss_score"] is not None:
                     total_with_cvss += 1
+                if scores_only:
+                    record.pop("description", None)
                 batch.append(record)
 
             except Exception:
                 continue
 
-            if len(batch) >= BATCH_SIZE:
+            if len(batch) >= batch_size:
                 total_uploaded += upload_batch(supabase, batch)
                 batch = []
 
@@ -211,7 +228,11 @@ def main():
     if args.smoke_test:
         smoke_test()
         return
-    process_and_upload(max_pages=args.max_pages)
+    process_and_upload(
+        max_pages=args.max_pages,
+        scores_only=args.scores_only,
+        batch_size=args.batch_size,
+    )
 
 if __name__ == "__main__":
     main()

@@ -14,6 +14,15 @@ on:
         description: "Optional page limit for manual testing; leave blank for full sync"
         required: false
         default: ""
+      scores_only:
+        description: "Only update CVSS score/severity, leaving descriptions unchanged"
+        required: false
+        default: true
+        type: boolean
+      batch_size:
+        description: "Supabase upsert batch size"
+        required: false
+        default: "1000"
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -57,5 +66,11 @@ jobs:
           fi
           if [ -n "${{ github.event.inputs.max_pages }}" ]; then
             ARGS="$ARGS --max-pages ${{ github.event.inputs.max_pages }}"
+          fi
+          if [ "${{ github.event.inputs.scores_only }}" = "true" ]; then
+            ARGS="$ARGS --scores-only"
+          fi
+          if [ -n "${{ github.event.inputs.batch_size }}" ]; then
+            ARGS="$ARGS --batch-size ${{ github.event.inputs.batch_size }}"
           fi
           python3 backend/scripts/automation/sync_nvd.py $ARGS
