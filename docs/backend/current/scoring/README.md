@@ -2,12 +2,21 @@
 
 ## Summary
 
-The backend currently supports two persisted CRQ layers:
+The backend currently supports three persisted CRQ layers:
 
 - finding-level scoring in `public.findings`
 - asset-level scoring in `public.assets`
+- application-level scoring in `public.applications`
 
 The API surfaces those scores directly when present, and it does not recalculate them during request handling.
+
+## Scale Convention
+
+Product-facing CRQ risk and rollup scores are stored on a `0-10` scale. This includes finding scores, asset rollups, asset context and risk, application rollups, application compliance, and application risk.
+
+Atomic modifiers stay on a `0-1` scale when they represent probabilities or normalized factors. This includes asset exposure, data sensitivity, environment, asset type components, EPSS score, and EPSS percentile.
+
+Finding EPSS and KEV adjustments are point adjustments into the `0-10` finding score, not standalone `0-1` risk scores.
 
 ## Current Outputs
 
@@ -35,7 +44,17 @@ The API surfaces those scores directly when present, and it does not recalculate
 - `crq_asset_environment_score`
 - `crq_asset_type_score`
 - `crq_asset_context_score`
+- `crq_asset_risk_score`
 - `crq_asset_scored_at`
+
+### Applications
+
+- `crq_application_aggregated_asset_risk`
+- `crq_application_compliance_score`
+- `crq_application_risk_score`
+- `crq_application_asset_count`
+- `crq_application_finding_count`
+- `crq_application_scored_at`
 
 ## API Behavior
 
@@ -46,5 +65,5 @@ The API surfaces those scores directly when present, and it does not recalculate
 ## Detailed References
 
 - [CRQ Finding Scoring V4](crq-finding-scoring-v4.md)
-- [CRQ Asset Scoring V1](crq-asset-scoring-v1.md)
-
+- [CRQ Asset Scoring V2](crq-asset-scoring-v2.md)
+- [CRQ Application Scoring V1](crq-application-scoring-v1.md)

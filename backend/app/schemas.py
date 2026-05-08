@@ -156,7 +156,13 @@ class BusinessServiceSummary(BaseModel):
 class ApplicationSummary(BaseModel):
     application: str
     slug: str
+    description: str | None = None
+    tags: list[str] | None = None
     metrics: TopologyMetrics
+    aggregated_asset_risk: float | None = None
+    compliance_score: float | None = None
+    application_risk_score: float | None = None
+    scored_at: datetime | None = None
 
 
 class AssetSummary(BaseModel):
@@ -417,8 +423,14 @@ class ApplicationDetail(BaseModel):
     business_service: str
     application: str
     slug: str
+    description: str | None = None
+    tags: list[str] | None = None
     first_seen_at: datetime | None = None
     metrics: TopologyMetrics
+    aggregated_asset_risk: float | None = None
+    compliance_score: float | None = None
+    application_risk_score: float | None = None
+    scored_at: datetime | None = None
     assets: list[AssetSummary]
 
 

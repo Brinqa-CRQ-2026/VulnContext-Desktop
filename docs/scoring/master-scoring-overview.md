@@ -19,7 +19,7 @@ Detailed implementation references remain in:
 
 - [Backend Scoring Overview](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/scoring/README.md)
 - [CRQ Finding Scoring V4](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/scoring/crq-finding-scoring-v4.md)
-- [CRQ Asset Scoring V1](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/scoring/crq-asset-scoring-v1.md)
+- [CRQ Asset Scoring V2](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/scoring/crq-asset-scoring-v2.md)
 
 ## Executive Summary
 
@@ -55,7 +55,7 @@ Status by layer:
 | Layer | Status | Primary output |
 | --- | --- | --- |
 | Finding | Implemented now | `crq_finding_score`, `crq_finding_risk_band` |
-| Asset | Implemented now | `crq_asset_aggregated_finding_risk`, `crq_asset_context_score` |
+| Asset | Implemented now | `crq_asset_aggregated_finding_risk`, `crq_asset_context_score`, `crq_asset_risk_score` |
 | Application | Planned / directional | rollup of supporting asset risk |
 | Business Service | Planned / directional | rollup of application risk plus business importance |
 | Company | Planned / directional | aggregate organizational risk view |
@@ -138,7 +138,7 @@ The hybrid model works better:
 
 ### Asset Context Score
 
-This score explains how critical an asset is from a technical context perspective.
+This score explains exposure-adjusted business and technical context. It is not pure criticality, and it does not create asset risk by itself.
 
 Formula:
 
@@ -154,9 +154,17 @@ The component weights are intentional:
 Why the model makes sense:
 
 - exposure reflects how reachable the asset is
-- data sensitivity reflects the impact of compromise
+- data sensitivity reflects whether PCI or PII signals are present or unknown
 - environment reflects operational importance
 - asset type reflects role and likely blast radius
+
+### Final Asset Risk Score
+
+The final active asset risk score adjusts vulnerability pressure by context:
+
+`crq_asset_risk_score = crq_asset_aggregated_finding_risk * (0.7 + (0.3 * crq_asset_context_score / 10))`
+
+If an asset has no CRQ-scored findings, `crq_asset_risk_score = 0.0`. Context can reduce or preserve vulnerability pressure, but it does not create major risk without findings and the final score never exceeds aggregated finding risk.
 
 ### `public.assets` CRQ Fields
 
@@ -167,8 +175,8 @@ Why the model makes sense:
 | `crq_asset_data_sensitivity_score` | Normalized sensitivity score | Shows how regulated or sensitive data raises urgency |
 | `crq_asset_environment_score` | Normalized environment score | Captures the importance of production versus test or development |
 | `crq_asset_type_score` | Normalized system-role score | Captures blast radius and infrastructure role |
-| `crq_asset_context_score` | Weighted technical criticality score on a `0-10` scale | Gives the system an explainable context signal separate from raw finding severity |
-| `crq_asset_risk_score` | Reserved final combined asset risk field | Exists for later pipeline work, but is intentionally not populated yet |
+| `crq_asset_context_score` | Weighted exposure-adjusted context score on a `0-10` scale | Gives the system an explainable context signal separate from raw finding severity |
+| `crq_asset_risk_score` | Final active asset risk score | Adjusts vulnerability pressure by context without letting context create risk alone |
 | `crq_asset_scored_at` | Timestamp of the most recent asset scoring run | Supports traceability and freshness checks |
 
 ### Asset Inputs That Drive Context
@@ -181,10 +189,10 @@ The context score depends on existing asset metadata fields in `public.assets`:
 | `public_ip_addresses` | Drives exposure scoring | Public IPs indicate direct attack surface |
 | `pci` | Drives sensitivity scoring | Payment data increases breach impact |
 | `pii` | Drives sensitivity scoring | Personal data increases breach impact |
-| `compliance_flags` | Drives sensitivity scoring | Compliance markers are a useful sensitivity proxy |
+| `compliance_flags` | Stored context metadata | Retained for display and analysis, but not used by CRQ asset scoring v2 |
 | `environment` | Drives environment scoring | Production systems usually have higher operational consequence |
 | `device_type` | Drives asset-type scoring | Different system classes have different blast radius |
-| `category` | Supports asset-type interpretation | Helps express technical role more accurately |
+| `category` | Stored type metadata | Generic values such as `Host` do not raise CRQ asset type scoring in v2 |
 
 ### Logical Summary
 
@@ -311,6 +319,6 @@ This structure keeps the model practical for operators while making it legible t
 
 - [Backend Scoring Overview](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/scoring/README.md)
 - [CRQ Finding Scoring V4](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/scoring/crq-finding-scoring-v4.md)
-- [Asset Context Scoring V1](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/scoring/crq-asset-scoring-v1.md)
+- [CRQ Asset Scoring V2](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/scoring/crq-asset-scoring-v2.md)
 - [Backend Database Reference](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/architecture/database.md)
 - [Business Services Feature Tracker](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/BUSINESS_SERVICES_FEATURE.md)

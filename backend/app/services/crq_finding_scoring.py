@@ -1,4 +1,9 @@
-"""CRQ finding scoring helpers."""
+"""CRQ finding scoring helpers.
+
+Final CRQ finding scores are product-facing 0-10 values. EPSS inputs stay on
+their native 0-1 probability/percentile scale, and EPSS/KEV values are additive
+point adjustments into the 0-10 final score.
+"""
 
 from __future__ import annotations
 
@@ -70,7 +75,7 @@ WITH base AS (
             WHEN e.percentile < 0.95 THEN 0.35
             ELSE 0.75
         END AS crq_finding_epss_multiplier,
-        CASE WHEN k.cve IS NOT NULL THEN 1 ELSE 0 END AS crq_finding_is_kev,
+        CASE WHEN k.cve IS NOT NULL THEN TRUE ELSE FALSE END AS crq_finding_is_kev,
         CASE WHEN k.cve IS NOT NULL THEN 0.9 ELSE 0.0 END AS crq_finding_kev_bonus,
         f.age_in_days AS crq_finding_age_days,
         CASE

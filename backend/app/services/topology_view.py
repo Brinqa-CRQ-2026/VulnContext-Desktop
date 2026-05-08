@@ -18,6 +18,7 @@ from app.api.common import (
     to_asset_enrichment,
     to_asset_detail,
     to_asset_summary,
+    to_application_summary,
     to_finding_summary,
 )
 from app.repositories.topology import (
@@ -332,13 +333,10 @@ def get_business_service_detail(business_unit_slug: str, business_service_slug: 
             total_findings=sum(int(all_finding_counts.get(asset.asset_id, 0)) for asset in service_assets),
         ),
         applications=[
-            schemas.ApplicationSummary(
-                application=application.name,
-                slug=application.slug,
-                metrics=schemas.TopologyMetrics(
-                    total_assets=int(application_asset_counts.get(application.id, 0)),
-                    total_findings=int(application_finding_counts.get(application.id, 0)),
-                ),
+            to_application_summary(
+                application,
+                asset_count=int(application_asset_counts.get(application.id, 0)),
+                finding_count=int(application_finding_counts.get(application.id, 0)),
             )
             for application in applications
         ],
@@ -413,11 +411,25 @@ def get_application_detail(
         business_service=application.business_service.name,
         application=application.name,
         slug=application.slug,
+        description=application.description,
+        tags=list(application.tags) if application.tags is not None else None,
         first_seen_at=application.first_seen_at,
         metrics=schemas.TopologyMetrics(
-            total_assets=len(assets),
-            total_findings=sum(int(finding_counts.get(asset.asset_id, 0)) for asset in assets),
+            total_assets=int(
+                application.crq_application_asset_count
+                if application.crq_application_asset_count is not None
+                else len(assets)
+            ),
+            total_findings=int(
+                application.crq_application_finding_count
+                if application.crq_application_finding_count is not None
+                else sum(int(finding_counts.get(asset.asset_id, 0)) for asset in assets)
+            ),
         ),
+        aggregated_asset_risk=application.crq_application_aggregated_asset_risk,
+        compliance_score=application.crq_application_compliance_score,
+        application_risk_score=application.crq_application_risk_score,
+        scored_at=application.crq_application_scored_at,
         assets=[
             to_asset_summary(asset, finding_count=int(finding_counts.get(asset.asset_id, 0)))
             for asset in assets

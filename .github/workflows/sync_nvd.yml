@@ -4,6 +4,16 @@ on:
   schedule:
     - cron: "0 10 * * 1"   # every Monday at 10:00 UTC
   workflow_dispatch:
+    inputs:
+      smoke_test:
+        description: "Run parser smoke test only, without uploading"
+        required: false
+        default: false
+        type: boolean
+      max_pages:
+        description: "Optional page limit for manual testing; leave blank for full sync"
+        required: false
+        default: ""
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -39,4 +49,13 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: python3 backend/scripts/automation/sync_nvd.py
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        run: |
+          ARGS=""
+          if [ "${{ github.event.inputs.smoke_test }}" = "true" ]; then
+            ARGS="$ARGS --smoke-test"
+          fi
+          if [ -n "${{ github.event.inputs.max_pages }}" ]; then
+            ARGS="$ARGS --max-pages ${{ github.event.inputs.max_pages }}"
+          fi
+          python3 backend/scripts/automation/sync_nvd.py $ARGS

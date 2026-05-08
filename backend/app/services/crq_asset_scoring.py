@@ -1,4 +1,8 @@
-"""Asset-level contextual scoring helpers."""
+"""Asset-level CRQ scoring helpers.
+
+Asset component modifiers are 0-1 values. Aggregated finding risk, context, and
+final asset risk are product-facing 0-10 values.
+"""
 
 from __future__ import annotations
 
@@ -9,7 +13,7 @@ from datetime import datetime, timezone
 from sqlalchemy import Engine, bindparam, inspect, text
 from sqlalchemy.orm import Session
 
-ASSET_SCORING_VERSION = "v1"
+ASSET_SCORING_VERSION = "v2"
 
 ASSET_SCORING_COLUMNS: tuple[str, ...] = (
     "crq_asset_aggregated_finding_risk",
@@ -34,6 +38,16 @@ def _clamp(value: float, *, minimum: float, maximum: float) -> float:
 
 def _round_score(value: float) -> float:
     return round(value, 2)
+
+
+def _is_true(value: bool | int | str | None) -> bool:
+    if value is True:
+        return True
+    if isinstance(value, int) and value == 1:
+        return True
+    if isinstance(value, str) and value.strip().lower() == "true":
+        return True
+    return False
 
 
 def _where_clause(asset_ids: Sequence[str] | None) -> str:
@@ -64,7 +78,7 @@ def require_asset_scoring_columns(target_engine: Engine) -> None:
 
 
 def calculate_aggregated_finding_risk(finding_scores: Sequence[float] | None) -> float:
-    """Aggregate finding scores while emphasizing high-risk clusters over raw volume."""
+    """Aggregate 0-10 finding scores into a 0-10 asset risk signal."""
     if not finding_scores:
         return 0.0
 
@@ -114,8 +128,8 @@ def calculate_exposure_score(
     if internal_or_external == "External":
         return 1.0
     if internal_or_external == "Internal":
-        return 0.6
-    return 0.8
+        return 0.5
+    return 0.4
 
 
 def calculate_data_sensitivity_score(
@@ -123,40 +137,65 @@ def calculate_data_sensitivity_score(
     pii: bool | None,
     compliance_flags: str | None,
 ) -> float:
-    """Expected input: DB-native booleans plus optional compliance flag text."""
-    if pci and pii:
+    """Expected input: DB-native booleans; compliance flags are ignored in v2."""
+    _ = compliance_flags
+    pci_is_true = _is_true(pci)
+    pii_is_true = _is_true(pii)
+    if pci_is_true and pii_is_true:
         return 1.0
-    if pci or pii:
+    if pci_is_true or pii_is_true:
         return 0.8
-    if compliance_flags:
-        return 0.6
+    if pci is None and pii is None:
+        return 0.4
     return 0.2
 
 
 def calculate_environment_score(environment: str | None) -> float:
-    """Expected input: one of development/production/test/unknown from assets.environment."""
-    if environment == "production":
+    """Expected input: canonical environment values from assets.environment."""
+    if environment in {"production", "prod"}:
         return 1.0
-    if environment == "test":
-        return 0.7
-    if environment == "development":
-        return 0.4
-    return 0.6
+    if environment in {"test", "staging", "qa"}:
+        return 0.6
+    if environment in {"development", "dev"}:
+        return 0.3
+    return 0.5
 
 
 def calculate_asset_type_score(device_type: str | None, category: str | None) -> float:
-    """Expected input: canonical device_type/category values from the asset import pipeline."""
-    if device_type in {"Network", "Router", "Firewall"}:
+    """Score normalized device_type values; generic category values do not affect v2."""
+    _ = category
+    if device_type == "Firewall":
         return 1.0
-    if device_type == "Database" or category == "Database":
+    if device_type == "Router":
+        return 0.95
+    if device_type == "Network":
+        return 0.95
+    if device_type == "Hypervisor":
         return 0.9
     if device_type == "Server":
         return 0.8
     if device_type == "Cloud server":
-        return 0.7
+        return 0.8
     if device_type == "Workstation":
+        return 0.4
+    if device_type == "Printer":
+        return 0.3
+    if device_type == "Unknown":
         return 0.5
-    return 0.6
+    return 0.5
+
+
+def calculate_asset_risk_score(
+    aggregated_finding_risk: float,
+    context_score: float,
+) -> float:
+    """Calculate final 0-10 asset risk from finding pressure adjusted by context."""
+    if aggregated_finding_risk <= 0.0:
+        return 0.0
+
+    context_multiplier = 0.7 + (0.3 * context_score / 10)
+    final_score = aggregated_finding_risk * context_multiplier
+    return _round_score(_clamp(final_score, minimum=0.0, maximum=10.0))
 
 
 def calculate_asset_context_score(
@@ -170,7 +209,7 @@ def calculate_asset_context_score(
     device_type: str | None,
     category: str | None,
 ) -> dict[str, float | str]:
-    """Calculate the weighted asset context score from DB-native asset fields."""
+    """Calculate 0-10 exposure-adjusted business context from 0-1 components."""
     crq_asset_exposure_score = _clamp(
         calculate_exposure_score(internal_or_external, public_ip_addresses),
         minimum=0.0,
@@ -305,12 +344,17 @@ def _computed_asset_scores(db: Session, asset_ids: Sequence[str] | None = None) 
             device_type=row["device_type"],
             category=row["category"],
         )
+        crq_asset_risk_score = calculate_asset_risk_score(
+            crq_asset_aggregated_finding_risk,
+            float(context["crq_asset_context_score"]),
+        )
 
         computed_rows.append(
             {
                 "asset_id": row["asset_id"],
                 "crq_asset_aggregated_finding_risk": crq_asset_aggregated_finding_risk,
                 **context,
+                "crq_asset_risk_score": crq_asset_risk_score,
             }
         )
 
@@ -339,6 +383,7 @@ SET
     crq_asset_environment_score = :crq_asset_environment_score,
     crq_asset_type_score = :crq_asset_type_score,
     crq_asset_context_score = :crq_asset_context_score,
+    crq_asset_risk_score = :crq_asset_risk_score,
     crq_asset_scored_at = :scored_at
 WHERE asset_id = :asset_id
 """
@@ -354,6 +399,7 @@ WHERE asset_id = :asset_id
             "crq_asset_environment_score": row["crq_asset_environment_score"],
             "crq_asset_type_score": row["crq_asset_type_score"],
             "crq_asset_context_score": row["crq_asset_context_score"],
+            "crq_asset_risk_score": row["crq_asset_risk_score"],
             "scored_at": timestamp,
         }
         for row in computed_rows

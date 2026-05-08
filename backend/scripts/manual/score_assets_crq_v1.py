@@ -1,11 +1,11 @@
-"""Compatibility wrapper for the renamed CRQ assets scoring script."""
+"""Compatibility wrapper for the current CRQ assets scoring script."""
 
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from scripts.manual.score_crq_assets_v1 import main
+from scripts.manual.score_crq_assets_v2 import main
 
 
 if __name__ == "__main__":

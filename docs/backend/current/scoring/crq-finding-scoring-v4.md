@@ -10,6 +10,8 @@ Schema changes are managed by the tracked Supabase migration in `supabase/migrat
 
 `crq_finding_score = min(10, (cvss_score * 0.88) + epss_adjustment + kev_bonus)`
 
+The final `crq_finding_score` is a product-facing `0-10` score. `cvss_score` is also `0-10`. EPSS score and percentile stay on their native `0-1` scale, while `epss_adjustment` and `kev_bonus` are small point adjustments into the final `0-10` score.
+
 Components:
 
 - `cvss_score` comes from `nvd.cvss_score`
@@ -65,4 +67,3 @@ The scorer writes these columns on `public.findings`:
 - missing EPSS percentile defaults to `0.0`
 - missing KEV defaults to `0.0`
 - missing `age_in_days` defaults to the reference age band `0.0`
-

@@ -111,4 +111,13 @@ def test_crq_scoring_persists_expected_values_and_boundaries(db_session):
     for finding in refreshed.values():
         assert finding.crq_finding_score_version == CRQ_VERSION
         assert finding.crq_finding_scored_at == datetime(2024, 2, 1, tzinfo=timezone.utc)
+        assert finding.crq_finding_score >= 0.0
         assert finding.crq_finding_score <= 10.0
+        assert finding.crq_finding_cvss_score >= 0.0
+        assert finding.crq_finding_cvss_score <= 10.0
+        if finding.crq_finding_epss_score is not None:
+            assert 0.0 <= finding.crq_finding_epss_score <= 1.0
+        if finding.crq_finding_epss_percentile is not None:
+            assert 0.0 <= finding.crq_finding_epss_percentile <= 1.0
+        assert -1.0 <= finding.crq_finding_epss_multiplier <= 1.0
+        assert 0.0 <= finding.crq_finding_kev_bonus <= 1.0

@@ -6,6 +6,7 @@ from app import models
 from app.services.crq_asset_scoring import (
     calculate_aggregated_finding_risk,
     calculate_asset_context_score,
+    calculate_asset_risk_score,
     calculate_asset_type_score,
     calculate_data_sensitivity_score,
     calculate_environment_score,
@@ -69,6 +70,7 @@ def test_aggregated_finding_risk_handles_empty_and_stays_bounded():
     assert calculate_aggregated_finding_risk(None) == 0.0
     assert calculate_aggregated_finding_risk([12.0, -4.0, 3.0]) <= 10.0
     assert calculate_aggregated_finding_risk([12.0, -4.0, 3.0]) >= 0.0
+    assert calculate_aggregated_finding_risk([10.0, 10.0, 10.0]) <= 10.0
 
 
 def test_aggregated_finding_risk_prioritizes_high_scores_without_low_score_inflation():
@@ -90,27 +92,39 @@ def test_derive_environment_and_component_scores_handle_null_and_tag_variants():
     assert derive_environment(["Development"]) == "development"
 
     assert calculate_exposure_score("External", None) == 1.0
-    assert calculate_exposure_score("Internal", None) == 0.6
-    assert calculate_exposure_score(None, None) == 0.8
+    assert calculate_exposure_score("Internal", None) == 0.5
+    assert calculate_exposure_score(None, None) == 0.4
     assert calculate_exposure_score(None, "1.2.3.4") == 1.0
+    assert calculate_exposure_score(None, None) < calculate_exposure_score("Internal", None)
 
     assert calculate_data_sensitivity_score(True, True, None) == 1.0
     assert calculate_data_sensitivity_score(True, False, None) == 0.8
-    assert calculate_data_sensitivity_score(False, False, "SOX") == 0.6
+    assert calculate_data_sensitivity_score(None, None, None) == 0.4
+    assert calculate_data_sensitivity_score(None, None, "SOX") == 0.4
     assert calculate_data_sensitivity_score(False, False, None) == 0.2
+    assert calculate_data_sensitivity_score(False, False, "SOX") == 0.2
 
     assert calculate_environment_score("production") == 1.0
-    assert calculate_environment_score("test") == 0.7
-    assert calculate_environment_score("development") == 0.4
-    assert calculate_environment_score("unknown") == 0.6
+    assert calculate_environment_score("prod") == 1.0
+    assert calculate_environment_score("test") == 0.6
+    assert calculate_environment_score("staging") == 0.6
+    assert calculate_environment_score("qa") == 0.6
+    assert calculate_environment_score("development") == 0.3
+    assert calculate_environment_score("dev") == 0.3
+    assert calculate_environment_score("unknown") == 0.5
+    assert calculate_environment_score("unknown") < calculate_environment_score("production")
 
     assert calculate_asset_type_score("Firewall", None) == 1.0
-    assert calculate_asset_type_score("Router", None) == 1.0
-    assert calculate_asset_type_score(None, "Database") == 0.9
+    assert calculate_asset_type_score("Router", None) == 0.95
+    assert calculate_asset_type_score("Network", None) == 0.95
+    assert calculate_asset_type_score("Hypervisor", None) == 0.9
     assert calculate_asset_type_score("Server", None) == 0.8
-    assert calculate_asset_type_score("Cloud server", None) == 0.7
-    assert calculate_asset_type_score("Workstation", None) == 0.5
-    assert calculate_asset_type_score(None, None) == 0.6
+    assert calculate_asset_type_score("Cloud server", None) == 0.8
+    assert calculate_asset_type_score("Workstation", None) == 0.4
+    assert calculate_asset_type_score("Printer", None) == 0.3
+    assert calculate_asset_type_score("Unknown", None) == 0.5
+    assert calculate_asset_type_score(None, "Host") == 0.5
+    assert calculate_asset_type_score(None, None) == 0.5
 
 
 def test_asset_context_score_uses_weighted_model_and_bounds():
@@ -131,7 +145,22 @@ def test_asset_context_score_uses_weighted_model_and_bounds():
     assert result["crq_asset_environment_score"] == 1.0
     assert result["crq_asset_type_score"] == 1.0
     assert result["crq_asset_context_score"] == pytest.approx(9.4)
+    assert 0.0 <= result["crq_asset_exposure_score"] <= 1.0
+    assert 0.0 <= result["crq_asset_data_sensitivity_score"] <= 1.0
+    assert 0.0 <= result["crq_asset_environment_score"] <= 1.0
+    assert 0.0 <= result["crq_asset_type_score"] <= 1.0
     assert 0.0 <= result["crq_asset_context_score"] <= 10.0
+
+
+def test_asset_risk_score_uses_context_as_bounded_multiplier():
+    high_context = calculate_asset_risk_score(8.0, 9.0)
+    lower_context = calculate_asset_risk_score(8.0, 4.0)
+
+    assert high_context == pytest.approx(7.76)
+    assert lower_context == pytest.approx(6.56)
+    assert high_context > lower_context
+    assert high_context <= 8.0
+    assert calculate_asset_risk_score(0.0, 10.0) == 0.0
 
 
 def test_score_assets_persists_scores_and_supports_targeting(db_session):
@@ -173,14 +202,18 @@ def test_score_assets_persists_scores_and_supports_targeting(db_session):
     asset_b = db_session.get(models.Asset, "asset-b")
 
     assert asset_a.crq_asset_aggregated_finding_risk == pytest.approx(8.41)
+    assert 0.0 <= asset_a.crq_asset_aggregated_finding_risk <= 10.0
     assert asset_a.crq_asset_exposure_score == 1.0
     assert asset_a.crq_asset_data_sensitivity_score == 1.0
     assert asset_a.environment == "production"
     assert asset_a.crq_asset_environment_score == 1.0
-    assert asset_a.crq_asset_type_score == 1.0
-    assert asset_a.crq_asset_context_score == pytest.approx(10.0)
+    assert asset_a.crq_asset_type_score == 0.95
+    assert asset_a.crq_asset_context_score == pytest.approx(9.92)
+    assert asset_a.crq_asset_risk_score == pytest.approx(8.39)
+    assert 0.0 <= asset_a.crq_asset_context_score <= 10.0
+    assert 0.0 <= asset_a.crq_asset_risk_score <= 10.0
+    assert asset_a.crq_asset_risk_score <= asset_a.crq_asset_aggregated_finding_risk
     assert asset_a.crq_asset_scored_at == datetime(2024, 2, 1, tzinfo=timezone.utc)
-    assert asset_a.crq_asset_risk_score is None
 
     assert asset_b.crq_asset_aggregated_finding_risk is None
     assert asset_b.crq_asset_context_score is None
@@ -203,9 +236,51 @@ def test_score_assets_assigns_zero_aggregated_risk_when_no_crq_findings_exist(db
 
     asset = db_session.get(models.Asset, "asset-empty")
     assert asset.crq_asset_aggregated_finding_risk == 0.0
-    assert asset.crq_asset_exposure_score == 0.6
-    assert asset.crq_asset_data_sensitivity_score == 0.6
+    assert asset.crq_asset_exposure_score == 0.5
+    assert asset.crq_asset_data_sensitivity_score == 0.4
     assert asset.environment == "test"
-    assert asset.crq_asset_environment_score == 0.7
+    assert asset.crq_asset_environment_score == 0.6
     assert asset.crq_asset_type_score == 0.8
-    assert asset.crq_asset_context_score == pytest.approx(6.5)
+    assert asset.crq_asset_context_score == pytest.approx(5.35)
+    assert asset.crq_asset_risk_score == 0.0
+
+
+def test_final_asset_risk_changes_with_context_for_same_finding_pressure(db_session):
+    seed_asset_with_findings(
+        db_session,
+        asset_id="asset-high-context",
+        environment="production",
+        internal_or_external="External",
+        public_ip_addresses="1.2.3.4",
+        pci=True,
+        pii=True,
+        device_type="Firewall",
+        category="Host",
+        crq_scores=[8.0],
+    )
+    seed_asset_with_findings(
+        db_session,
+        asset_id="asset-low-context",
+        environment="development",
+        internal_or_external=None,
+        public_ip_addresses=None,
+        pci=False,
+        pii=False,
+        device_type="Printer",
+        category="Host",
+        crq_scores=[8.0],
+    )
+
+    score_assets(db_session, asset_ids=["asset-high-context", "asset-low-context"])
+
+    high_context_asset = db_session.get(models.Asset, "asset-high-context")
+    low_context_asset = db_session.get(models.Asset, "asset-low-context")
+
+    assert high_context_asset.crq_asset_context_score == pytest.approx(10.0)
+    assert low_context_asset.crq_asset_context_score == pytest.approx(3.05)
+    assert high_context_asset.crq_asset_aggregated_finding_risk == pytest.approx(
+        low_context_asset.crq_asset_aggregated_finding_risk
+    )
+    assert high_context_asset.crq_asset_risk_score > low_context_asset.crq_asset_risk_score
+    assert high_context_asset.crq_asset_risk_score <= high_context_asset.crq_asset_aggregated_finding_risk
+    assert low_context_asset.crq_asset_risk_score <= low_context_asset.crq_asset_aggregated_finding_risk

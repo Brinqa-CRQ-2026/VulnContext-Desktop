@@ -259,6 +259,38 @@ def slugify(value: str) -> str:
     return "-".join(parts)
 
 
+def to_application_summary(
+    application: models.Application,
+    *,
+    asset_count: int | None = None,
+    finding_count: int | None = None,
+) -> schemas.ApplicationSummary:
+    resolved_asset_count = (
+        application.crq_application_asset_count
+        if application.crq_application_asset_count is not None
+        else asset_count
+    )
+    resolved_finding_count = (
+        application.crq_application_finding_count
+        if application.crq_application_finding_count is not None
+        else finding_count
+    )
+    return schemas.ApplicationSummary(
+        application=application.name,
+        slug=application.slug,
+        description=application.description,
+        tags=list(application.tags) if application.tags is not None else None,
+        metrics=schemas.TopologyMetrics(
+            total_assets=int(resolved_asset_count or 0),
+            total_findings=int(resolved_finding_count or 0),
+        ),
+        aggregated_asset_risk=application.crq_application_aggregated_asset_risk,
+        compliance_score=application.crq_application_compliance_score,
+        application_risk_score=application.crq_application_risk_score,
+        scored_at=application.crq_application_scored_at,
+    )
+
+
 def to_asset_summary(asset: models.Asset, finding_count: int = 0) -> schemas.AssetSummary:
     company = asset.__dict__.get("company")
     business_unit = asset.__dict__.get("business_unit")
