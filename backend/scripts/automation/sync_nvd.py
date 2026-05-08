@@ -2,6 +2,11 @@ import os
 import sys
 import time
 import argparse
+import gzip
+import json
+import re
+from collections import defaultdict
+from io import BytesIO
 from pathlib import Path
 
 import requests
@@ -16,9 +21,11 @@ SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 NVD_API_KEY = os.getenv("NVD_API_KEY")
 
 BASE_URL = "https://services.nvd.nist.gov/rest/json/cves/2.0"
+FEED_URL_TEMPLATE = "https://nvd.nist.gov/feeds/json/cve/2.0/nvdcve-2.0-{year}.json.gz"
 PAGE_SIZE = 2000
 BATCH_SIZE = 500
 DELAY = 2
+SUPABASE_SELECT_PAGE_SIZE = 1000
 
 
 def log(message):
@@ -52,6 +59,14 @@ def build_parser():
         "--scores-only",
         action="store_true",
         help="Only upload CVSS score/severity fields, leaving existing descriptions unchanged.",
+    )
+    parser.add_argument(
+        "--findings-only",
+        action="store_true",
+        help=(
+            "Only refresh NVD rows for CVEs currently present in findings, "
+            "using NVD yearly feeds instead of the full API sync."
+        ),
     )
     parser.add_argument(
         "--batch-size",
@@ -138,6 +153,14 @@ def upload_batch(supabase, batch):
     return len(batch)
 
 
+def upload_records(supabase, records, *, batch_size):
+    uploaded = 0
+    for start in range(0, len(records), batch_size):
+        batch = records[start : start + batch_size]
+        uploaded += upload_batch(supabase, batch)
+    return uploaded
+
+
 def smoke_test():
     cve = "CVE-2022-25434"
     response = safe_request({"cveId": cve})
@@ -152,6 +175,102 @@ def smoke_test():
     )
     if record["cvss_score"] is None:
         raise RuntimeError("NVD smoke test parsed a null CVSS score.")
+
+
+def finding_cves(supabase):
+    cves = set()
+    offset = 0
+    while True:
+        response = (
+            supabase.table("findings")
+            .select("cve_id")
+            .not_.is_("cve_id", "null")
+            .range(offset, offset + SUPABASE_SELECT_PAGE_SIZE - 1)
+            .execute()
+        )
+        rows = response.data or []
+        for row in rows:
+            cve = (row.get("cve_id") or "").strip()
+            if cve:
+                cves.add(cve)
+        if len(rows) < SUPABASE_SELECT_PAGE_SIZE:
+            break
+        offset += SUPABASE_SELECT_PAGE_SIZE
+        log(f"Loaded finding CVEs page offset={offset} distinct_cves={len(cves)}.")
+    return cves
+
+
+def cves_by_year(cves):
+    grouped = defaultdict(set)
+    for cve in cves:
+        match = re.match(r"^CVE-(\d{4})-", cve)
+        if match:
+            grouped[match.group(1)].add(cve)
+    return grouped
+
+
+def fetch_year_feed(year):
+    url = FEED_URL_TEMPLATE.format(year=year)
+    log(f"Downloading NVD year feed year={year} url={url}.")
+    response = requests.get(
+        url,
+        headers={"User-Agent": "vulncontext-nvd-feed-sync"},
+        timeout=180,
+    )
+    response.raise_for_status()
+    with gzip.open(BytesIO(response.content), "rt", encoding="utf-8") as feed:
+        return json.load(feed)
+
+
+def process_findings_only(*, scores_only=False, batch_size=BATCH_SIZE):
+    from supabase import create_client
+
+    if batch_size <= 0:
+        raise ValueError("--batch-size must be greater than 0.")
+
+    require_env()
+    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+    cves = finding_cves(supabase)
+    grouped = cves_by_year(cves)
+    log(
+        "Starting findings-only NVD sync "
+        f"distinct_cves={len(cves)} years={','.join(sorted(grouped))} "
+        f"scores_only={scores_only} batch_size={batch_size}."
+    )
+
+    total_matched = 0
+    total_uploaded = 0
+    total_with_cvss = 0
+
+    for year in sorted(grouped):
+        wanted = grouped[year]
+        data = fetch_year_feed(year)
+        records = []
+        for item in data.get("vulnerabilities") or []:
+            record = parse_nvd_record(item)
+            if record["cve"] not in wanted:
+                continue
+            record.pop("_metric_source", None)
+            if scores_only:
+                record.pop("description", None)
+            records.append(record)
+
+        matched = len(records)
+        with_cvss = sum(1 for record in records if record["cvss_score"] is not None)
+        uploaded = upload_records(supabase, records, batch_size=batch_size) if records else 0
+        total_matched += matched
+        total_uploaded += uploaded
+        total_with_cvss += with_cvss
+        log(
+            "NVD findings-only year complete "
+            f"year={year} wanted={len(wanted)} matched={matched} "
+            f"uploaded={uploaded} with_cvss={with_cvss}."
+        )
+
+    log(
+        "NVD findings-only sync complete "
+        f"matched={total_matched} uploaded={total_uploaded} with_cvss={total_with_cvss}."
+    )
 
 
 def process_and_upload(*, max_pages=None, scores_only=False, batch_size=BATCH_SIZE):
@@ -227,6 +346,12 @@ def main():
     args = build_parser().parse_args()
     if args.smoke_test:
         smoke_test()
+        return
+    if args.findings_only:
+        process_findings_only(
+            scores_only=args.scores_only,
+            batch_size=args.batch_size,
+        )
         return
     process_and_upload(
         max_pages=args.max_pages,
