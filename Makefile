@@ -24,3 +24,15 @@ score-assets:
 
 score-crq-assets:
 	cd backend && python3 scripts/manual/score_crq_assets_v2.py
+
+score-applications:
+	cd backend && python3 scripts/manual/score_crq_applications_v2.py
+
+score-crq-applications:
+	cd backend && python3 scripts/manual/score_crq_applications_v2.py
+
+score-business-services:
+	cd backend && python3 scripts/manual/score_crq_business_services_v1.py
+
+score-crq-business-services:
+	cd backend && python3 scripts/manual/score_crq_business_services_v1.py

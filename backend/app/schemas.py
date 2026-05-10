@@ -144,6 +144,7 @@ class BusinessUnitSummary(BaseModel):
     metrics: TopologyMetrics
     risk_score: float | None = None
     risk_band: str | None = None
+    priority_score: float | None = None
     risk_trend: list[BusinessUnitRiskTrendPoint] | None = None
 
 
@@ -290,6 +291,7 @@ class BusinessServiceAnalyticsTotals(BaseModel):
 class BusinessServiceAnalytics(BaseModel):
     service_risk_score: float | None = None
     service_risk_label: str | None = None
+    service_priority_score: float | None = None
     business_criticality_score: int | None = None
     business_criticality_max: int = 5
     business_criticality_label: str | None = None
@@ -373,6 +375,9 @@ class BusinessUnitDetail(BaseModel):
     source_last_integrated_at: datetime | None = None
     source_created_at: datetime | None = None
     source_updated_at: datetime | None = None
+    risk_score: float | None = None
+    risk_band: str | None = None
+    priority_score: float | None = None
     metrics: TopologyMetrics
     business_services: list[BusinessServiceSummary]
 
@@ -382,6 +387,7 @@ class BusinessUnitRiskOverview(BaseModel):
     slug: str
     risk_score: float | None = None
     risk_band: str | None = None
+    priority_score: float | None = None
     risk_trend: list[BusinessUnitRiskTrendPoint] = Field(default_factory=list)
     severity_counts: RiskBandSummary = Field(default_factory=RiskBandSummary)
     finding_risk_distribution: AssetScoreDistribution = Field(

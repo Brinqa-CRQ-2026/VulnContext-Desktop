@@ -76,6 +76,10 @@ make up
   Compatibility alias for the asset scorer.
 - `make score-crq-assets`
   Run the current CRQ asset scorer against persisted assets.
+- `make score-crq-applications`
+  Run the current CRQ application scorer against persisted applications.
+- `make score-crq-business-services`
+  Run the current CRQ business-service scorer against persisted business services.
 
 ## Data Workflow
 
@@ -84,7 +88,7 @@ The current project expects operational data to be managed through backend scrip
 The main scripts live under `backend/scripts/`:
 
 - Manual operator scripts: `manual/pull_asset_business_context.py`, `manual/pull_asset_findings.py`, `manual/export_assets_for_supabase.py`, `manual/export_findings_for_supabase.py`, `manual/reseed_assets_for_supabase.py`
-- Manual CRQ scoring: `manual/score_crq_findings_v1.py`, `manual/score_crq_assets_v1.py`
+- Manual CRQ scoring: `manual/score_crq_findings_v1.py`, `manual/score_crq_assets_v2.py`, `manual/score_crq_applications_v2.py`, `manual/score_crq_business_services_v1.py`
 - GitHub Actions sync jobs: `automation/sync_epss.py`, `automation/sync_kev.py`, `automation/sync_nvd.py`, `automation/sync_daily.py`
 
 ## Documentation

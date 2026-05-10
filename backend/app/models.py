@@ -6,6 +6,7 @@ from sqlalchemy import (
     JSON,
     ARRAY,
     Boolean,
+    CheckConstraint,
     Column,
     DateTime,
     Float,
@@ -57,6 +58,8 @@ class BusinessUnit(Base):
     source_last_integrated_at = Column(DateTime(timezone=True), nullable=True)
     source_created_at = Column(DateTime(timezone=True), nullable=True)
     source_updated_at = Column(DateTime(timezone=True), nullable=True)
+    crq_business_unit_risk_score = Column(Numeric(asdecimal=False), nullable=True, index=True)
+    crq_business_unit_priority_score = Column(Numeric(asdecimal=False), nullable=True, index=True)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
@@ -69,6 +72,11 @@ class BusinessService(Base):
     __tablename__ = "business_services"
     __table_args__ = (
         UniqueConstraint("business_unit_id", "slug", name="uq_business_services_business_unit_slug"),
+        CheckConstraint(
+            "business_criticality_score IS NULL OR "
+            "(business_criticality_score >= 0 AND business_criticality_score <= 5)",
+            name="business_services_business_criticality_score_range",
+        ),
     )
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
@@ -84,6 +92,7 @@ class BusinessService(Base):
     slug = Column(String, nullable=False, index=True)
     description = Column(Text, nullable=True)
     criticality_label = Column(String, nullable=True)
+    business_criticality_score = Column(Integer, nullable=True)
     division = Column(String, nullable=True)
     manager = Column(String, nullable=True)
     data_integration = Column(String, nullable=True)
@@ -98,6 +107,14 @@ class BusinessService(Base):
     source_last_integrated_at = Column(DateTime(timezone=True), nullable=True)
     source_created_at = Column(DateTime(timezone=True), nullable=True)
     source_updated_at = Column(DateTime(timezone=True), nullable=True)
+    crq_business_service_aggregated_application_risk = Column(Numeric(asdecimal=False), nullable=True)
+    crq_business_service_aggregated_direct_asset_risk = Column(Numeric(asdecimal=False), nullable=True)
+    crq_business_service_risk_score = Column(Numeric(asdecimal=False), nullable=True, index=True)
+    crq_business_service_priority_score = Column(Numeric(asdecimal=False), nullable=True, index=True)
+    crq_business_service_application_count = Column(Integer, nullable=True)
+    crq_business_service_asset_count = Column(Integer, nullable=True)
+    crq_business_service_finding_count = Column(Integer, nullable=True)
+    crq_business_service_scored_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 

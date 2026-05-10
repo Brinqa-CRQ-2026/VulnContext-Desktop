@@ -1,6 +1,6 @@
-# CRQ Application Scoring V1
+# CRQ Application Scoring V4
 
-Application CRQ v1 rolls scored supporting assets into `public.applications`.
+Application CRQ v4 rolls scored supporting assets into `public.applications`.
 
 The scorer keeps three application-layer score signals, all on a product-facing `0-10` scale:
 
@@ -19,9 +19,15 @@ The scorer uses persisted `assets.crq_asset_risk_score` only. Missing asset risk
 
 Formula:
 
-`crq_application_aggregated_asset_risk = 0.5 * max_asset_risk + 0.3 * top_5_asset_risk_avg + 0.2 * log_scaled_asset_component`
+`crq_application_aggregated_asset_risk = (0.50 * weighted_asset_average) + (0.30 * max_asset_risk) + (0.20 * asset_burden_score)`
 
-`log_scaled_asset_component = log(1 + total_asset_risk) / log(1 + scored_asset_count * 10) * 10`
+`asset_weight = log(1 + asset_finding_count)`
+
+`weighted_asset_average = sum(asset_risk_score * asset_weight) / sum(asset_weight)`
+
+`asset_burden_score = log(1 + total_asset_risk) / log(1 + scored_asset_count * 10) * 10`
+
+If scored assets exist but all asset weights are zero, the aggregate is `0.0`.
 
 The result is clamped to `0-10` and rounded to two decimals. Applications with no scored supporting assets receive `0.0`.
 

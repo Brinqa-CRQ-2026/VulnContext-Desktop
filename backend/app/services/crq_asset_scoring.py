@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from sqlalchemy import Engine, bindparam, inspect, text
 from sqlalchemy.orm import Session
 
-ASSET_SCORING_VERSION = "v2"
+ASSET_SCORING_VERSION = "v5"
 
 ASSET_SCORING_COLUMNS: tuple[str, ...] = (
     "crq_asset_aggregated_finding_risk",
@@ -30,6 +30,10 @@ EXPOSURE_WEIGHT = 0.35
 DATA_SENSITIVITY_WEIGHT = 0.30
 ENVIRONMENT_WEIGHT = 0.20
 ASSET_TYPE_WEIGHT = 0.15
+
+FINDING_MAX_WEIGHT = 0.25
+FINDING_WEIGHTED_SEVERITY_AVERAGE_WEIGHT = 0.50
+FINDING_SEVERITY_BURDEN_WEIGHT = 0.25
 
 
 def _clamp(value: float, *, minimum: float, maximum: float) -> float:
@@ -77,12 +81,13 @@ def require_asset_scoring_columns(target_engine: Engine) -> None:
         )
 
 
-def calculate_aggregated_finding_risk(finding_scores: Sequence[float] | None) -> float:
+def calculate_aggregated_finding_risk(
+    finding_scores: Sequence[float | None] | None,
+) -> float:
     """Aggregate 0-10 finding scores into a 0-10 asset risk signal."""
     if not finding_scores:
         return 0.0
 
-    # Normalize incoming finding scores into the expected 0-10 range.
     normalized_scores = [
         _clamp(score, minimum=0.0, maximum=10.0)
         for score in finding_scores
@@ -91,18 +96,61 @@ def calculate_aggregated_finding_risk(finding_scores: Sequence[float] | None) ->
     if not normalized_scores:
         return 0.0
 
-    sorted_scores = sorted(normalized_scores, reverse=True)
-    max_score = sorted_scores[0]
+    max_finding_score = max(normalized_scores)
+    weighted_severity_average = calculate_weighted_severity_average(normalized_scores)
+    severity_burden_score = calculate_severity_burden_score(normalized_scores)
 
-    k = min(5, len(sorted_scores))
-    top_k_avg = sum(sorted_scores[:k]) / k
-
-    total_score = sum(sorted_scores)
-    n = len(sorted_scores)
-    log_scaled_component = (math.log(1 + total_score) / math.log(1 + (n * 10))) * 10
-
-    aggregated = (0.5 * max_score) + (0.3 * top_k_avg) + (0.2 * log_scaled_component)
+    aggregated = (
+        (FINDING_MAX_WEIGHT * max_finding_score)
+        + (FINDING_WEIGHTED_SEVERITY_AVERAGE_WEIGHT * weighted_severity_average)
+        + (FINDING_SEVERITY_BURDEN_WEIGHT * severity_burden_score)
+    )
     return _round_score(_clamp(aggregated, minimum=0.0, maximum=10.0))
+
+
+def calculate_weighted_severity_average(finding_scores: Sequence[float]) -> float:
+    weighted_total = 0.0
+    weight_total = 0.0
+    for score in finding_scores:
+        weight = _finding_band_weight(score)
+        weighted_total += score * weight
+        weight_total += weight
+
+    if weight_total <= 0.0:
+        return 0.0
+    return weighted_total / weight_total
+
+
+def calculate_severity_burden_score(finding_scores: Sequence[float]) -> float:
+    finding_count = len(finding_scores)
+    if finding_count <= 0:
+        return 0.0
+
+    weighted_burden = sum(_finding_burden_weight(score) for score in finding_scores)
+    severity_burden_score = (
+        math.log(1 + weighted_burden) / math.log(1 + (finding_count * 10))
+    ) * 10
+    return _clamp(severity_burden_score, minimum=0.0, maximum=10.0)
+
+
+def _finding_band_weight(score: float) -> float:
+    if score >= 9.0:
+        return 4.0
+    if score >= 6.0:
+        return 2.0
+    if score >= 3.0:
+        return 1.0
+    return 0.5
+
+
+def _finding_burden_weight(score: float) -> float:
+    if score >= 9.0:
+        return 10.0
+    if score >= 6.0:
+        return 5.0
+    if score >= 3.0:
+        return 2.0
+    return 0.5
 
 
 def derive_environment(tags: list[str] | None) -> str:
@@ -137,7 +185,7 @@ def calculate_data_sensitivity_score(
     pii: bool | None,
     compliance_flags: str | None,
 ) -> float:
-    """Expected input: DB-native booleans; compliance flags are ignored in v2."""
+    """Expected input: DB-native booleans; compliance flags are ignored in v5."""
     _ = compliance_flags
     pci_is_true = _is_true(pci)
     pii_is_true = _is_true(pii)
@@ -162,7 +210,7 @@ def calculate_environment_score(environment: str | None) -> float:
 
 
 def calculate_asset_type_score(device_type: str | None, category: str | None) -> float:
-    """Score normalized device_type values; generic category values do not affect v2."""
+    """Score normalized device_type values; generic category values do not affect v5."""
     _ = category
     if device_type == "Firewall":
         return 1.0
@@ -251,37 +299,59 @@ def calculate_asset_context_score(
 
 def _scoring_query(where_sql: str) -> str:
     return f"""
-WITH finding_inputs AS (
+WITH finding_scores AS (
     SELECT
         a.asset_id,
-        COALESCE(
-            MAX(f.crq_finding_score) FILTER (WHERE f.crq_finding_score IS NOT NULL),
-            0.0
-        ) AS max_score,
-        COALESCE(SUM(f.crq_finding_score) FILTER (WHERE f.crq_finding_score IS NOT NULL), 0.0) AS total_score,
-        COUNT(f.crq_finding_score) FILTER (WHERE f.crq_finding_score IS NOT NULL) AS finding_count
+        CASE
+            WHEN f.crq_finding_score IS NULL THEN NULL
+            WHEN f.crq_finding_score < 0.0 THEN 0.0
+            WHEN f.crq_finding_score > 10.0 THEN 10.0
+            ELSE f.crq_finding_score
+        END AS finding_score
     FROM assets a
     LEFT JOIN findings f ON f.asset_id = a.asset_id
     {where_sql}
-    GROUP BY a.asset_id
-), ranked_scores AS (
-    SELECT
-        a.asset_id,
-        f.crq_finding_score,
-        ROW_NUMBER() OVER (
-            PARTITION BY a.asset_id
-            ORDER BY f.crq_finding_score DESC, f.id DESC
-        ) AS rank_index
-    FROM assets a
-    LEFT JOIN findings f ON f.asset_id = a.asset_id
-    {where_sql}
-), top_k AS (
+), finding_inputs AS (
     SELECT
         asset_id,
-        AVG(crq_finding_score) AS top_k_avg
-    FROM ranked_scores
-    WHERE crq_finding_score IS NOT NULL
-      AND rank_index <= 5
+        COALESCE(MAX(finding_score), 0.0) AS max_score,
+        COALESCE(
+            SUM(
+                finding_score * CASE
+                    WHEN finding_score >= 9.0 THEN 4.0
+                    WHEN finding_score >= 6.0 THEN 2.0
+                    WHEN finding_score >= 3.0 THEN 1.0
+                    ELSE 0.5
+                END
+            ) FILTER (WHERE finding_score IS NOT NULL),
+            0.0
+        ) AS weighted_severity_total,
+        COALESCE(
+            SUM(
+                CASE
+                    WHEN finding_score >= 9.0 THEN 4.0
+                    WHEN finding_score >= 6.0 THEN 2.0
+                    WHEN finding_score >= 3.0 THEN 1.0
+                    WHEN finding_score IS NOT NULL THEN 0.5
+                    ELSE 0.0
+                END
+            ),
+            0.0
+        ) AS severity_weight_total,
+        COALESCE(
+            SUM(
+                CASE
+                    WHEN finding_score >= 9.0 THEN 10.0
+                    WHEN finding_score >= 6.0 THEN 5.0
+                    WHEN finding_score >= 3.0 THEN 2.0
+                    WHEN finding_score IS NOT NULL THEN 0.5
+                    ELSE 0.0
+                END
+            ),
+            0.0
+        ) AS weighted_burden,
+        COUNT(finding_score) AS finding_count
+    FROM finding_scores
     GROUP BY asset_id
 )
 SELECT
@@ -296,15 +366,42 @@ SELECT
     a.device_type,
     a.category,
     fi.max_score,
-    COALESCE(tk.top_k_avg, 0.0) AS top_k_avg,
-    fi.total_score,
+    fi.weighted_severity_total,
+    fi.severity_weight_total,
+    fi.weighted_burden,
     fi.finding_count
 FROM assets a
 LEFT JOIN finding_inputs fi ON fi.asset_id = a.asset_id
-LEFT JOIN top_k tk ON tk.asset_id = a.asset_id
 {where_sql}
 ORDER BY a.asset_id
 """
+
+
+def _calculate_aggregated_finding_risk_from_parts(
+    *,
+    max_score: float,
+    weighted_severity_total: float,
+    severity_weight_total: float,
+    weighted_burden: float,
+    finding_count: int,
+) -> float:
+    if finding_count <= 0:
+        return 0.0
+
+    weighted_severity_average = (
+        weighted_severity_total / severity_weight_total
+        if severity_weight_total > 0.0
+        else 0.0
+    )
+    severity_burden_score = (
+        math.log(1 + weighted_burden) / math.log(1 + (finding_count * 10))
+    ) * 10
+    aggregated = (
+        (FINDING_MAX_WEIGHT * max_score)
+        + (FINDING_WEIGHTED_SEVERITY_AVERAGE_WEIGHT * weighted_severity_average)
+        + (FINDING_SEVERITY_BURDEN_WEIGHT * severity_burden_score)
+    )
+    return _round_score(_clamp(aggregated, minimum=0.0, maximum=10.0))
 
 
 def _computed_asset_scores(db: Session, asset_ids: Sequence[str] | None = None) -> list[dict]:
@@ -317,22 +414,21 @@ def _computed_asset_scores(db: Session, asset_ids: Sequence[str] | None = None) 
     computed_rows: list[dict] = []
     for row in rows:
         finding_count = int(row["finding_count"] or 0)
-        top_k_avg = float(row["top_k_avg"] or 0.0)
         max_score = float(row["max_score"] or 0.0)
-        total_score = float(row["total_score"] or 0.0)
+        weighted_severity_total = float(row["weighted_severity_total"] or 0.0)
+        severity_weight_total = float(row["severity_weight_total"] or 0.0)
+        weighted_burden = float(row["weighted_burden"] or 0.0)
 
         if finding_count <= 0:
             crq_asset_aggregated_finding_risk = 0.0
-            log_scaled_component = 0.0
         else:
-            log_scaled_component = (
-                math.log(1 + total_score) / math.log(1 + (finding_count * 10))
-            ) * 10
-            crq_asset_aggregated_finding_risk = _round_score(_clamp(
-                (0.5 * max_score) + (0.3 * top_k_avg) + (0.2 * log_scaled_component),
-                minimum=0.0,
-                maximum=10.0,
-            ))
+            crq_asset_aggregated_finding_risk = _calculate_aggregated_finding_risk_from_parts(
+                max_score=max_score,
+                weighted_severity_total=weighted_severity_total,
+                severity_weight_total=severity_weight_total,
+                weighted_burden=weighted_burden,
+                finding_count=finding_count,
+            )
 
         context = calculate_asset_context_score(
             internal_or_external=row["internal_or_external"],

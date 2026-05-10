@@ -19,27 +19,31 @@ Detailed implementation references remain in:
 
 - [Backend Scoring Overview](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/scoring/README.md)
 - [CRQ Finding Scoring V4](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/scoring/crq-finding-scoring-v4.md)
-- [CRQ Asset Scoring V2](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/scoring/crq-asset-scoring-v2.md)
+- [CRQ Asset Scoring V5](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/scoring/crq-asset-scoring-v2.md)
+- [CRQ Application Scoring V4](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/scoring/crq-application-scoring-v1.md)
+- [CRQ Business Service Scoring V4](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/scoring/crq-business-service-scoring-v2.md)
 
 ## Executive Summary
 
-The current scoring system is strongest at two layers:
+The current scoring system persists CRQ scores at four layers:
 
 - finding-level scoring in `public.findings`
 - asset-level scoring in `public.assets`
+- application-level scoring in `public.applications`
+- business-service-level scoring in `public.business_services`
 
 At the finding layer, CRQ v4 produces an app-owned score that keeps CVSS as the primary severity signal, then adjusts it with EPSS and KEV context. This gives the system a stable way to express how dangerous an individual vulnerability is before any environment context is added.
 
 At the asset layer, the model adds technical context. It aggregates scored findings into an asset-level finding-risk signal, then separately calculates an asset context score based on exposure, data sensitivity, environment, and asset type. Together, those asset-level signals provide a better picture of which systems deserve attention first.
 
-Above assets, the repo already contains a topology structure for:
+Above assets, the repo contains a topology structure for:
 
 - company
 - business unit
 - business service
 - application
 
-Those higher layers currently exist primarily as navigation and relationship structure. The intended long-term direction is to use them for progressive risk rollups so prioritization can move from isolated vulnerabilities to operational and business impact.
+Application and business-service risk now roll up persisted lower-layer scores. Company and business-unit scoring remain the longer-term direction for portfolio-level prioritization.
 
 ## Current Scoring Model Overview
 
@@ -56,8 +60,8 @@ Status by layer:
 | --- | --- | --- |
 | Finding | Implemented now | `crq_finding_score`, `crq_finding_risk_band` |
 | Asset | Implemented now | `crq_asset_aggregated_finding_risk`, `crq_asset_context_score`, `crq_asset_risk_score` |
-| Application | Planned / directional | rollup of supporting asset risk |
-| Business Service | Planned / directional | rollup of application risk plus business importance |
+| Application | Implemented now | `crq_application_aggregated_asset_risk`, `crq_application_risk_score` |
+| Business Service | Implemented now | `crq_business_service_aggregated_application_risk`, `crq_business_service_risk_score` |
 | Company | Planned / directional | aggregate organizational risk view |
 
 ## Finding Scoring
@@ -109,12 +113,11 @@ Finding scoring makes sense because it keeps the first layer narrow and defensib
 
 Asset scoring answers: how risky is the system context surrounding the findings, and how much does that context change prioritization?
 
-The current asset model produces two outputs in `public.assets`:
+The current asset model produces three outputs in `public.assets`:
 
 - `crq_asset_aggregated_finding_risk`
 - `crq_asset_context_score`
-
-It does not yet calculate or persist a final combined asset risk score.
+- `crq_asset_risk_score`
 
 ### Aggregated Finding Risk
 
@@ -122,7 +125,13 @@ This score summarizes the CRQ-scored findings on an asset without letting raw vo
 
 Formula:
 
-`crq_asset_aggregated_finding_risk = 0.5 * max_score + 0.3 * top_k_avg + 0.2 * log_scaled_component`
+`crq_asset_aggregated_finding_risk = (0.25 * max_finding_score) + (0.50 * weighted_severity_average) + (0.25 * severity_burden_score)`
+
+`weighted_severity_average = sum(finding_score * band_weight) / sum(band_weight)`
+
+Severity weights are `4.0` for critical findings, `2.0` for high findings, `1.0` for medium findings, and `0.5` for low findings.
+
+`severity_burden_score = log(1 + weighted_burden) / log(1 + scored_finding_count * 10) * 10`
 
 This logic exists because naive aggregation fails:
 
@@ -133,8 +142,8 @@ This logic exists because naive aggregation fails:
 The hybrid model works better:
 
 - `max_score` captures worst-case risk
-- `top_k_avg` captures concentration of serious issues
-- `log_scaled_component` captures volume without runaway inflation
+- `weighted_severity_average` captures the general risk level while emphasizing severe findings
+- `severity_burden_score` captures severity-weighted finding burden without runaway inflation
 
 ### Asset Context Score
 
@@ -189,10 +198,10 @@ The context score depends on existing asset metadata fields in `public.assets`:
 | `public_ip_addresses` | Drives exposure scoring | Public IPs indicate direct attack surface |
 | `pci` | Drives sensitivity scoring | Payment data increases breach impact |
 | `pii` | Drives sensitivity scoring | Personal data increases breach impact |
-| `compliance_flags` | Stored context metadata | Retained for display and analysis, but not used by CRQ asset scoring v2 |
+| `compliance_flags` | Stored context metadata | Retained for display and analysis, but not used by CRQ asset scoring v5 |
 | `environment` | Drives environment scoring | Production systems usually have higher operational consequence |
 | `device_type` | Drives asset-type scoring | Different system classes have different blast radius |
-| `category` | Stored type metadata | Generic values such as `Host` do not raise CRQ asset type scoring in v2 |
+| `category` | Stored type metadata | Generic values such as `Host` do not raise CRQ asset type scoring in v5 |
 
 ### Logical Summary
 
@@ -278,30 +287,54 @@ What each layer adds:
 
 This model is important because organizations do not make risk decisions from isolated findings alone. They make them based on what those findings threaten in practice.
 
-## Planned Higher-Layer Scoring
+## Higher-Layer Scoring
 
 ### Current status
 
-The repo already contains topology entities and drill-down behavior for:
+The repo contains topology entities, drill-down behavior, and persisted CRQ scoring for:
 
 - companies
 - business units
 - business services
 - applications
 
-Those layers are real in the data model and navigation flow, but the scoring formulas above assets are not yet finalized in repo truth.
+Application and business-service scoring are implemented. Company and business-unit scoring remain directional.
+
+### Application scoring
+
+Application scoring aggregates persisted `crq_asset_risk_score` values from supporting assets:
+
+`crq_application_aggregated_asset_risk = (0.50 * weighted_asset_average) + (0.30 * max_asset_risk) + (0.20 * asset_burden_score)`
+
+`asset_weight = log(1 + asset_finding_count)`
+
+The final application risk adjusts that aggregate by PCI/PII compliance context:
+
+`crq_application_risk_score = crq_application_aggregated_asset_risk * (0.7 + (0.3 * crq_application_compliance_score / 10))`
+
+### Business-service scoring
+
+Business-service scoring aggregates persisted application risk and direct asset risk with count-weighted averages:
+
+`application_weight = log(1 + application_asset_count) + log(1 + application_finding_count)`
+
+`direct_asset_weight = log(1 + direct_asset_finding_count)`
+
+If both application and direct-asset risk exist:
+
+`crq_business_service_risk_score = (0.80 * crq_business_service_aggregated_application_risk) + (0.20 * crq_business_service_aggregated_direct_asset_risk)`
+
+If only one aggregate exists, the business-service risk score uses that aggregate directly.
 
 ### Intended direction
 
-Application scoring should aggregate the risk of all supporting assets so teams can identify which applications inherit the greatest technical risk from their infrastructure.
-
-Business service scoring should aggregate application risk and then introduce business importance. This is the layer where the model can move beyond technical urgency and start answering which operational capabilities matter most to the organization.
+Business-unit scoring should aggregate business-service signals for operational portfolio views.
 
 Company scoring should aggregate business service signals into a single organizational risk view suitable for portfolio tracking, executive reporting, and prioritization across the environment.
 
 ### Important constraint
 
-These higher-layer scoring ideas are planned and directional. They should not be presented as fully implemented formulas until the repo contains an authoritative scoring model for them.
+Company and business-unit scoring ideas are planned and directional. They should not be presented as fully implemented formulas until the repo contains an authoritative scoring model for them.
 
 ## Design Principles
 
@@ -319,6 +352,8 @@ This structure keeps the model practical for operators while making it legible t
 
 - [Backend Scoring Overview](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/scoring/README.md)
 - [CRQ Finding Scoring V4](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/scoring/crq-finding-scoring-v4.md)
-- [CRQ Asset Scoring V2](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/scoring/crq-asset-scoring-v2.md)
+- [CRQ Asset Scoring V5](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/scoring/crq-asset-scoring-v2.md)
+- [CRQ Application Scoring V4](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/scoring/crq-application-scoring-v1.md)
+- [CRQ Business Service Scoring V4](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/scoring/crq-business-service-scoring-v2.md)
 - [Backend Database Reference](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/current/architecture/database.md)
 - [Business Services Feature Tracker](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/BUSINESS_SERVICES_FEATURE.md)

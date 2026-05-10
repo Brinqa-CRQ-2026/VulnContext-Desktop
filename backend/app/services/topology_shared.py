@@ -42,7 +42,10 @@ def _parse_business_criticality(label: str | None) -> tuple[int | None, str | No
 
     match = re.match(r"^\s*(\d+)\s*[-:]\s*(.+?)\s*$", label)
     if match:
-        return int(match.group(1)), match.group(2).strip().title()
+        score = int(match.group(1))
+        if score < 0 or score > 5:
+            return None, match.group(2).strip().title()
+        return score, match.group(2).strip().title()
 
     return None, label.strip().title()
 

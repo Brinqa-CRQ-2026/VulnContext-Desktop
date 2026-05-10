@@ -69,8 +69,9 @@ def get_business_units(db):
                 total_assets=int(asset_counts.get(business_unit.id, 0)),
                 total_findings=int(finding_counts.get(business_unit.id, 0)),
             ),
-            risk_score=None,
-            risk_band=None,
+            risk_score=business_unit.crq_business_unit_risk_score,
+            risk_band=derive_risk_band(business_unit.crq_business_unit_risk_score),
+            priority_score=business_unit.crq_business_unit_priority_score,
             risk_trend=None,
         )
         for business_unit in business_units
@@ -113,6 +114,9 @@ def get_business_unit_detail(business_unit_slug: str, db):
         source_last_integrated_at=business_unit.source_last_integrated_at,
         source_created_at=business_unit.source_created_at,
         source_updated_at=business_unit.source_updated_at,
+        risk_score=business_unit.crq_business_unit_risk_score,
+        risk_band=derive_risk_band(business_unit.crq_business_unit_risk_score),
+        priority_score=business_unit.crq_business_unit_priority_score,
         metrics=schemas.TopologyMetrics(
             total_business_services=len(business_services),
             total_applications=int(applications_total),
@@ -154,13 +158,18 @@ def get_business_unit_risk_overview(business_unit_slug: str, db):
         if band in severity_counts:
             severity_counts[band] += 1
 
-    risk_score = round(sum(scores) / len(scores), 2) if scores else None
+    risk_score = (
+        business_unit.crq_business_unit_risk_score
+        if business_unit.crq_business_unit_risk_score is not None
+        else round(sum(scores) / len(scores), 2) if scores else None
+    )
 
     return schemas.BusinessUnitRiskOverview(
         business_unit=business_unit.name,
         slug=business_unit.slug,
         risk_score=risk_score,
         risk_band=derive_risk_band(risk_score),
+        priority_score=business_unit.crq_business_unit_priority_score,
         risk_trend=trend_points,
         severity_counts=schemas.RiskBandSummary(**severity_counts),
         finding_risk_distribution=_build_asset_score_distribution(scores),
@@ -365,10 +374,13 @@ def get_business_service_analytics(business_unit_slug: str, business_service_slu
     business_criticality_score, business_criticality_label = _parse_business_criticality(
         business_service.criticality_label
     )
+    if business_service.business_criticality_score is not None:
+        business_criticality_score = business_service.business_criticality_score
 
     return schemas.BusinessServiceAnalytics(
-        service_risk_score=None,
-        service_risk_label=None,
+        service_risk_score=business_service.crq_business_service_risk_score,
+        service_risk_label=derive_risk_band(business_service.crq_business_service_risk_score),
+        service_priority_score=business_service.crq_business_service_priority_score,
         business_criticality_score=business_criticality_score,
         business_criticality_max=5,
         business_criticality_label=business_criticality_label,

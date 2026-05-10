@@ -14,10 +14,11 @@ These scripts are meant for a human operator to run directly. They are not trigg
 | Export findings for Supabase import | `backend/scripts/manual/export_findings_for_supabase.py` |
 | Reseed assets in Supabase | `backend/scripts/manual/reseed_assets_for_supabase.py` |
 | Run CRQ finding scoring | `backend/scripts/manual/score_crq_findings_v1.py` |
-| Run CRQ asset scoring | `backend/scripts/manual/score_crq_assets_v1.py` |
+| Run CRQ asset scoring | `backend/scripts/manual/score_crq_assets_v2.py` |
+| Run CRQ application scoring | `backend/scripts/manual/score_crq_applications_v2.py` |
+| Run CRQ business-service scoring | `backend/scripts/manual/score_crq_business_services_v1.py` |
 
 ## Compatibility Wrappers
 
 - `backend/scripts/manual/score_findings_crq_v1.py`
 - `backend/scripts/manual/score_assets_crq_v1.py`
-

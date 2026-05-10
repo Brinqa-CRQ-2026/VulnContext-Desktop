@@ -2,11 +2,12 @@
 
 ## Summary
 
-The backend currently supports three persisted CRQ layers:
+The backend currently supports four persisted CRQ layers:
 
 - finding-level scoring in `public.findings`
 - asset-level scoring in `public.assets`
 - application-level scoring in `public.applications`
+- business-service-level scoring in `public.business_services`
 
 The API surfaces those scores directly when present, and it does not recalculate them during request handling.
 
@@ -56,6 +57,16 @@ Finding EPSS and KEV adjustments are point adjustments into the `0-10` finding s
 - `crq_application_finding_count`
 - `crq_application_scored_at`
 
+### Business Services
+
+- `crq_business_service_aggregated_application_risk`
+- `crq_business_service_aggregated_direct_asset_risk`
+- `crq_business_service_risk_score`
+- `crq_business_service_application_count`
+- `crq_business_service_asset_count`
+- `crq_business_service_finding_count`
+- `crq_business_service_scored_at`
+
 ## API Behavior
 
 - finding summaries and detail responses prefer CRQ values when present
@@ -65,5 +76,6 @@ Finding EPSS and KEV adjustments are point adjustments into the `0-10` finding s
 ## Detailed References
 
 - [CRQ Finding Scoring V4](crq-finding-scoring-v4.md)
-- [CRQ Asset Scoring V2](crq-asset-scoring-v2.md)
-- [CRQ Application Scoring V1](crq-application-scoring-v1.md)
+- [CRQ Asset Scoring V5](crq-asset-scoring-v2.md)
+- [CRQ Application Scoring V4](crq-application-scoring-v1.md)
+- [CRQ Business Service Scoring V4](crq-business-service-scoring-v2.md)

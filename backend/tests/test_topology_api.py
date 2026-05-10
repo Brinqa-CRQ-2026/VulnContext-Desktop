@@ -7,6 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from app import models
 from app.api import topology as topology_api
 from app.services.brinqa_detail import BrinqaAuthContext, DetailResult, SourceAttempt
+from app.services.crq_business_service_scoring import score_business_unit_rollups
 from app.services.topology import backfill_asset_topology_foreign_keys
 
 
@@ -427,6 +428,7 @@ def test_business_unit_routes_return_seeded_topology_with_rollups(client, db_ses
     assert online_store["metrics"]["total_findings"] == 5
     assert online_store["risk_score"] is None
     assert online_store["risk_band"] is None
+    assert online_store["priority_score"] is None
     assert online_store["risk_trend"] is None
 
     manufacturing = next(item for item in payload if item["business_unit"] == "Manufacturing")
@@ -440,6 +442,7 @@ def test_business_unit_routes_return_seeded_topology_with_rollups(client, db_ses
     assert manufacturing["metrics"]["total_findings"] == 2
     assert manufacturing["risk_score"] is None
     assert manufacturing["risk_band"] is None
+    assert manufacturing["priority_score"] is None
     assert manufacturing["risk_trend"] is None
 
     online_store_detail = client.get("/topology/business-units/online-store")
@@ -525,6 +528,43 @@ def test_business_unit_risk_overview_and_findings_routes_scope_and_aggregate_dat
     assert missing.status_code == 404
 
 
+def test_business_unit_routes_expose_persisted_rollup_scores(client, db_session):
+    topology = seed_topology(db_session)
+    digital_media = topology["business_services"]["Digital Media"]
+    shipping = topology["business_services"]["Shipping and Tracking"]
+    digital_media.crq_business_service_risk_score = 8.0
+    digital_media.crq_business_service_priority_score = 8.6
+    shipping.crq_business_service_risk_score = 4.0
+    shipping.crq_business_service_priority_score = 5.2
+    db_session.commit()
+    score_business_unit_rollups(
+        db_session,
+        business_unit_ids=[topology["business_units"]["Online Store"].id],
+    )
+
+    summary = client.get("/topology/business-units")
+    assert summary.status_code == 200
+    online_store = next(
+        item for item in summary.json() if item["business_unit"] == "Online Store"
+    )
+    assert online_store["risk_score"] == 6.0
+    assert online_store["risk_band"] == "Medium"
+    assert online_store["priority_score"] == 6.9
+
+    detail = client.get("/topology/business-units/online-store")
+    assert detail.status_code == 200
+    detail_payload = detail.json()
+    assert detail_payload["risk_score"] == 6.0
+    assert detail_payload["risk_band"] == "Medium"
+    assert detail_payload["priority_score"] == 6.9
+
+    overview = client.get("/topology/business-units/online-store/risk-overview")
+    assert overview.status_code == 200
+    overview_payload = overview.json()
+    assert overview_payload["risk_score"] == 6.0
+    assert overview_payload["priority_score"] == 6.9
+
+
 def test_business_unit_risk_routes_return_503_when_topology_schema_is_missing(
     client, db_session, monkeypatch
 ):
@@ -599,6 +639,14 @@ def test_business_service_analytics_route_returns_totals_distributions_and_top_f
     client, db_session
 ):
     seed_topology(db_session)
+    business_service = (
+        db_session.query(models.BusinessService)
+        .filter(models.BusinessService.slug == "digital-media")
+        .one()
+    )
+    business_service.business_criticality_score = 3
+    business_service.crq_business_service_risk_score = 7.2
+    business_service.crq_business_service_priority_score = 6.84
     seeded_assets = [
         seed_asset(
             db_session,
@@ -686,8 +734,9 @@ def test_business_service_analytics_route_returns_totals_distributions_and_top_f
     assert response.status_code == 200
     payload = response.json()
 
-    assert payload["service_risk_score"] is None
-    assert payload["service_risk_label"] is None
+    assert payload["service_risk_score"] == 7.2
+    assert payload["service_risk_label"] == "High"
+    assert payload["service_priority_score"] == 6.84
     assert payload["business_criticality_score"] == 3
     assert payload["business_criticality_max"] == 5
     assert payload["business_criticality_label"] == "Medium"

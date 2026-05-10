@@ -1,3 +1,4 @@
+import math
 from datetime import datetime, timezone
 
 import pytest
@@ -11,6 +12,8 @@ from app.services.crq_asset_scoring import (
     calculate_data_sensitivity_score,
     calculate_environment_score,
     calculate_exposure_score,
+    calculate_severity_burden_score,
+    calculate_weighted_severity_average,
     derive_environment,
     score_assets,
 )
@@ -83,6 +86,42 @@ def test_aggregated_finding_risk_prioritizes_high_scores_without_low_score_infla
     assert one_critical > many_low
     assert high_cluster > many_low
     assert same_peak_more_highs > same_peak_more_lows
+
+
+def test_aggregated_finding_risk_uses_weighted_severity_and_burden():
+    scores = [9.5, 8.5, 7.5, 6.5, 5.5, 1.0]
+    expected_weighted_severity_average = (
+        (9.5 * 4.0)
+        + (8.5 * 2.0)
+        + (7.5 * 2.0)
+        + (6.5 * 2.0)
+        + (5.5 * 1.0)
+        + (1.0 * 0.5)
+    ) / (4.0 + 2.0 + 2.0 + 2.0 + 1.0 + 0.5)
+    expected_severity_burden_score = (
+        math.log(1 + ((1 * 10.0) + (3 * 5.0) + (1 * 2.0) + (1 * 0.5)))
+        / math.log(1 + (len(scores) * 10))
+    ) * 10
+    expected = round(
+        min(
+            10.0,
+            max(
+                0.0,
+                (0.25 * 9.5)
+                + (0.50 * expected_weighted_severity_average)
+                + (0.25 * expected_severity_burden_score),
+            ),
+        ),
+        2,
+    )
+
+    assert calculate_weighted_severity_average(scores) == pytest.approx(
+        expected_weighted_severity_average
+    )
+    assert calculate_severity_burden_score(scores) == pytest.approx(
+        expected_severity_burden_score
+    )
+    assert calculate_aggregated_finding_risk(scores) == pytest.approx(expected)
 
 
 def test_derive_environment_and_component_scores_handle_null_and_tag_variants():
@@ -201,7 +240,7 @@ def test_score_assets_persists_scores_and_supports_targeting(db_session):
     asset_a = db_session.get(models.Asset, "asset-a")
     asset_b = db_session.get(models.Asset, "asset-b")
 
-    assert asset_a.crq_asset_aggregated_finding_risk == pytest.approx(8.41)
+    assert asset_a.crq_asset_aggregated_finding_risk == pytest.approx(8.55)
     assert 0.0 <= asset_a.crq_asset_aggregated_finding_risk <= 10.0
     assert asset_a.crq_asset_exposure_score == 1.0
     assert asset_a.crq_asset_data_sensitivity_score == 1.0
@@ -209,7 +248,7 @@ def test_score_assets_persists_scores_and_supports_targeting(db_session):
     assert asset_a.crq_asset_environment_score == 1.0
     assert asset_a.crq_asset_type_score == 0.95
     assert asset_a.crq_asset_context_score == pytest.approx(9.92)
-    assert asset_a.crq_asset_risk_score == pytest.approx(8.39)
+    assert asset_a.crq_asset_risk_score == pytest.approx(8.53)
     assert 0.0 <= asset_a.crq_asset_context_score <= 10.0
     assert 0.0 <= asset_a.crq_asset_risk_score <= 10.0
     assert asset_a.crq_asset_risk_score <= asset_a.crq_asset_aggregated_finding_risk

@@ -16,7 +16,7 @@ from typing import Any
 from sqlalchemy import Engine, bindparam, inspect, text
 from sqlalchemy.orm import Session
 
-APPLICATION_SCORING_VERSION = "v1"
+APPLICATION_SCORING_VERSION = "v4"
 
 APPLICATION_SCORING_COLUMNS: tuple[str, ...] = (
     "crq_application_aggregated_asset_risk",
@@ -67,35 +67,48 @@ def require_application_scoring_columns(target_engine: Engine) -> None:
         )
 
 
-def calculate_aggregated_asset_risk(asset_scores: Sequence[float | None] | None) -> float:
+def calculate_aggregated_asset_risk(
+    asset_scores: Sequence[float | None] | None,
+    asset_finding_counts: Sequence[int | None] | None = None,
+) -> float:
     """Aggregate 0-10 asset risk scores into a 0-10 application risk signal."""
     if not asset_scores:
         return 0.0
 
-    normalized_scores = [
-        _clamp(score, minimum=0.0, maximum=10.0)
-        for score in asset_scores
-        if score is not None
-    ]
-    if not normalized_scores:
+    normalized_assets: list[tuple[float, int]] = []
+    counts = asset_finding_counts or []
+    for index, score in enumerate(asset_scores):
+        if score is None:
+            continue
+        finding_count = counts[index] if index < len(counts) and counts[index] else 0
+        normalized_assets.append(
+            (_clamp(score, minimum=0.0, maximum=10.0), max(0, int(finding_count)))
+        )
+
+    if not normalized_assets:
         return 0.0
 
-    sorted_scores = sorted(normalized_scores, reverse=True)
-    max_score = sorted_scores[0]
+    asset_count = len(normalized_assets)
+    total_asset_risk = sum(score for score, _ in normalized_assets)
+    weighted_total = 0.0
+    weight_total = 0.0
+    for score, finding_count in normalized_assets:
+        weight = math.log(1 + finding_count)
+        weighted_total += score * weight
+        weight_total += weight
 
-    k = min(5, len(sorted_scores))
-    top_k_avg = sum(sorted_scores[:k]) / k
+    if weight_total <= 0.0:
+        return 0.0
 
-    total_score = sum(sorted_scores)
-    scored_asset_count = len(sorted_scores)
-    log_scaled_component = (
-        math.log(1 + total_score) / math.log(1 + (scored_asset_count * 10))
+    weighted_asset_average = weighted_total / weight_total
+    max_asset_risk = max(score for score, _ in normalized_assets)
+    asset_burden_score = (
+        math.log(1 + total_asset_risk) / math.log(1 + (asset_count * 10))
     ) * 10
-
     aggregated = (
-        (0.5 * max_score)
-        + (0.3 * top_k_avg)
-        + (0.2 * log_scaled_component)
+        (0.50 * weighted_asset_average)
+        + (0.30 * max_asset_risk)
+        + (0.20 * asset_burden_score)
     )
     return _round_score(_clamp(aggregated, minimum=0.0, maximum=10.0))
 
@@ -152,67 +165,42 @@ def calculate_application_risk_score(
 
 def _scoring_query(where_sql: str) -> str:
     return f"""
-WITH asset_inputs AS (
-    SELECT
-        app.id AS application_id,
-        COUNT(a.asset_id) AS asset_count,
-        COALESCE(
-            MAX(a.crq_asset_risk_score) FILTER (WHERE a.crq_asset_risk_score IS NOT NULL),
-            0.0
-        ) AS max_score,
-        COALESCE(
-            SUM(a.crq_asset_risk_score) FILTER (WHERE a.crq_asset_risk_score IS NOT NULL),
-            0.0
-        ) AS total_score,
-        COUNT(a.crq_asset_risk_score) FILTER (WHERE a.crq_asset_risk_score IS NOT NULL) AS scored_asset_count
+WITH target_applications AS (
+    SELECT app.id, app.tags
     FROM applications app
-    LEFT JOIN assets a ON a.application_id = app.id
     {where_sql}
-    GROUP BY app.id
-), finding_inputs AS (
+), asset_rows AS (
     SELECT
         app.id AS application_id,
-        COUNT(f.id) AS finding_count
-    FROM applications app
+        app.tags,
+        a.asset_id,
+        a.crq_asset_risk_score,
+        COUNT(f.id) AS asset_finding_count
+    FROM target_applications app
     LEFT JOIN assets a ON a.application_id = app.id
     LEFT JOIN findings f ON f.asset_id = a.asset_id
-    {where_sql}
-    GROUP BY app.id
-), ranked_scores AS (
+    GROUP BY app.id, app.tags, a.asset_id, a.crq_asset_risk_score
+), application_counts AS (
     SELECT
         app.id AS application_id,
-        a.crq_asset_risk_score,
-        ROW_NUMBER() OVER (
-            PARTITION BY app.id
-            ORDER BY a.crq_asset_risk_score DESC, a.asset_id DESC
-        ) AS rank_index
-    FROM applications app
+        COUNT(DISTINCT a.asset_id) AS asset_count,
+        COUNT(f.id) AS finding_count
+    FROM target_applications app
     LEFT JOIN assets a ON a.application_id = app.id
-    {where_sql}
-), top_k AS (
-    SELECT
-        application_id,
-        AVG(crq_asset_risk_score) AS top_k_avg
-    FROM ranked_scores
-    WHERE crq_asset_risk_score IS NOT NULL
-      AND rank_index <= 5
-    GROUP BY application_id
+    LEFT JOIN findings f ON f.asset_id = a.asset_id
+    GROUP BY app.id
 )
 SELECT
-    app.id AS application_id,
-    app.tags,
-    ai.asset_count,
-    fi.finding_count,
-    ai.max_score,
-    COALESCE(tk.top_k_avg, 0.0) AS top_k_avg,
-    ai.total_score,
-    ai.scored_asset_count
-FROM applications app
-LEFT JOIN asset_inputs ai ON ai.application_id = app.id
-LEFT JOIN finding_inputs fi ON fi.application_id = app.id
-LEFT JOIN top_k tk ON tk.application_id = app.id
-{where_sql}
-ORDER BY app.id
+    ar.application_id,
+    ar.tags,
+    ar.asset_id,
+    ar.crq_asset_risk_score,
+    ar.asset_finding_count,
+    ac.asset_count,
+    ac.finding_count
+FROM asset_rows ar
+LEFT JOIN application_counts ac ON ac.application_id = ar.application_id
+ORDER BY ar.application_id, ar.asset_id
 """
 
 
@@ -225,29 +213,31 @@ def _computed_application_scores(
     query = _bind_application_ids(query_text) if application_ids else text(query_text)
     params = {"application_ids": list(application_ids)} if application_ids else {}
     rows = [dict(row._mapping) for row in db.execute(query, params)]
+    grouped_rows: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        application_id = row["application_id"]
+        grouped_row = grouped_rows.setdefault(
+            application_id,
+            {
+                "application_id": application_id,
+                "tags": row["tags"],
+                "asset_count": int(row["asset_count"] or 0),
+                "finding_count": int(row["finding_count"] or 0),
+                "asset_scores": [],
+                "asset_finding_counts": [],
+            },
+        )
+        if row["asset_id"] is None:
+            continue
+        grouped_row["asset_scores"].append(row["crq_asset_risk_score"])
+        grouped_row["asset_finding_counts"].append(int(row["asset_finding_count"] or 0))
 
     computed_rows: list[dict[str, Any]] = []
-    for row in rows:
-        scored_asset_count = int(row["scored_asset_count"] or 0)
-        top_k_avg = float(row["top_k_avg"] or 0.0)
-        max_score = float(row["max_score"] or 0.0)
-        total_score = float(row["total_score"] or 0.0)
-
-        if scored_asset_count <= 0:
-            aggregated_asset_risk = 0.0
-        else:
-            log_scaled_component = (
-                math.log(1 + total_score) / math.log(1 + (scored_asset_count * 10))
-            ) * 10
-            aggregated_asset_risk = _round_score(
-                _clamp(
-                    (0.5 * max_score)
-                    + (0.3 * top_k_avg)
-                    + (0.2 * log_scaled_component),
-                    minimum=0.0,
-                    maximum=10.0,
-                )
-            )
+    for row in grouped_rows.values():
+        aggregated_asset_risk = calculate_aggregated_asset_risk(
+            row["asset_scores"],
+            row["asset_finding_counts"],
+        )
 
         compliance_score = calculate_application_compliance_score(row["tags"])
         application_risk_score = calculate_application_risk_score(

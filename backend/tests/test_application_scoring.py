@@ -81,33 +81,40 @@ def test_aggregated_asset_risk_handles_empty_and_ignores_nulls():
     assert calculate_aggregated_asset_risk([]) == 0.0
     assert calculate_aggregated_asset_risk(None) == 0.0
     assert calculate_aggregated_asset_risk([None, None]) == 0.0
-    assert calculate_aggregated_asset_risk([12.0, -1.0, 10.0]) <= 10.0
-    assert calculate_aggregated_asset_risk([12.0, -1.0, 10.0]) >= 0.0
-    assert calculate_aggregated_asset_risk([None, 8.0]) == pytest.approx(
-        calculate_aggregated_asset_risk([8.0])
+    assert calculate_aggregated_asset_risk([12.0, -1.0, 10.0], [1, 1, 1]) <= 10.0
+    assert calculate_aggregated_asset_risk([12.0, -1.0, 10.0], [1, 1, 1]) >= 0.0
+    assert calculate_aggregated_asset_risk([None, 8.0], [1, 2]) == pytest.approx(
+        calculate_aggregated_asset_risk([8.0], [2])
     )
+    assert calculate_aggregated_asset_risk([8.0, 7.0], [0, 0]) == 0.0
 
 
-def test_aggregated_asset_risk_uses_max_top_five_average_and_log_scaled_volume():
-    scores = [9.5, 8.5, 7.5, 6.5, 5.5, 1.0]
-    total_asset_risk = sum(scores)
-    expected_log_component = (
-        math.log(1 + total_asset_risk) / math.log(1 + len(scores) * 10)
+def test_aggregated_asset_risk_uses_weighted_average_max_and_burden():
+    scores = [9.5, 8.5, 7.5, None]
+    finding_counts = [5, 2, 0, 4]
+    scored_pairs = [(9.5, 5), (8.5, 2), (7.5, 0)]
+    total_asset_risk = sum(score for score in scores if score is not None)
+    weighted_average = (
+        sum(score * math.log(1 + count) for score, count in scored_pairs)
+        / sum(math.log(1 + count) for _, count in scored_pairs)
+    )
+    asset_burden_score = (
+        math.log(1 + total_asset_risk) / math.log(1 + len(scored_pairs) * 10)
     ) * 10
     expected = round(
         min(
             10.0,
             max(
                 0.0,
-                (0.50 * 9.5)
-                + (0.30 * (sum(scores[:5]) / 5))
-                + (0.20 * expected_log_component),
+                (0.50 * weighted_average)
+                + (0.30 * 9.5)
+                + (0.20 * asset_burden_score),
             ),
         ),
         2,
     )
 
-    assert calculate_aggregated_asset_risk(scores) == pytest.approx(expected)
+    assert calculate_aggregated_asset_risk(scores, finding_counts) == pytest.approx(expected)
 
 
 def test_application_compliance_score_uses_pci_and_pii_tags():
@@ -166,7 +173,7 @@ def test_score_applications_persists_scores_counts_and_timestamp(db_session):
 
     refreshed = db_session.get(models.Application, application.id)
     assert refreshed.crq_application_aggregated_asset_risk == pytest.approx(
-        calculate_aggregated_asset_risk([9.5, 8.0])
+        calculate_aggregated_asset_risk([9.5, 8.0, None], [2, 1, 1])
     )
     assert 0.0 <= refreshed.crq_application_aggregated_asset_risk <= 10.0
     assert refreshed.crq_application_compliance_score == 10.0
