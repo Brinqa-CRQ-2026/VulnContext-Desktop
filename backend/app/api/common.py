@@ -146,6 +146,8 @@ def to_finding_summary(
         id=finding.finding_id,
         source="Brinqa",
         asset_id=finding.asset_id,
+        business_service=asset.business_service if asset else None,
+        application=asset.application if asset else None,
         uid=finding.finding_uid,
         record_id=finding.finding_id,
         display_name=finding.finding_name,

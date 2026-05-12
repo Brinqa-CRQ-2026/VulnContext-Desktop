@@ -7,6 +7,8 @@ class FindingSummary(BaseModel):
     id: str
     source: str = "Brinqa"
     asset_id: str
+    business_service: str | None = None
+    application: str | None = None
 
     uid: str | None = None
     record_id: str | None = None
