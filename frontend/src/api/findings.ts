@@ -1,6 +1,8 @@
 import { buildApiUrl, parseJsonOrThrow } from "./client";
 import type {
   FindingEnrichment,
+  FairLossPredictionRequest,
+  FairLossPredictionResponse,
   FindingsSortBy,
   PaginatedFindings,
   RiskBandFilter,
@@ -85,5 +87,22 @@ export async function getFindingEnrichment(findingId: string): Promise<FindingEn
   return parseJsonOrThrow(
     res,
     `Failed to fetch finding enrichment: ${res.status} ${res.statusText}`
+  );
+}
+
+export async function predictFindingFairLoss(
+  findingId: string,
+  payload: FairLossPredictionRequest
+): Promise<FairLossPredictionResponse> {
+  const res = await fetch(buildApiUrl(`/findings/${encodeURIComponent(findingId)}/fair-loss`), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  return parseJsonOrThrow(
+    res,
+    `Failed to generate FAIR loss prediction: ${res.status} ${res.statusText}`
   );
 }
