@@ -222,7 +222,7 @@ export function BusinessUnitDetailPage({
             </p>
           </div>
           <Button variant="outline" size="sm" asChild>
-            <a href={`/findings?businessUnitId=${encodeURIComponent(businessUnit.uuid ?? businessUnit.uid ?? businessUnit.slug)}`}>
+            <a href={`/findings?businessUnitId=${encodeURIComponent(businessUnit.source_id ?? businessUnit.slug)}`}>
               View all findings
             </a>
           </Button>

@@ -33,6 +33,10 @@ BUSINESS_SERVICE_SCORING_COLUMNS: tuple[str, ...] = (
 BUSINESS_UNIT_SCORING_COLUMNS: tuple[str, ...] = (
     "crq_business_unit_risk_score",
     "crq_business_unit_priority_score",
+    "crq_business_unit_business_service_count",
+    "crq_business_unit_application_count",
+    "crq_business_unit_asset_count",
+    "crq_business_unit_finding_count",
 )
 
 
@@ -259,13 +263,13 @@ WITH target_services AS (
         ts.id AS business_service_id,
         a.asset_id,
         a.crq_asset_risk_score,
-        COUNT(f.id) AS direct_asset_finding_count
+        COALESCE(a.crq_asset_finding_count, COUNT(f.id), 0) AS direct_asset_finding_count
     FROM target_services ts
     LEFT JOIN assets a
         ON a.business_service_id = ts.id
        AND a.application_id IS NULL
     LEFT JOIN findings f ON f.asset_id = a.asset_id
-    GROUP BY ts.id, a.asset_id, a.crq_asset_risk_score
+    GROUP BY ts.id, a.asset_id, a.crq_asset_risk_score, a.crq_asset_finding_count
 ), service_asset_ids AS (
     SELECT ts.id AS business_service_id, a.asset_id
     FROM target_services ts
@@ -279,11 +283,19 @@ WITH target_services AS (
     SELECT business_service_id, COUNT(asset_id) AS asset_count
     FROM service_asset_ids
     GROUP BY business_service_id
-), finding_counts AS (
-    SELECT sai.business_service_id, COUNT(f.id) AS finding_count
+), service_asset_counts AS (
+    SELECT
+        sai.business_service_id,
+        sai.asset_id,
+        COALESCE(a.crq_asset_finding_count, COUNT(f.id), 0) AS asset_finding_count
     FROM service_asset_ids sai
-    JOIN findings f ON f.asset_id = sai.asset_id
-    GROUP BY sai.business_service_id
+    JOIN assets a ON a.asset_id = sai.asset_id
+    LEFT JOIN findings f ON f.asset_id = sai.asset_id
+    GROUP BY sai.business_service_id, sai.asset_id, a.crq_asset_finding_count
+), finding_counts AS (
+    SELECT business_service_id, COALESCE(SUM(asset_finding_count), 0) AS finding_count
+    FROM service_asset_counts
+    GROUP BY business_service_id
 )
 SELECT
     ts.id AS business_service_id,
@@ -489,7 +501,11 @@ WITH target_units AS (
     SELECT
         tu.id AS business_unit_id,
         COALESCE(ROUND(AVG(bs.crq_business_service_risk_score), 2), 0.0) AS risk_score,
-        COALESCE(ROUND(AVG(bs.crq_business_service_priority_score), 2), 0.0) AS priority_score
+        COALESCE(ROUND(AVG(bs.crq_business_service_priority_score), 2), 0.0) AS priority_score,
+        COUNT(bs.id) AS business_service_count,
+        COALESCE(SUM(bs.crq_business_service_application_count), 0) AS application_count,
+        COALESCE(SUM(bs.crq_business_service_asset_count), 0) AS asset_count,
+        COALESCE(SUM(bs.crq_business_service_finding_count), 0) AS finding_count
     FROM target_units tu
     LEFT JOIN business_services bs ON bs.business_unit_id = tu.id
     GROUP BY tu.id
@@ -497,7 +513,11 @@ WITH target_units AS (
 UPDATE business_units
 SET
     crq_business_unit_risk_score = rollups.risk_score,
-    crq_business_unit_priority_score = rollups.priority_score
+    crq_business_unit_priority_score = rollups.priority_score,
+    crq_business_unit_business_service_count = rollups.business_service_count,
+    crq_business_unit_application_count = rollups.application_count,
+    crq_business_unit_asset_count = rollups.asset_count,
+    crq_business_unit_finding_count = rollups.finding_count
 FROM rollups
 WHERE business_units.id = rollups.business_unit_id
 """

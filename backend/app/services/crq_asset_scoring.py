@@ -23,6 +23,7 @@ ASSET_SCORING_COLUMNS: tuple[str, ...] = (
     "crq_asset_type_score",
     "crq_asset_context_score",
     "crq_asset_risk_score",
+    "crq_asset_finding_count",
     "crq_asset_scored_at",
 )
 
@@ -451,6 +452,7 @@ def _computed_asset_scores(db: Session, asset_ids: Sequence[str] | None = None) 
                 "crq_asset_aggregated_finding_risk": crq_asset_aggregated_finding_risk,
                 **context,
                 "crq_asset_risk_score": crq_asset_risk_score,
+                "crq_asset_finding_count": finding_count,
             }
         )
 
@@ -480,6 +482,7 @@ SET
     crq_asset_type_score = :crq_asset_type_score,
     crq_asset_context_score = :crq_asset_context_score,
     crq_asset_risk_score = :crq_asset_risk_score,
+    crq_asset_finding_count = :crq_asset_finding_count,
     crq_asset_scored_at = :scored_at
 WHERE asset_id = :asset_id
 """
@@ -496,6 +499,7 @@ WHERE asset_id = :asset_id
             "crq_asset_type_score": row["crq_asset_type_score"],
             "crq_asset_context_score": row["crq_asset_context_score"],
             "crq_asset_risk_score": row["crq_asset_risk_score"],
+            "crq_asset_finding_count": row["crq_asset_finding_count"],
             "scored_at": timestamp,
         }
         for row in computed_rows

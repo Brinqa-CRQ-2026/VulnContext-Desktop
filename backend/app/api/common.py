@@ -146,6 +146,8 @@ def to_finding_summary(
         id=finding.finding_id,
         source="Brinqa",
         asset_id=finding.asset_id,
+        business_service=asset.business_service if asset else None,
+        application=asset.application if asset else None,
         uid=finding.finding_uid,
         record_id=finding.finding_id,
         display_name=finding.finding_name,
@@ -291,7 +293,7 @@ def to_application_summary(
     )
 
 
-def to_asset_summary(asset: models.Asset, finding_count: int = 0) -> schemas.AssetSummary:
+def to_asset_summary(asset: models.Asset, finding_count: int | None = None) -> schemas.AssetSummary:
     company = asset.__dict__.get("company")
     business_unit = asset.__dict__.get("business_unit")
     business_service_rel = asset.__dict__.get("business_service_rel")
@@ -303,6 +305,11 @@ def to_asset_summary(asset: models.Asset, finding_count: int = 0) -> schemas.Ass
         business_service_rel.name if business_service_rel else asset.business_service
     )
     application_name = application_rel.name if application_rel else asset.application
+    resolved_finding_count = (
+        asset.crq_asset_finding_count
+        if finding_count is None and asset.crq_asset_finding_count is not None
+        else finding_count
+    )
     return schemas.AssetSummary(
         asset_id=asset.asset_id,
         hostname=asset.hostname,
@@ -328,14 +335,14 @@ def to_asset_summary(asset: models.Asset, finding_count: int = 0) -> schemas.Ass
         compliance_flags=asset.compliance_flags,
         pci=asset.pci,
         pii=asset.pii,
-        finding_count=finding_count,
+        finding_count=int(resolved_finding_count or 0),
     )
 
 
 def to_asset_detail(
     asset: models.Asset,
     *,
-    finding_count: int = 0,
+    finding_count: int | None = None,
     detail: DetailResult | None = None,
 ) -> schemas.AssetDetail:
     payload = (detail.payload or {}) if detail else {}
@@ -365,13 +372,9 @@ def to_asset_detail(
         last_authenticated_scan=_parse_datetime(payload.get("last_authenticated_scan")),
         last_scanned=_parse_datetime(payload.get("last_scanned")),
         qualys_vm_host_id=asset.qualys_vm_host_id,
-        qualys_vm_host_uid=asset.qualys_vm_host_uid,
         qualys_vm_host_link=asset.qualys_vm_host_link,
-        qualys_vm_host_integration=asset.qualys_vm_host_integration,
         servicenow_host_id=asset.servicenow_host_id,
-        servicenow_host_uid=asset.servicenow_host_uid,
         servicenow_host_link=asset.servicenow_host_link,
-        servicenow_host_integration=asset.servicenow_host_integration,
         detail_source=detail.source if detail else None,
         detail_fetched_at=detail.fetched_at if detail else None,
     )

@@ -32,6 +32,7 @@ export interface BusinessUnitSummary {
   metrics: TopologyMetrics;
   risk_score: number | null;
   risk_band: "High" | "Medium" | "Low" | string | null;
+  priority_score?: number | null;
   risk_trend: BusinessUnitRiskTrendPoint[] | null;
 }
 
@@ -40,6 +41,7 @@ export interface BusinessUnitRiskOverview {
   slug: string;
   risk_score: number | null;
   risk_band: RiskBand | string | null;
+  priority_score?: number | null;
   risk_trend: BusinessUnitRiskTrendPoint[];
   severity_counts: RiskBandSummary;
   finding_risk_distribution: AssetScoreDistribution;
@@ -49,12 +51,22 @@ export interface BusinessServiceSummary {
   business_service: string;
   slug: string;
   metrics: TopologyMetrics;
+  risk_score?: number | null;
+  risk_band?: RiskBand | string | null;
+  priority_score?: number | null;
+  business_criticality_score?: number | null;
 }
 
 export interface ApplicationSummary {
   application: string;
   slug: string;
+  description?: string | null;
+  tags?: string[] | null;
   metrics: TopologyMetrics;
+  aggregated_asset_risk?: number | null;
+  compliance_score?: number | null;
+  application_risk_score?: number | null;
+  scored_at?: string | null;
 }
 
 export interface AssetSummary {
@@ -89,22 +101,12 @@ export interface BusinessUnitDetail {
   company: CompanySummary | null;
   business_unit: string;
   slug: string;
-  uid?: string | null;
-  uuid?: string | null;
+  source_id?: string | null;
   description?: string | null;
   owner?: string | null;
-  data_integration?: string | null;
-  connector?: string | null;
-  connector_category?: string | null;
-  data_model?: string | null;
-  last_integration_transaction_id?: string | null;
-  flow_state?: string | null;
-  created_by?: string | null;
-  updated_by?: string | null;
-  source_last_modified_at?: string | null;
-  source_last_integrated_at?: string | null;
-  source_created_at?: string | null;
-  source_updated_at?: string | null;
+  risk_score?: number | null;
+  risk_band?: RiskBand | string | null;
+  priority_score?: number | null;
   metrics: TopologyMetrics;
   business_services: BusinessServiceSummary[];
 }
@@ -114,24 +116,18 @@ export interface BusinessServiceDetail {
   business_unit: string;
   business_service: string;
   slug: string;
-  uid?: string | null;
-  uuid?: string | null;
+  source_id?: string | null;
   description?: string | null;
   criticality_label?: string | null;
   division?: string | null;
   manager?: string | null;
-  data_integration?: string | null;
-  connector?: string | null;
-  connector_category?: string | null;
-  data_model?: string | null;
-  last_integration_transaction_id?: string | null;
-  flow_state?: string | null;
-  created_by?: string | null;
-  updated_by?: string | null;
-  source_last_modified_at?: string | null;
-  source_last_integrated_at?: string | null;
-  source_created_at?: string | null;
-  source_updated_at?: string | null;
+  risk_score?: number | null;
+  risk_band?: RiskBand | string | null;
+  priority_score?: number | null;
+  business_criticality_score?: number | null;
+  aggregated_application_risk?: number | null;
+  aggregated_direct_asset_risk?: number | null;
+  scored_at?: string | null;
   metrics: TopologyMetrics;
   applications: ApplicationSummary[];
   direct_assets: AssetSummary[];
@@ -143,8 +139,14 @@ export interface ApplicationDetail {
   business_service: string;
   application: string;
   slug: string;
+  description?: string | null;
+  tags?: string[] | null;
   first_seen_at?: string | null;
   metrics: TopologyMetrics;
+  aggregated_asset_risk?: number | null;
+  compliance_score?: number | null;
+  application_risk_score?: number | null;
+  scored_at?: string | null;
   assets: AssetSummary[];
 }
 
@@ -171,13 +173,9 @@ export interface AssetDetail extends AssetSummary {
   last_authenticated_scan?: string | null;
   last_scanned?: string | null;
   qualys_vm_host_id?: string | null;
-  qualys_vm_host_uid?: string | null;
   qualys_vm_host_link?: string | null;
-  qualys_vm_host_integration?: string | null;
   servicenow_host_id?: string | null;
-  servicenow_host_uid?: string | null;
   servicenow_host_link?: string | null;
-  servicenow_host_integration?: string | null;
   detail_source?: string | null;
   detail_fetched_at?: string | null;
 }

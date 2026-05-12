@@ -34,11 +34,15 @@ describe("BusinessServiceDetailPage", () => {
         business_service: "Digital Storefront",
         slug: "digital-storefront",
         description: null,
+        risk_score: 8.4,
+        risk_band: "High",
+        priority_score: 8.1,
+        business_criticality_score: 3,
         metrics: {
           total_business_services: 0,
           total_applications: 2,
-          total_assets: 3,
-          total_findings: 9,
+          total_assets: 37,
+          total_findings: 1132,
         },
         applications: [
           {

@@ -80,13 +80,9 @@ FINAL_COLUMNS = [
     "tags",
     "environment",
     "qualys_vm_host_id",
-    "qualys_vm_host_uid",
     "qualys_vm_host_link",
-    "qualys_vm_host_integration",
     "servicenow_host_id",
-    "servicenow_host_uid",
     "servicenow_host_link",
-    "servicenow_host_integration",
 ]
 
 QUALYS_FIELDS = [
@@ -528,13 +524,9 @@ def _build_final_asset_frame(source_df: pd.DataFrame, context_df: pd.DataFrame) 
                 "tags": _tag_array_literal(tags),
                 "environment": _derive_environment(tags, record.get("environments")),
                 "qualys_vm_host_id": _clean(record.get("qualys_vm_host_id")),
-                "qualys_vm_host_uid": _clean(record.get("qualys_vm_host_uid")),
                 "qualys_vm_host_link": _clean(record.get("qualys_vm_host_link")),
-                "qualys_vm_host_integration": _clean(record.get("qualys_vm_host_integration")),
                 "servicenow_host_id": _clean(record.get("servicenow_host_id")),
-                "servicenow_host_uid": _clean(record.get("servicenow_host_uid")),
                 "servicenow_host_link": _clean(record.get("servicenow_host_link")),
-                "servicenow_host_integration": _clean(record.get("servicenow_host_integration")),
             }
         )
 

@@ -7,6 +7,8 @@ class FindingSummary(BaseModel):
     id: str
     source: str = "Brinqa"
     asset_id: str
+    business_service: str | None = None
+    application: str | None = None
 
     uid: str | None = None
     record_id: str | None = None
@@ -152,6 +154,10 @@ class BusinessServiceSummary(BaseModel):
     business_service: str
     slug: str
     metrics: TopologyMetrics
+    risk_score: float | None = None
+    risk_band: str | None = None
+    priority_score: float | None = None
+    business_criticality_score: int | None = None
 
 
 class ApplicationSummary(BaseModel):
@@ -217,13 +223,9 @@ class AssetDetail(AssetSummary):
     last_authenticated_scan: datetime | None = None
     last_scanned: datetime | None = None
     qualys_vm_host_id: str | None = None
-    qualys_vm_host_uid: str | None = None
     qualys_vm_host_link: str | None = None
-    qualys_vm_host_integration: str | None = None
     servicenow_host_id: str | None = None
-    servicenow_host_uid: str | None = None
     servicenow_host_link: str | None = None
-    servicenow_host_integration: str | None = None
     detail_source: str | None = None
     detail_fetched_at: datetime | None = None
 
@@ -359,22 +361,9 @@ class BusinessUnitDetail(BaseModel):
     company: CompanySummary | None = None
     business_unit: str
     slug: str
-    uid: str | None = None
-    uuid: str | None = None
+    source_id: str | None = None
     description: str | None = None
     owner: str | None = None
-    data_integration: str | None = None
-    connector: str | None = None
-    connector_category: str | None = None
-    data_model: str | None = None
-    last_integration_transaction_id: str | None = None
-    flow_state: str | None = None
-    created_by: str | None = None
-    updated_by: str | None = None
-    source_last_modified_at: datetime | None = None
-    source_last_integrated_at: datetime | None = None
-    source_created_at: datetime | None = None
-    source_updated_at: datetime | None = None
     risk_score: float | None = None
     risk_band: str | None = None
     priority_score: float | None = None
@@ -400,24 +389,18 @@ class BusinessServiceDetail(BaseModel):
     business_unit: str
     business_service: str
     slug: str
-    uid: str | None = None
-    uuid: str | None = None
+    source_id: str | None = None
     description: str | None = None
     criticality_label: str | None = None
     division: str | None = None
     manager: str | None = None
-    data_integration: str | None = None
-    connector: str | None = None
-    connector_category: str | None = None
-    data_model: str | None = None
-    last_integration_transaction_id: str | None = None
-    flow_state: str | None = None
-    created_by: str | None = None
-    updated_by: str | None = None
-    source_last_modified_at: datetime | None = None
-    source_last_integrated_at: datetime | None = None
-    source_created_at: datetime | None = None
-    source_updated_at: datetime | None = None
+    risk_score: float | None = None
+    risk_band: str | None = None
+    priority_score: float | None = None
+    business_criticality_score: int | None = None
+    aggregated_application_risk: float | None = None
+    aggregated_direct_asset_risk: float | None = None
+    scored_at: datetime | None = None
     metrics: TopologyMetrics
     applications: list[ApplicationSummary]
     direct_assets: list[AssetSummary]

@@ -48,13 +48,9 @@ CSV_COLUMNS = [
     "tags",
     "environment",
     "qualys_vm_host_id",
-    "qualys_vm_host_uid",
     "qualys_vm_host_link",
-    "qualys_vm_host_integration",
     "servicenow_host_id",
-    "servicenow_host_uid",
     "servicenow_host_link",
-    "servicenow_host_integration",
 ]
 
 TEMP_TABLE_SQL = """
@@ -74,13 +70,9 @@ create temporary table asset_reseed_staging (
   tags text,
   environment text,
   qualys_vm_host_id text,
-  qualys_vm_host_uid text,
   qualys_vm_host_link text,
-  qualys_vm_host_integration text,
   servicenow_host_id text,
-  servicenow_host_uid text,
-  servicenow_host_link text,
-  servicenow_host_integration text
+  servicenow_host_link text
 ) on commit drop
 """
 
@@ -105,13 +97,9 @@ insert into public.assets (
   tags,
   environment,
   qualys_vm_host_id,
-  qualys_vm_host_uid,
   qualys_vm_host_link,
-  qualys_vm_host_integration,
   servicenow_host_id,
-  servicenow_host_uid,
-  servicenow_host_link,
-  servicenow_host_integration
+  servicenow_host_link
 )
 select
   nullif(asset_id, ''),
@@ -140,13 +128,9 @@ select
   end,
   nullif(environment, ''),
   nullif(qualys_vm_host_id, ''),
-  nullif(qualys_vm_host_uid, ''),
   nullif(qualys_vm_host_link, ''),
-  nullif(qualys_vm_host_integration, ''),
   nullif(servicenow_host_id, ''),
-  nullif(servicenow_host_uid, ''),
-  nullif(servicenow_host_link, ''),
-  nullif(servicenow_host_integration, '')
+  nullif(servicenow_host_link, '')
 from asset_reseed_staging
 """
 
@@ -321,13 +305,9 @@ def build_merged_csv(source_asset_csv_path: Path, asset_context_csv_path: Path, 
                 "tags": _tag_array_literal(tags),
                 "environment": _derive_environment(tags, context_row.get("environments", "")),
                 "qualys_vm_host_id": _clean(source_row.get("qualys_vm_host_id")),
-                "qualys_vm_host_uid": _clean(source_row.get("qualys_vm_host_uid")),
                 "qualys_vm_host_link": _clean(source_row.get("qualys_vm_host_link")),
-                "qualys_vm_host_integration": _clean(source_row.get("qualys_vm_host_integration")),
                 "servicenow_host_id": _clean(source_row.get("servicenow_host_id")),
-                "servicenow_host_uid": _clean(source_row.get("servicenow_host_uid")),
                 "servicenow_host_link": _clean(source_row.get("servicenow_host_link")),
-                "servicenow_host_integration": _clean(source_row.get("servicenow_host_integration")),
             }
         )
 

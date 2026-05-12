@@ -9,6 +9,9 @@ describe("api/client", () => {
   beforeEach(() => {
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();
+    window.localStorage.clear();
+    delete window.__VC_API_TIMINGS__;
+    delete window.__VC_API_TIMING_SEQ__;
   });
 
   it("uses VITE_API_BASE_URL when configured", async () => {
@@ -104,5 +107,24 @@ describe("api/client", () => {
         "fallback"
       )
     ).rejects.toThrow("fallback");
+  });
+
+  it("records opt-in API timings for frontend waterfall checks", async () => {
+    window.localStorage.setItem("vcApiTimings", "1");
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true })));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { apiFetch } = await loadClientModule();
+    await apiFetch("https://api.example.com/assets?page=1");
+
+    expect(fetchMock).toHaveBeenCalledWith("https://api.example.com/assets?page=1");
+    expect(window.__VC_API_TIMINGS__).toHaveLength(1);
+    expect(window.__VC_API_TIMINGS__?.[0]).toMatchObject({
+      method: "GET",
+      url: "https://api.example.com/assets?page=1",
+      pathname: "/assets?page=1",
+      status: 200,
+      ok: true,
+    });
   });
 });

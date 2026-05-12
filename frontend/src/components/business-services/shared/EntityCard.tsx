@@ -1,6 +1,7 @@
 import type { PropsWithChildren, ReactNode } from "react";
 
 import type { ApplicationSummary, BusinessServiceSummary } from "../../../types";
+import { formatNumber } from "../../../lib/formatting/numbers";
 import { cn } from "../../../lib/utils";
 import { InitialsBadge } from "./TopologyBadges";
 
@@ -112,7 +113,9 @@ export function BusinessServiceEntityCard({
       leading={<InitialsBadge value={businessService.business_service} size="sm" />}
       badge={
         <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-500">
-          No risk data
+          {businessService.risk_band
+            ? `${businessService.risk_band} ${formatNumber(businessService.risk_score)}`
+            : "No risk data"}
         </span>
       }
       entityType="Business Service"

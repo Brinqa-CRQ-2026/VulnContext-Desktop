@@ -10,6 +10,7 @@ import {
   toAssetCriticalityLegendRows,
   toAssetCriticalityPieRows,
 } from "../../lib/charts/assetDistribution";
+import { formatNumber } from "../../lib/formatting/numbers";
 import { isTopologyUnavailable } from "../../lib/topology/topologyStatus";
 import { useBusinessServiceDetail } from "../../hooks/topology/business-services/useBusinessServiceDetail";
 import type { ApplicationSummary, AssetSummary } from "../../types";
@@ -108,6 +109,12 @@ export function BusinessServiceDetailPage({
     );
   }
 
+  const serviceRiskScore =
+    businessService.risk_score ?? businessServiceAnalytics?.service_risk_score;
+  const businessCriticalityScore =
+    businessService.business_criticality_score ??
+    businessServiceAnalytics?.business_criticality_score;
+
   return (
     <div className="vc-page-stack">
       <EntityHero
@@ -127,17 +134,27 @@ export function BusinessServiceDetailPage({
       <MetricGrid className="sm:grid-cols-2 xl:grid-cols-5">
         <MetricCard
           label="Service Risk Score"
-          value="8.4"
+          value={formatNumber(serviceRiskScore)}
           valueClassName="text-rose-600"
         />
         <MetricCard
           label="Business Criticality"
-          value="3/5"
+          value={
+            businessCriticalityScore !== null && businessCriticalityScore !== undefined
+              ? `${businessCriticalityScore}/5`
+              : "-"
+          }
           valueClassName="text-orange-500"
         />
-        <MetricCard label="Total Applications" value={1} />
-        <MetricCard label="Total Assets" value={37} />
-        <MetricCard label="Total Findings" value={1132} />
+        <MetricCard
+          label="Total Applications"
+          value={businessService.metrics.total_applications}
+        />
+        <MetricCard label="Total Assets" value={businessService.metrics.total_assets} />
+        <MetricCard
+          label="Total Findings"
+          value={businessService.metrics.total_findings}
+        />
       </MetricGrid>
 
       <div className="grid items-stretch gap-4 lg:grid-cols-3">

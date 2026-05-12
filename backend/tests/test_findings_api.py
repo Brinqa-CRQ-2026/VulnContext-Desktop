@@ -18,6 +18,8 @@ def seed_asset_and_finding(
     asset = models.Asset(
         asset_id=f"asset-{idx}",
         hostname=f"host-{idx}",
+        business_service=f"Business Service {idx}",
+        application=f"Application {idx}",
         environment="test",
     )
     finding = models.Finding(
@@ -91,6 +93,8 @@ def test_findings_summary_and_list_use_thin_runtime_models(client, db_session):
     items = response.json()["items"]
     assert [item["id"] for item in items] == ["2002", "2001", "2003"]
     assert items[0]["source"] == "Brinqa"
+    assert items[0]["business_service"] == "Business Service 2"
+    assert items[0]["application"] == "Application 2"
     assert items[0]["cvss_score"] is None
     assert items[1]["risk_band"] == "Medium"
     assert items[1]["source_risk_band"] == "Critical"
@@ -99,6 +103,14 @@ def test_findings_summary_and_list_use_thin_runtime_models(client, db_session):
     assert items[1]["epss_score"] == 0.42
     assert items[1]["isKev"] is True
     assert items[2]["lifecycle_status"] == "Fixed"
+
+    versioned_response = client.get(
+        "/api/v1/findings?page=1&page_size=10&sort_by=risk_score&sort_order=desc"
+    )
+    assert versioned_response.status_code == 200
+    versioned_items = versioned_response.json()["items"]
+    assert versioned_items[0]["business_service"] == "Business Service 2"
+    assert versioned_items[0]["application"] == "Application 2"
 
 
 def test_findings_detail_returns_thin_persisted_data_only(client, db_session):

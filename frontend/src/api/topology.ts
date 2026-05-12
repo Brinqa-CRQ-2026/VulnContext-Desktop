@@ -1,4 +1,4 @@
-import { buildApiUrl, buildBrinqaEnrichmentRequestInit, parseJsonOrThrow } from "./client";
+import { apiFetch, buildApiUrl, buildBrinqaEnrichmentRequestInit, parseJsonOrThrow } from "./client";
 import type {
   AssetListSortBy,
   AssetFindingsAnalyticsResponse,
@@ -19,7 +19,7 @@ import type {
 } from "../types";
 
 export async function getBusinessUnits(): Promise<BusinessUnitSummary[]> {
-  const res = await fetch(buildApiUrl("/topology/business-units"));
+  const res = await apiFetch(buildApiUrl("/topology/business-units"));
   return parseJsonOrThrow(
     res,
     `Failed to fetch business units: ${res.status} ${res.statusText}`
@@ -29,7 +29,7 @@ export async function getBusinessUnits(): Promise<BusinessUnitSummary[]> {
 export async function getBusinessUnitDetail(
   businessUnitSlug: string
 ): Promise<BusinessUnitDetail> {
-  const res = await fetch(buildApiUrl(`/topology/business-units/${businessUnitSlug}`));
+  const res = await apiFetch(buildApiUrl(`/topology/business-units/${businessUnitSlug}`));
   return parseJsonOrThrow(
     res,
     `Failed to fetch business unit detail: ${res.status} ${res.statusText}`
@@ -39,7 +39,7 @@ export async function getBusinessUnitDetail(
 export async function getBusinessUnitRiskOverview(
   businessUnitSlug: string
 ): Promise<BusinessUnitRiskOverview> {
-  const res = await fetch(
+  const res = await apiFetch(
     buildApiUrl(`/topology/business-units/${businessUnitSlug}/risk-overview`)
   );
   return parseJsonOrThrow(
@@ -84,7 +84,7 @@ export async function getBusinessUnitFindings(
     params.set("search", search.trim());
   }
 
-  const res = await fetch(
+  const res = await apiFetch(
     buildApiUrl(`/topology/business-units/${businessUnitSlug}/findings`, params)
   );
   return parseJsonOrThrow(
@@ -97,7 +97,7 @@ export async function getBusinessServiceDetail(
   businessUnitSlug: string,
   businessServiceSlug: string
 ): Promise<BusinessServiceDetail> {
-  const res = await fetch(
+  const res = await apiFetch(
     buildApiUrl(
       `/topology/business-units/${businessUnitSlug}/business-services/${businessServiceSlug}`
     )
@@ -112,7 +112,7 @@ export async function getBusinessServiceAnalytics(
   businessUnitSlug: string,
   businessServiceSlug: string
 ): Promise<BusinessServiceAnalytics> {
-  const res = await fetch(
+  const res = await apiFetch(
     buildApiUrl(
       `/topology/business-units/${businessUnitSlug}/business-services/${businessServiceSlug}/analytics`
     )
@@ -128,7 +128,7 @@ export async function getApplicationDetail(
   businessServiceSlug: string,
   applicationSlug: string
 ): Promise<ApplicationDetail> {
-  const res = await fetch(
+  const res = await apiFetch(
     buildApiUrl(
       `/topology/business-units/${businessUnitSlug}/business-services/${businessServiceSlug}/applications/${applicationSlug}`
     )
@@ -140,7 +140,7 @@ export async function getApplicationDetail(
 }
 
 export async function getAssetDetail(assetId: string): Promise<AssetDetail> {
-  const res = await fetch(buildApiUrl(`/assets/${assetId}`));
+  const res = await apiFetch(buildApiUrl(`/assets/${assetId}`));
   return parseJsonOrThrow(
     res,
     `Failed to fetch asset detail: ${res.status} ${res.statusText}`
@@ -148,7 +148,7 @@ export async function getAssetDetail(assetId: string): Promise<AssetDetail> {
 }
 
 export async function getAssetEnrichment(assetId: string): Promise<AssetEnrichment> {
-  const res = await fetch(
+  const res = await apiFetch(
     buildApiUrl(`/assets/${assetId}/enrichment`),
     buildBrinqaEnrichmentRequestInit()
   );
@@ -159,7 +159,7 @@ export async function getAssetEnrichment(assetId: string): Promise<AssetEnrichme
 }
 
 export async function getAssetFindings(assetId: string): Promise<AssetFindingsPage> {
-  const res = await fetch(buildApiUrl(`/assets/${assetId}/findings`));
+  const res = await apiFetch(buildApiUrl(`/assets/${assetId}/findings`));
   return parseJsonOrThrow(
     res,
     `Failed to fetch asset findings: ${res.status} ${res.statusText}`
@@ -193,7 +193,7 @@ export async function getAssetFindingsAnalytics(
   if (search) {
     params.set("search", search);
   }
-  const res = await fetch(buildApiUrl(`/assets/${assetId}/findings/analytics`, params));
+  const res = await apiFetch(buildApiUrl(`/assets/${assetId}/findings/analytics`, params));
   return parseJsonOrThrow(
     res,
     `Failed to fetch asset findings analytics: ${res.status} ${res.statusText}`
@@ -240,7 +240,7 @@ export async function getAssetFindingsPage(
   if (search) {
     params.set("search", search);
   }
-  const res = await fetch(buildApiUrl(`/assets/${assetId}/findings`, params));
+  const res = await apiFetch(buildApiUrl(`/assets/${assetId}/findings`, params));
   return parseJsonOrThrow(
     res,
     `Failed to fetch asset findings: ${res.status} ${res.statusText}`
@@ -288,7 +288,7 @@ export async function getAssetsPage({
   if (compliance) params.set("compliance", compliance);
   if (search) params.set("search", search);
   if (directOnly) params.set("direct_only", "true");
-  const res = await fetch(buildApiUrl("/assets", params));
+  const res = await apiFetch(buildApiUrl("/assets", params));
   return parseJsonOrThrow(
     res,
     `Failed to fetch assets: ${res.status} ${res.statusText}`
@@ -323,7 +323,7 @@ export async function getAssetsAnalytics({
   if (compliance) params.set("compliance", compliance);
   if (search) params.set("search", search);
   if (directOnly) params.set("direct_only", "true");
-  const res = await fetch(buildApiUrl("/assets/analytics", params));
+  const res = await apiFetch(buildApiUrl("/assets/analytics", params));
   return parseJsonOrThrow(
     res,
     `Failed to fetch asset analytics: ${res.status} ${res.statusText}`

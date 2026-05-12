@@ -30,18 +30,6 @@ def asset_query_with_topology(db: Session):
     )
 
 
-def finding_counts_for_asset_ids(db: Session, asset_ids: list[str]) -> dict[str, int]:
-    if not asset_ids:
-        return {}
-    rows = (
-        db.query(models.Finding.asset_id, func.count(models.Finding.id))
-        .filter(models.Finding.asset_id.in_(asset_ids))
-        .group_by(models.Finding.asset_id)
-        .all()
-    )
-    return {asset_id: int(count) for asset_id, count in rows}
-
-
 def findings_for_business_unit(db: Session, business_unit_id: str, *, include_asset: bool = False):
     query = (
         db.query(models.Finding)
@@ -51,76 +39,6 @@ def findings_for_business_unit(db: Session, business_unit_id: str, *, include_as
     if include_asset:
         query = query.options(joinedload(models.Finding.asset))
     return query
-
-
-def finding_count_for_business_unit(db: Session, business_unit_id: str) -> int:
-    return (
-        db.query(func.count(models.Finding.id))
-        .join(models.Asset, models.Finding.asset_id == models.Asset.asset_id)
-        .filter(models.Asset.business_unit_id == business_unit_id)
-        .scalar()
-        or 0
-    )
-
-
-def business_unit_counts(db: Session) -> tuple[dict[str, int], dict[str, int], dict[str, int]]:
-    service_counts = dict(
-        db.query(models.BusinessService.business_unit_id, func.count(models.BusinessService.id))
-        .group_by(models.BusinessService.business_unit_id)
-        .all()
-    )
-    asset_counts = dict(
-        db.query(models.Asset.business_unit_id, func.count(models.Asset.asset_id))
-        .filter(models.Asset.business_unit_id.is_not(None))
-        .group_by(models.Asset.business_unit_id)
-        .all()
-    )
-    finding_counts = dict(
-        db.query(models.Asset.business_unit_id, func.count(models.Finding.id))
-        .join(models.Finding, models.Finding.asset_id == models.Asset.asset_id)
-        .filter(models.Asset.business_unit_id.is_not(None))
-        .group_by(models.Asset.business_unit_id)
-        .all()
-    )
-    return service_counts, asset_counts, finding_counts
-
-
-def business_service_counts(db: Session, business_service_ids: list[str]) -> tuple[dict[str, int], dict[str, int]]:
-    if not business_service_ids:
-        return {}, {}
-    asset_counts = dict(
-        db.query(models.Asset.business_service_id, func.count(models.Asset.asset_id))
-        .filter(models.Asset.business_service_id.in_(business_service_ids))
-        .group_by(models.Asset.business_service_id)
-        .all()
-    )
-    finding_counts = dict(
-        db.query(models.Asset.business_service_id, func.count(models.Finding.id))
-        .join(models.Finding, models.Finding.asset_id == models.Asset.asset_id)
-        .filter(models.Asset.business_service_id.in_(business_service_ids))
-        .group_by(models.Asset.business_service_id)
-        .all()
-    )
-    return asset_counts, finding_counts
-
-
-def application_counts(db: Session, application_ids: list[str]) -> tuple[dict[str, int], dict[str, int]]:
-    if not application_ids:
-        return {}, {}
-    asset_counts = dict(
-        db.query(models.Asset.application_id, func.count(models.Asset.asset_id))
-        .filter(models.Asset.application_id.in_(application_ids))
-        .group_by(models.Asset.application_id)
-        .all()
-    )
-    finding_counts = dict(
-        db.query(models.Asset.application_id, func.count(models.Finding.id))
-        .join(models.Finding, models.Finding.asset_id == models.Asset.asset_id)
-        .filter(models.Asset.application_id.in_(application_ids))
-        .group_by(models.Asset.application_id)
-        .all()
-    )
-    return asset_counts, finding_counts
 
 
 def business_units(db: Session):
@@ -187,7 +105,3 @@ def application_by_slugs(db: Session, business_unit_slug: str, business_service_
 
 def asset_by_id(db: Session, asset_id: str):
     return asset_query_with_topology(db).filter(models.Asset.asset_id == asset_id).first()
-
-
-def finding_count_for_asset(db: Session, asset_id: str) -> int:
-    return db.query(func.count(models.Finding.id)).filter(models.Finding.asset_id == asset_id).scalar() or 0

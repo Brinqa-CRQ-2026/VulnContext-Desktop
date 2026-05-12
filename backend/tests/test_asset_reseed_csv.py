@@ -34,13 +34,9 @@ EXPECTED_COLUMNS = [
     "tags",
     "environment",
     "qualys_vm_host_id",
-    "qualys_vm_host_uid",
     "qualys_vm_host_link",
-    "qualys_vm_host_integration",
     "servicenow_host_id",
-    "servicenow_host_uid",
     "servicenow_host_link",
-    "servicenow_host_integration",
 ]
 
 

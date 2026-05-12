@@ -23,16 +23,11 @@ from app.api.common import (
 )
 from app.repositories.topology import (
     application_by_slugs,
-    application_counts,
     asset_by_id,
     asset_query_with_topology,
     business_service_by_slugs,
-    business_service_counts,
     business_services_for_unit,
     business_unit_by_slug,
-    business_unit_counts,
-    finding_count_for_asset,
-    finding_counts_for_asset_ids,
     findings_for_business_unit,
     has_topology_schema,
 )
@@ -56,7 +51,6 @@ def get_business_units(db):
         .order_by(func.lower(models.BusinessUnit.name))
         .all()
     )
-    service_counts, asset_counts, finding_counts = business_unit_counts(db)
 
     return [
         schemas.BusinessUnitSummary(
@@ -65,9 +59,10 @@ def get_business_units(db):
             slug=business_unit.slug,
             description=business_unit.description,
             metrics=schemas.TopologyMetrics(
-                total_business_services=int(service_counts.get(business_unit.id, 0)),
-                total_assets=int(asset_counts.get(business_unit.id, 0)),
-                total_findings=int(finding_counts.get(business_unit.id, 0)),
+                total_business_services=int(business_unit.crq_business_unit_business_service_count or 0),
+                total_applications=int(business_unit.crq_business_unit_application_count or 0),
+                total_assets=int(business_unit.crq_business_unit_asset_count or 0),
+                total_findings=int(business_unit.crq_business_unit_finding_count or 0),
             ),
             risk_score=business_unit.crq_business_unit_risk_score,
             risk_band=derive_risk_band(business_unit.crq_business_unit_risk_score),
@@ -85,53 +80,36 @@ def get_business_unit_detail(business_unit_slug: str, db):
         raise HTTPException(status_code=404, detail="Business unit not found.")
 
     business_services = business_services_for_unit(db, business_unit.id)
-    business_service_ids = [service.id for service in business_services]
-    asset_counts, finding_counts = business_service_counts(db, business_service_ids)
-    applications_total = (
-        db.query(func.count(models.Application.id))
-        .filter(models.Application.business_service_id.in_(business_service_ids))
-        .scalar()
-        or 0
-    ) if business_service_ids else 0
 
     return schemas.BusinessUnitDetail(
         company=_company_summary(business_unit.company),
         business_unit=business_unit.name,
         slug=business_unit.slug,
-        uid=business_unit.uid,
-        uuid=business_unit.uuid,
+        source_id=business_unit.source_id,
         description=business_unit.description,
         owner=business_unit.owner,
-        data_integration=business_unit.data_integration,
-        connector=business_unit.connector,
-        connector_category=business_unit.connector_category,
-        data_model=business_unit.data_model,
-        last_integration_transaction_id=business_unit.last_integration_transaction_id,
-        flow_state=business_unit.flow_state,
-        created_by=business_unit.created_by,
-        updated_by=business_unit.updated_by,
-        source_last_modified_at=business_unit.source_last_modified_at,
-        source_last_integrated_at=business_unit.source_last_integrated_at,
-        source_created_at=business_unit.source_created_at,
-        source_updated_at=business_unit.source_updated_at,
         risk_score=business_unit.crq_business_unit_risk_score,
         risk_band=derive_risk_band(business_unit.crq_business_unit_risk_score),
         priority_score=business_unit.crq_business_unit_priority_score,
         metrics=schemas.TopologyMetrics(
-            total_business_services=len(business_services),
-            total_applications=int(applications_total),
-            total_assets=sum(int(asset_counts.get(service.id, 0)) for service in business_services),
-            total_findings=sum(int(finding_counts.get(service.id, 0)) for service in business_services),
+            total_business_services=int(business_unit.crq_business_unit_business_service_count or 0),
+            total_applications=int(business_unit.crq_business_unit_application_count or 0),
+            total_assets=int(business_unit.crq_business_unit_asset_count or 0),
+            total_findings=int(business_unit.crq_business_unit_finding_count or 0),
         ),
         business_services=[
             schemas.BusinessServiceSummary(
                 business_service=service.name,
                 slug=service.slug,
                 metrics=schemas.TopologyMetrics(
-                    total_applications=len(service.applications),
-                    total_assets=int(asset_counts.get(service.id, 0)),
-                    total_findings=int(finding_counts.get(service.id, 0)),
+                    total_applications=int(service.crq_business_service_application_count or 0),
+                    total_assets=int(service.crq_business_service_asset_count or 0),
+                    total_findings=int(service.crq_business_service_finding_count or 0),
                 ),
+                risk_score=service.crq_business_service_risk_score,
+                risk_band=derive_risk_band(service.crq_business_service_risk_score),
+                priority_score=service.crq_business_service_priority_score,
+                business_criticality_score=service.business_criticality_score,
             )
             for service in business_services
         ],
@@ -305,52 +283,35 @@ def get_business_service_detail(business_unit_slug: str, business_service_slug: 
     ).all()
 
     applications = sorted(business_service.applications, key=lambda item: item.name.lower())
-    application_ids = [application.id for application in applications]
-    application_asset_counts, application_finding_counts = application_counts(db, application_ids)
-
-    all_asset_ids = [asset.asset_id for asset in service_assets]
-    direct_asset_ids = [asset.asset_id for asset in direct_assets]
-    all_finding_counts = finding_counts_for_asset_ids(db, all_asset_ids)
-    direct_finding_counts = finding_counts_for_asset_ids(db, direct_asset_ids)
 
     return schemas.BusinessServiceDetail(
         company=_company_summary(business_service.business_unit.company),
         business_unit=business_service.business_unit.name,
         business_service=business_service.name,
         slug=business_service.slug,
-        uid=business_service.uid,
-        uuid=business_service.uuid,
+        source_id=business_service.source_id,
         description=business_service.description,
         criticality_label=business_service.criticality_label,
         division=business_service.division,
         manager=business_service.manager,
-        data_integration=business_service.data_integration,
-        connector=business_service.connector,
-        connector_category=business_service.connector_category,
-        data_model=business_service.data_model,
-        last_integration_transaction_id=business_service.last_integration_transaction_id,
-        flow_state=business_service.flow_state,
-        created_by=business_service.created_by,
-        updated_by=business_service.updated_by,
-        source_last_modified_at=business_service.source_last_modified_at,
-        source_last_integrated_at=business_service.source_last_integrated_at,
-        source_created_at=business_service.source_created_at,
-        source_updated_at=business_service.source_updated_at,
+        risk_score=business_service.crq_business_service_risk_score,
+        risk_band=derive_risk_band(business_service.crq_business_service_risk_score),
+        priority_score=business_service.crq_business_service_priority_score,
+        business_criticality_score=business_service.business_criticality_score,
+        aggregated_application_risk=business_service.crq_business_service_aggregated_application_risk,
+        aggregated_direct_asset_risk=business_service.crq_business_service_aggregated_direct_asset_risk,
+        scored_at=business_service.crq_business_service_scored_at,
         metrics=schemas.TopologyMetrics(
-            total_applications=len(applications),
-            total_assets=len(service_assets),
-            total_findings=sum(int(all_finding_counts.get(asset.asset_id, 0)) for asset in service_assets),
+            total_applications=int(business_service.crq_business_service_application_count or 0),
+            total_assets=int(business_service.crq_business_service_asset_count or 0),
+            total_findings=int(business_service.crq_business_service_finding_count or 0),
         ),
         applications=[
-            to_application_summary(
-                application,
-                asset_count=int(application_asset_counts.get(application.id, 0)),
-                finding_count=int(application_finding_counts.get(application.id, 0)),
-            )
+            to_application_summary(application)
             for application in applications
         ],
         direct_assets=[
-            to_asset_summary(asset, finding_count=int(direct_finding_counts.get(asset.asset_id, 0)))
+            to_asset_summary(asset)
             for asset in direct_assets
         ],
     )
@@ -368,9 +329,6 @@ def get_business_service_analytics(business_unit_slug: str, business_service_slu
         .all()
     )
     applications = sorted(business_service.applications, key=lambda item: item.name.lower())
-    all_finding_counts = finding_counts_for_asset_ids(
-        db, [asset.asset_id for asset in service_assets]
-    )
     business_criticality_score, business_criticality_label = _parse_business_criticality(
         business_service.criticality_label
     )
@@ -385,11 +343,9 @@ def get_business_service_analytics(business_unit_slug: str, business_service_slu
         business_criticality_max=5,
         business_criticality_label=business_criticality_label,
         totals=schemas.BusinessServiceAnalyticsTotals(
-            applications=len(applications),
-            assets=len(service_assets),
-            findings=sum(
-                int(all_finding_counts.get(asset.asset_id, 0)) for asset in service_assets
-            ),
+            applications=int(business_service.crq_business_service_application_count or len(applications)),
+            assets=int(business_service.crq_business_service_asset_count or 0),
+            findings=int(business_service.crq_business_service_finding_count or 0),
         ),
         asset_criticality_distribution=_build_asset_score_distribution(
             [asset.crq_asset_context_score for asset in service_assets]
@@ -415,7 +371,6 @@ def get_application_detail(
         .order_by(func.lower(func.coalesce(models.Asset.hostname, models.Asset.asset_id)))
         .all()
     )
-    finding_counts = finding_counts_for_asset_ids(db, [asset.asset_id for asset in assets])
 
     return schemas.ApplicationDetail(
         company=_company_summary(application.business_service.business_unit.company),
@@ -427,23 +382,15 @@ def get_application_detail(
         tags=list(application.tags) if application.tags is not None else None,
         first_seen_at=application.first_seen_at,
         metrics=schemas.TopologyMetrics(
-            total_assets=int(
-                application.crq_application_asset_count
-                if application.crq_application_asset_count is not None
-                else len(assets)
-            ),
-            total_findings=int(
-                application.crq_application_finding_count
-                if application.crq_application_finding_count is not None
-                else sum(int(finding_counts.get(asset.asset_id, 0)) for asset in assets)
-            ),
+            total_assets=int(application.crq_application_asset_count or 0),
+            total_findings=int(application.crq_application_finding_count or 0),
         ),
         aggregated_asset_risk=application.crq_application_aggregated_asset_risk,
         compliance_score=application.crq_application_compliance_score,
         application_risk_score=application.crq_application_risk_score,
         scored_at=application.crq_application_scored_at,
         assets=[
-            to_asset_summary(asset, finding_count=int(finding_counts.get(asset.asset_id, 0)))
+            to_asset_summary(asset)
             for asset in assets
         ],
     )
@@ -545,7 +492,6 @@ def get_assets(
         )
 
     assets = query.all()
-    finding_counts = finding_counts_for_asset_ids(db, [asset.asset_id for asset in assets])
 
     # Apply sort order in Python to keep the service boundary small and predictable.
     def asset_name(asset: models.Asset) -> str:
@@ -556,7 +502,7 @@ def get_assets(
         "asset_type": lambda asset: (asset.device_type or asset.category or "").lower(),
         "asset_criticality": lambda asset: asset.crq_asset_context_score if asset.crq_asset_context_score is not None else -1,
         "status": lambda asset: (asset.status or "").lower(),
-        "finding_count": lambda asset: finding_counts.get(asset.asset_id, 0),
+        "finding_count": lambda asset: asset.crq_asset_finding_count or 0,
     }
     key_fn = key_map.get(sort_by.strip().lower())
     if key_fn is None:
@@ -579,7 +525,7 @@ def get_assets(
     page_assets = sorted_assets[offset : offset + page_size]
     return schemas.PaginatedAssets(
         items=[
-            to_asset_summary(asset, finding_count=int(finding_counts.get(asset.asset_id, 0)))
+            to_asset_summary(asset)
             for asset in page_assets
         ],
         total=int(total),
@@ -695,8 +641,7 @@ def get_asset_detail(asset_id: str, db):
     asset = asset_by_id(db, asset_id)
     if asset is None:
         raise HTTPException(status_code=404, detail="Asset not found.")
-    finding_count = finding_count_for_asset(db, asset.asset_id)
-    return to_asset_detail(asset, finding_count=int(finding_count), detail=None)
+    return to_asset_detail(asset, detail=None)
 
 
 def get_asset_enrichment(

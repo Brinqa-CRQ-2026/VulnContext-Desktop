@@ -6,6 +6,8 @@ export interface ScoredFinding {
   id: string;
   source: string;
   asset_id: string;
+  business_service?: string | null;
+  application?: string | null;
 
   uid?: string | null;
   record_id?: string | null;
@@ -115,6 +117,7 @@ export interface BusinessServiceAnalyticsTotals {
 export interface BusinessServiceAnalytics {
   service_risk_score: number | null;
   service_risk_label: string | null;
+  service_priority_score?: number | null;
   business_criticality_score: number | null;
   business_criticality_max: number;
   business_criticality_label: string | null;

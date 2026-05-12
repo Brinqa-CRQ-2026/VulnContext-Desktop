@@ -175,20 +175,18 @@ WITH target_applications AS (
         app.tags,
         a.asset_id,
         a.crq_asset_risk_score,
-        COUNT(f.id) AS asset_finding_count
+        COALESCE(a.crq_asset_finding_count, COUNT(f.id), 0) AS asset_finding_count
     FROM target_applications app
     LEFT JOIN assets a ON a.application_id = app.id
     LEFT JOIN findings f ON f.asset_id = a.asset_id
-    GROUP BY app.id, app.tags, a.asset_id, a.crq_asset_risk_score
+    GROUP BY app.id, app.tags, a.asset_id, a.crq_asset_risk_score, a.crq_asset_finding_count
 ), application_counts AS (
     SELECT
-        app.id AS application_id,
-        COUNT(DISTINCT a.asset_id) AS asset_count,
-        COUNT(f.id) AS finding_count
-    FROM target_applications app
-    LEFT JOIN assets a ON a.application_id = app.id
-    LEFT JOIN findings f ON f.asset_id = a.asset_id
-    GROUP BY app.id
+        application_id,
+        COUNT(asset_id) AS asset_count,
+        COALESCE(SUM(asset_finding_count), 0) AS finding_count
+    FROM asset_rows
+    GROUP BY application_id
 )
 SELECT
     ar.application_id,
