@@ -6,6 +6,8 @@ export interface ScoredFinding {
   id: string;
   source: string;
   asset_id: string;
+  business_service?: string | null;
+  application?: string | null;
 
   uid?: string | null;
   record_id?: string | null;

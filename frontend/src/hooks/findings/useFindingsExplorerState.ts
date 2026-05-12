@@ -13,7 +13,7 @@ import { usePaginatedFindings } from "./usePaginatedFindings";
 const FINDINGS_PAGE_SIZE = 20;
 
 export const findingsSortLabelMap: Record<FindingsSortBy, string> = {
-  risk_score: "Sort by display risk",
+  risk_score: "Sort by Risk Score",
   internal_risk_score: "Sort by internal risk",
   source_risk_score: "Sort by vendor risk",
   cvss_score: "Sort by CVSS",

@@ -80,7 +80,7 @@ export function RiskTable({
       <CardHeader>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <CardTitle className="text-sm font-semibold">
-            Findings prioritized by display risk
+            Findings prioritized by Risk Score
           </CardTitle>
 
           <div className="flex flex-wrap items-center gap-2 md:justify-end">
@@ -118,7 +118,7 @@ export function RiskTable({
               <DropdownMenuContent>
                 <DropdownMenuLabel>Sort Field</DropdownMenuLabel>
                 <DropdownMenuItem onClick={() => setSortBy("risk_score")}>
-                  Sort by display risk
+                  Sort by Risk Score
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setSortBy("internal_risk_score")}>
                   Sort by internal risk
@@ -218,19 +218,18 @@ export function RiskTable({
                 <TableRow>
                   <TableHead className="w-10">#</TableHead>
                   <TableHead>Finding</TableHead>
-                  <TableHead>Target</TableHead>
+                  <TableHead>Asset</TableHead>
+                  <TableHead>Business service</TableHead>
+                  <TableHead>Application</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>CVSS</TableHead>
-                  <TableHead>EPSS</TableHead>
-                  <TableHead>Age</TableHead>
-                  <TableHead>Display risk</TableHead>
-                  <TableHead>Vendor risk</TableHead>
+                  <TableHead>Risk Score</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading && (
                   <TableRow>
-                    <TableCell colSpan={9} className="py-6 text-center">
+                    <TableCell colSpan={8} className="py-6 text-center">
                       Loading findings...
                     </TableCell>
                   </TableRow>
@@ -238,7 +237,7 @@ export function RiskTable({
 
                 {!loading && error && (
                   <TableRow>
-                    <TableCell colSpan={9} className="py-6 text-center text-red-500">
+                    <TableCell colSpan={8} className="py-6 text-center text-red-500">
                       {error}
                     </TableCell>
                   </TableRow>
@@ -246,7 +245,7 @@ export function RiskTable({
 
                 {!loading && !error && visibleFindings.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={9} className="py-6 text-center">
+                    <TableCell colSpan={8} className="py-6 text-center">
                       {showKevOnly
                         ? "No KEV findings on this page/filter."
                         : "No findings available for this filter."}
@@ -286,6 +285,8 @@ export function RiskTable({
                           </div>
                         </div>
                       </TableCell>
+                      <TableCell>{f.business_service || "—"}</TableCell>
+                      <TableCell>{f.application || "—"}</TableCell>
                       <TableCell>
                         <div className="flex max-w-[18rem] flex-wrap gap-1">
                           {f.risk_band ? (
@@ -335,26 +336,12 @@ export function RiskTable({
                         </div>
                       </TableCell>
                       <TableCell>{formatNumber(f.cvss_score)}</TableCell>
-                      <TableCell>{formatNumber(f.epss_score, 4)}</TableCell>
-                      <TableCell>
-                        {f.age_in_days !== null && f.age_in_days !== undefined
-                          ? `${formatNumber(f.age_in_days, 0)}d`
-                          : "—"}
-                      </TableCell>
                       <TableCell>
                         <div className="space-y-1 text-sm">
                           <div className="font-semibold text-slate-900">
                             {formatNumber(f.risk_score)}
                           </div>
                           <div className="text-xs text-slate-500">{f.risk_band || "—"}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="space-y-1 text-sm">
-                          <div>{formatNumber(f.source_risk_score)}</div>
-                          <div className="text-xs text-slate-500">
-                            {f.source_risk_rating || f.source_risk_band || "—"}
-                          </div>
                         </div>
                       </TableCell>
                     </TableRow>
