@@ -1,7 +1,7 @@
 import React from "react";
 import { Button } from "../ui/button";
 
-type AppPage = "findings" | "integrations" | "business-services";
+type AppPage = "findings" | "integrations" | "business-services" | "controls";
 
 interface HeaderProps {
   page: AppPage;
@@ -25,7 +25,9 @@ export function Header({
       ? "Findings"
       : page === "integrations"
         ? "Sources"
-        : "Companies";
+        : page === "controls"
+          ? "Controls"
+          : "Companies";
 
   return (
     <header className="border-b border-slate-800 bg-slate-950 text-slate-100">
@@ -52,6 +54,14 @@ export function Header({
             onClick={() => onNavigate("business-services")}
           >
             Companies
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800 hover:text-white"
+            onClick={() => onNavigate("controls")}
+          >
+            Controls
           </Button>
           <Button
             variant="outline"

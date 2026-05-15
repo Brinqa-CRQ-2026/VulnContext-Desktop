@@ -1,9 +1,14 @@
 from typing import List
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app import schemas
 from app.core.db import get_db
+from app.repositories import findings as findings_repo
+from app.services.fair.loss_prediction import (
+    FairLossPredictionService,
+    LossPredictionInputs,
+)
 from app.services.brinqa_detail import finding_detail_service
 from app.services.findings_view import (
     get_finding_detail as _get_finding_detail,
@@ -14,6 +19,7 @@ from app.services.findings_view import (
 )
 
 router = APIRouter(tags=["findings"])
+fair_loss_prediction_service = FairLossPredictionService()
 
 
 @router.get("/findings/top", response_model=List[schemas.FindingSummary])
@@ -50,6 +56,30 @@ def get_findings(
 @router.get("/findings/{finding_id}", response_model=schemas.FindingDetail)
 def get_finding_by_id(finding_id: str, db=Depends(get_db)):
     return _get_finding_detail(db, finding_id)
+
+
+@router.post(
+    "/findings/{finding_id}/fair-loss",
+    response_model=schemas.FairLossPredictionResponse,
+)
+def predict_finding_fair_loss(
+    finding_id: str,
+    payload: schemas.FairLossPredictionRequest,
+    db=Depends(get_db),
+):
+    finding = findings_repo.get_finding_by_id(db, finding_id, include_asset=True)
+    if finding is None:
+        raise HTTPException(status_code=404, detail="Finding not found.")
+
+    return fair_loss_prediction_service.simulate(
+        finding,
+        LossPredictionInputs(
+            control_context=payload.control_context,
+            primary_loss_mean=payload.primary_loss_mean,
+            secondary_loss_mean=payload.secondary_loss_mean,
+            iterations=payload.iterations,
+        ),
+    )
 
 
 @router.get("/findings/{finding_id}/enrichment", response_model=schemas.FindingEnrichment)

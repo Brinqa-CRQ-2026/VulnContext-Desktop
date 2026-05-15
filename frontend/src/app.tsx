@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { BriefcaseBusiness, ListFilter, PlugZap } from "lucide-react";
+import { BriefcaseBusiness, ListFilter, PlugZap, ShieldCheck } from "lucide-react";
 import { Header } from "./components/layout/Header";
 import { DashboardOverview } from "./components/dashboard/DashboardOverview";
 import { RiskTable } from "./components/dashboard/RiskTable";
 import { FindingDetailPage } from "./components/dashboard/FindingDetailPage";
 import { IntegrationsPage } from "./components/integrations/IntegrationsPage";
+import { SecurityQuestionnairePage } from "./components/controls/SecurityQuestionnairePage";
 import { ApplicationDetailPage } from "./components/business-services/ApplicationDetailPage";
 import { AssetFindingsPage } from "./components/business-services/AssetFindingsPage";
 import { BusinessServiceDetailPage } from "./components/business-services/BusinessServiceDetailPage";
@@ -24,7 +25,7 @@ import type {
 } from "./types";
 import { formatSlugLabel } from "./components/business-services/TopologyChrome";
 
-type BasePage = "findings" | "integrations" | "business-services";
+type BasePage = "findings" | "integrations" | "business-services" | "controls";
 type AppRoute = {
   page: BasePage;
   findingId: string | null;
@@ -137,6 +138,9 @@ function parseHashRoute(): AppRoute {
   if (parts[0] === "integrations") {
     return getEmptyRoute("integrations");
   }
+  if (parts[0] === "controls") {
+    return getEmptyRoute("controls");
+  }
   return parsePathRoute(`/${hash}`) ?? getEmptyRoute("findings");
 }
 
@@ -169,6 +173,9 @@ function writeHashRoute(route: AppRoute) {
     }
     if (route.page === "integrations") {
       return "#/integrations";
+    }
+    if (route.page === "controls") {
+      return "#/controls";
     }
     if (route.page === "business-services") {
       const segments = ["business-services"];
@@ -406,6 +413,11 @@ function App() {
       title: "Sources",
       description: "Review imported sources and the number of findings stored for each.",
     },
+    controls: {
+      title: "Security Questionnaire",
+      description:
+        "Capture concise control maturity answers and map them into FAIR-aligned scoring context.",
+    },
     "business-services": {
       title: inAssetFindings
         ? "Asset Findings"
@@ -429,12 +441,13 @@ function App() {
   } as const;
 
   const navItems: Array<{
-    id: "findings" | "integrations" | "business-services";
+    id: BasePage;
     label: string;
     icon: typeof ListFilter;
   }> = [
     { id: "business-services", label: "Companies", icon: BriefcaseBusiness },
     { id: "findings", label: "Findings", icon: ListFilter },
+    { id: "controls", label: "Controls", icon: ShieldCheck },
     { id: "integrations", label: "Sources", icon: PlugZap },
   ];
 
@@ -627,6 +640,8 @@ function App() {
                   onOpenBusinessUnit={openBusinessUnit}
                 />
               )
+            ) : page === "controls" ? (
+              <SecurityQuestionnairePage />
             ) : (
               <IntegrationsPage refreshToken={refreshToken} />
             )}
