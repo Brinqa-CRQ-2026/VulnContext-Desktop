@@ -18,6 +18,10 @@ from app.services.findings_view import (
     list_top_findings as _list_top_findings,
 )
 
+from app.services.ML_model.ml_risk_features import get_ml_risk_for_finding
+from app.services.ML_model.ml_risk_predictions import predict_ml_risk_for_finding
+
+
 router = APIRouter(tags=["findings"])
 fair_loss_prediction_service = FairLossPredictionService()
 
@@ -86,3 +90,12 @@ def predict_finding_fair_loss(
 def get_finding_enrichment(finding_id: str, db=Depends(get_db)):
     return _get_finding_enrichment(db, finding_id)
 
+# That's the route that use to extract all the relevant features for the vulns findings
+@router.get("/findings/{finding_id}/ml-risk", response_model=schemas.MLRiskFeatureSummary | None)
+def get_finding_ml_risk(finding_id: str, db=Depends(get_db)):
+    return get_ml_risk_for_finding(db, finding_id)
+
+
+@router.post("/findings/{finding_id}/ml-risk/predict", response_model=schemas.MLRiskFeatureSummary)
+def predict_finding_ml_risk(finding_id: str, db=Depends(get_db)):
+    return predict_ml_risk_for_finding(db, finding_id)

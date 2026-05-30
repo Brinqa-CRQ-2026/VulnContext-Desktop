@@ -3,6 +3,7 @@ import type { RiskBandSummary } from "./risk";
 import type { AssetSummary } from "./topology";
 
 export interface ScoredFinding {
+  disposition: boolean;
   id: string;
   source: string;
   asset_id: string;

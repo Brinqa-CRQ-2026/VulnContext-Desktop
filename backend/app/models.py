@@ -20,6 +20,9 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import text
+
 from app.core.db import Base
 
 
@@ -252,3 +255,50 @@ class NvdRecord(Base):
     cve = Column(String, primary_key=True)
     cvss_score = Column(Float, nullable=True)
     cvss_severity = Column(String, nullable=True)
+
+
+# It create a database-mapped model that maps to the ml_risk_features table in the supabase
+# It defined the db struture, and allow the python interact with the db rows as objects.
+class MLRiskFeature(Base):
+    __tablename__ = "ml_risk_features"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+
+    finding_id = Column(Text, nullable=False, unique=True, index=True)
+    asset_id = Column(Text, index=True)
+    cve_id = Column(Text, index=True)
+
+    target_model = Column(Text)
+    age_in_days = Column(Float)
+    internet_exposed = Column(Integer)
+
+    asset_environments = Column(Text)
+    asset_profiles = Column(Text)
+    asset_type = Column(Text)
+    asset_os_family = Column(Text)
+    asset_cloud_provider = Column(Text)
+
+    
+    cvss_v3_base_score = Column(Float)
+    cvss_v3_attack_vector = Column(Text)
+    cvss_v3_attack_complexity = Column(Text)
+    cvss_v3_privileges_required= Column(Text)
+    cvss_v3_user_interaction= Column(Text)
+    cvss_v3_confidentiality_impact= Column(Text)
+    cvss_v3_integrity_impact= Column(Text)
+    cvss_v3_availability_impact= Column(Text)
+    
+    cvss_v2_base_score = Column(Float)
+    cvss_v2_access_vector = Column(Text)
+    cvss_v2_access_complexity = Column(Text)
+    cvss_v2_authentication = Column(Text)
+    cvss_v2_confidentiality_impact = Column(Text)
+    cvss_v2_integrity_impact = Column(Text)
+    cvss_v2_availability_impact = Column(Text)
+
+    prediction_score = Column(Float)
+    prediction_route = Column(Text)
+    gate_probability = Column(Float)
+
+    feature_snapshot_at = Column(DateTime(timezone=True))
+    predicted_at = Column(DateTime(timezone=True))

@@ -489,3 +489,46 @@ class SourceSummary(BaseModel):
     source: str
     total_findings: int
     risk_bands: RiskBandSummary
+
+
+    
+# Schemas ensure the data extract from the API call was consistent and expected before send to the frontend
+class MLRiskFeatureSummary(BaseModel):
+    # join keys
+    finding_id: str
+    asset_id: str | None = None
+    cve_id: str | None = None
+
+    # asset/context features
+    target_model: str | None = None
+    age_in_days: float | None = None
+    internet_exposed: int | None = None
+
+    asset_environments: str | None = None
+    asset_profiles: str | None = None
+    asset_type: str | None = None
+    asset_os_family: str | None = None
+    asset_cloud_provider: str | None = None
+
+    # intrinsic CVE features
+    cvss_v3_base_score: float | None = None
+    cvss_v3_attack_vector: str | None = None
+    cvss_v3_attack_complexity: str | None = None
+    cvss_v3_privileges_required: str | None = None
+    cvss_v3_user_interaction: str | None = None
+    cvss_v3_confidentiality_impact: str | None = None
+    cvss_v3_integrity_impact: str | None = None
+    cvss_v3_availability_impact: str | None = None
+
+    cvss_v2_base_score: float | None = None
+    cvss_v2_access_vector: str | None = None
+    cvss_v2_access_complexity: str | None = None
+    cvss_v2_authentication: str | None = None
+    cvss_v2_confidentiality_impact: str | None = None
+    cvss_v2_integrity_impact: str | None = None
+    cvss_v2_availability_impact: str | None = None
+    
+    # prediction outputs
+    prediction_score: float | None = None
+    prediction_route: str | None = None
+    gate_probability: float | None = None

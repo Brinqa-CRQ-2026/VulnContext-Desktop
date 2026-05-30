@@ -30,6 +30,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
+import { useState } from "react";
+import { predictFindingMlRisk } from "../../api/mlRisk";
 
 interface RiskTableProps {
   refreshToken: number;
@@ -73,6 +75,40 @@ export function RiskTable({
     if (tone === "warn") return "border-amber-200 bg-amber-50 text-amber-700";
     if (tone === "success") return "border-emerald-200 bg-emerald-50 text-emerald-700";
     return "border-slate-200 bg-slate-50 text-slate-700";
+  };
+
+  const [mlScores, setMlScores] = useState<Record<string, number>>({});
+  const [predictingId, setPredictingId] = useState<string | null>(null);
+
+  const handlePredictMlRisk = async (
+    finding: ScoredFinding,
+    e: React.MouseEvent
+  ) => {
+    e.stopPropagation();
+
+    setPredictingId(String(finding.id));
+    try {
+      const result = await predictFindingMlRisk(finding.id);
+      const probability =
+        result.prediction_score??
+        null;
+
+      if (probability !== null) {
+        setMlScores((prev) => ({
+          ...prev,
+          [String(finding.id)]: probability,
+        }));
+      }
+    } finally {
+      setPredictingId(null);
+    }
+    const result = await predictFindingMlRisk(String(finding.id));
+    console.log("ML API result:", result);
+    const probability =
+      result.prediction_score ??
+      null;
+
+    console.log("Extracted probability:", probability);
   };
 
   return (
@@ -223,13 +259,14 @@ export function RiskTable({
                   <TableHead>Application</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>CVSS</TableHead>
+                  <TableHead className="min-w-[140px]">Exploit Probability</TableHead>
                   <TableHead>Risk Score</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading && (
                   <TableRow>
-                    <TableCell colSpan={8} className="py-6 text-center">
+                    <TableCell colSpan={9} className="py-6 text-center">
                       Loading findings...
                     </TableCell>
                   </TableRow>
@@ -237,7 +274,7 @@ export function RiskTable({
 
                 {!loading && error && (
                   <TableRow>
-                    <TableCell colSpan={8} className="py-6 text-center text-red-500">
+                    <TableCell colSpan={9} className="py-6 text-center text-red-500">
                       {error}
                     </TableCell>
                   </TableRow>
@@ -245,7 +282,7 @@ export function RiskTable({
 
                 {!loading && !error && visibleFindings.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={8} className="py-6 text-center">
+                    <TableCell colSpan={9} className="py-6 text-center">
                       {showKevOnly
                         ? "No KEV findings on this page/filter."
                         : "No findings available for this filter."}
@@ -335,7 +372,30 @@ export function RiskTable({
                           ) : null}
                         </div>
                       </TableCell>
-                      <TableCell>{formatNumber(f.cvss_score)}</TableCell>
+                      <TableCell>
+                        <div className="flex justify-center">
+                          {formatNumber(f.cvss_score)}
+                        </div>
+                      </TableCell>
+                      <TableCell
+                        className="min-w-[140px]"
+                        onClick={(e) => e.stopPropagation()}>
+                        <div className="flex flex-col items-center justify-center space-y-1">
+                          <div className="text-sm font-semibold text-slate-900">
+                            {mlScores[String(f.id)] !== undefined
+                              ? `${Math.round(mlScores[f.id] * 100)}%`
+                              : "—"}
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={predictingId === String(f.id)}
+                            onClick={(e) => handlePredictMlRisk(f, e)}
+                          >
+                            {predictingId === f.id ? "Predicting..." : "Predict"}
+                          </Button>
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <div className="space-y-1 text-sm">
                           <div className="font-semibold text-slate-900">
