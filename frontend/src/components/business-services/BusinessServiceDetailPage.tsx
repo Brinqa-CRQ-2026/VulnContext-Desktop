@@ -1,5 +1,5 @@
 import { Layers3 } from "lucide-react";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { Bar, BarChart, CartesianGrid, Pie, PieChart, XAxis } from "recharts";
 
 import type {
@@ -15,6 +15,7 @@ import { isTopologyUnavailable } from "../../lib/topology/topologyStatus";
 import { useBusinessServiceDetail } from "../../hooks/topology/business-services/useBusinessServiceDetail";
 import type { ApplicationSummary, AssetSummary } from "../../types";
 import { useBusinessServiceAnalytics } from "../../hooks/topology/business-services/useBusinessServiceAnalytics";
+import { predictBusinessServiceFairLoss } from "../../api/topology";
 import { AssetInventoryPanel } from "./AssetInventoryPanel";
 import {
   formatSlugLabel,
@@ -41,6 +42,7 @@ import { ChartPanel } from "./shared/ChartPanel";
 import { ApplicationEntityCard } from "./shared/EntityCard";
 import { EntityHero } from "./shared/EntityHero";
 import { MetricCard, MetricGrid } from "./shared/MetricCard";
+import { FairScopeLossPanel } from "../fair/FairScopeLossPanel";
 
 interface BusinessServiceDetailPageProps {
   businessUnitSlug: string | null;
@@ -73,6 +75,15 @@ export function BusinessServiceDetailPage({
     loading: businessServiceAnalyticsLoading,
     error: businessServiceAnalyticsError,
   } = useBusinessServiceAnalytics(businessUnitSlug, businessServiceSlug, refreshToken);
+  const predictFairLoss = useCallback(
+    (payload: Parameters<typeof predictBusinessServiceFairLoss>[2]) =>
+      predictBusinessServiceFairLoss(
+        businessUnitSlug ?? "",
+        businessServiceSlug ?? "",
+        payload
+      ),
+    [businessServiceSlug, businessUnitSlug]
+  );
 
   if (loading) {
     return (
@@ -175,6 +186,14 @@ export function BusinessServiceDetailPage({
           error={businessServiceAnalyticsError}
         />
       </div>
+
+      {businessUnitSlug && businessServiceSlug ? (
+        <FairScopeLossPanel
+          title="Business Service FAIR Loss Exposure"
+          description="Estimates annualized loss exposure for this business service. Applications, assets, and findings act as likelihood drivers, while the service carries the monetary business impact."
+          onPredict={predictFairLoss}
+        />
+      ) : null}
 
       <section className="space-y-3">
         <div>

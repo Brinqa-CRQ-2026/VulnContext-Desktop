@@ -13,7 +13,7 @@ import {
   readControlContext,
   toNestedControlContext,
   writeControlContext,
-} from "../../lib/controlQuestionnaire";
+} from "../../lib/securityScore";
 import { cn } from "../../lib/utils";
 
 type ControlDomainId = "prevent" | "detect" | "respond" | "contain";
@@ -278,7 +278,7 @@ function formatPercent(value: number) {
   return `${Math.round(value * 100)}%`;
 }
 
-export function SecurityQuestionnairePage() {
+export function SecurityScorePage() {
   const [answers, setAnswers] = useState(readControlContext);
   const [copied, setCopied] = useState(false);
   const [syncStatus, setSyncStatus] = useState<"idle" | "loading" | "saving" | "saved" | "error">(
@@ -304,7 +304,7 @@ export function SecurityQuestionnairePage() {
         if (!active) return;
         setSyncStatus("error");
         setSyncError(
-          err instanceof Error ? err.message : "Failed to load saved control assessment."
+          err instanceof Error ? err.message : "Failed to load saved security score."
         );
       }
     }
@@ -349,7 +349,7 @@ export function SecurityQuestionnairePage() {
     } catch (err) {
       setSyncStatus("error");
       setSyncError(
-        err instanceof Error ? err.message : "Failed to save control assessment."
+        err instanceof Error ? err.message : "Failed to save security score."
       );
     }
   };
@@ -379,7 +379,7 @@ export function SecurityQuestionnairePage() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold">
-              FAIR-Aligned Control Maturity
+              FAIR-Aligned Security Score
             </CardTitle>
           </CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -519,7 +519,7 @@ export function SecurityQuestionnairePage() {
       <aside className="flex flex-col gap-4 xl:sticky xl:top-4 xl:self-start">
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold">Control Score</CardTitle>
+            <CardTitle className="text-sm font-semibold">Security Score</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-4xl font-semibold tracking-tight text-slate-900">
@@ -552,12 +552,12 @@ export function SecurityQuestionnairePage() {
                         ? "Saved to Supabase."
                         : syncStatus === "error"
                           ? syncError ?? "Unable to sync assessment."
-                          : "Local questionnaire context."}
+                          : "Local security score context."}
                 </p>
               </div>
               <div className="flex items-center gap-2">
                 <Button
-                  aria-label="Reset questionnaire"
+                  aria-label="Reset security score"
                   size="icon"
                   variant="outline"
                   onClick={() => {

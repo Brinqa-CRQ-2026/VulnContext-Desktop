@@ -30,7 +30,7 @@ DEFAULT_CONTROL_ANSWERS: dict[str, dict[str, int]] = {
 }
 
 
-def compute_control_questionnaire(answers: dict[str, Any]) -> dict[str, Any]:
+def compute_security_score(answers: dict[str, Any]) -> dict[str, Any]:
     normalized = normalize_control_answers(answers)
     flat_context = flatten_control_answers(normalized)
     domain_scores = compute_domain_scores(normalized)

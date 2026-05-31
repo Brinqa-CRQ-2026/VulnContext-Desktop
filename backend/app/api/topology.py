@@ -23,8 +23,11 @@ from app.services.topology_view import (
     get_business_unit_risk_overview as _get_business_unit_risk_overview,
     get_business_units as _get_business_units,
 )
+from app.services.fair.loss_prediction import LossPredictionInputs
+from app.services.fair.scope_loss_prediction import FairScopeLossPredictionService
 
 router = APIRouter(tags=["topology"])
+fair_scope_loss_prediction_service = FairScopeLossPredictionService()
 
 
 def _has_topology_schema(db):
@@ -155,6 +158,38 @@ def get_business_service_analytics(
     return _get_business_service_analytics(business_unit_slug, business_service_slug, db)
 
 
+@router.post(
+    "/topology/business-units/{business_unit_slug}/business-services/{business_service_slug}/fair-loss",
+    response_model=schemas.FairLossPredictionResponse,
+)
+def predict_business_service_fair_loss(
+    business_unit_slug: str,
+    business_service_slug: str,
+    payload: schemas.FairLossPredictionRequest,
+    db=Depends(get_db),
+):
+    if not _has_topology_schema(db):
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Normalized topology tables are not initialized. "
+                "Apply docs/backend/topology-seed/topology-expansion.sql before using "
+                "business service FAIR routes."
+            ),
+        )
+    return fair_scope_loss_prediction_service.simulate_business_service(
+        db,
+        business_unit_slug,
+        business_service_slug,
+        LossPredictionInputs(
+            control_context=payload.control_context,
+            primary_loss_mean=payload.primary_loss_mean,
+            secondary_loss_mean=payload.secondary_loss_mean,
+            iterations=payload.iterations,
+        ),
+    )
+
+
 @router.get(
     "/topology/business-units/{business_unit_slug}/business-services/{business_service_slug}/applications/{application_slug}",
     response_model=schemas.ApplicationDetail,
@@ -175,6 +210,40 @@ def get_application_detail(
             ),
         )
     return _get_application_detail(business_unit_slug, business_service_slug, application_slug, db)
+
+
+@router.post(
+    "/topology/business-units/{business_unit_slug}/business-services/{business_service_slug}/applications/{application_slug}/fair-loss",
+    response_model=schemas.FairLossPredictionResponse,
+)
+def predict_application_fair_loss(
+    business_unit_slug: str,
+    business_service_slug: str,
+    application_slug: str,
+    payload: schemas.FairLossPredictionRequest,
+    db=Depends(get_db),
+):
+    if not _has_topology_schema(db):
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Normalized topology tables are not initialized. "
+                "Apply docs/backend/topology-seed/topology-expansion.sql before using "
+                "application FAIR routes."
+            ),
+        )
+    return fair_scope_loss_prediction_service.simulate_application(
+        db,
+        business_unit_slug,
+        business_service_slug,
+        application_slug,
+        LossPredictionInputs(
+            control_context=payload.control_context,
+            primary_loss_mean=payload.primary_loss_mean,
+            secondary_loss_mean=payload.secondary_loss_mean,
+            iterations=payload.iterations,
+        ),
+    )
 
 
 @router.get("/assets", response_model=schemas.PaginatedAssets)
@@ -254,6 +323,24 @@ def get_assets_analytics(
 @router.get("/assets/{asset_id}", response_model=schemas.AssetDetail)
 def get_asset_detail(asset_id: str, db=Depends(get_db)):
     return _get_asset_detail(asset_id, db)
+
+
+@router.post("/assets/{asset_id}/fair-loss", response_model=schemas.FairLossPredictionResponse)
+def predict_asset_fair_loss(
+    asset_id: str,
+    payload: schemas.FairLossPredictionRequest,
+    db=Depends(get_db),
+):
+    return fair_scope_loss_prediction_service.simulate_asset(
+        db,
+        asset_id,
+        LossPredictionInputs(
+            control_context=payload.control_context,
+            primary_loss_mean=payload.primary_loss_mean,
+            secondary_loss_mean=payload.secondary_loss_mean,
+            iterations=payload.iterations,
+        ),
+    )
 
 
 @router.get("/assets/{asset_id}/enrichment", response_model=schemas.AssetEnrichment)

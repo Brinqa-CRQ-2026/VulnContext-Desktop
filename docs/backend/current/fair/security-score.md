@@ -1,6 +1,6 @@
-# Control Questionnaire
+# Security Score
 
-The control questionnaire captures security control maturity in four FAIR-aligned domains:
+The Security Score captures security control maturity in four FAIR-aligned domains:
 
 - Prevent
 - Detect
@@ -11,17 +11,17 @@ Each answer is a maturity score from `0` to `5`. The UI presents contextual answ
 
 ## Frontend Files
 
-- `frontend/src/components/controls/SecurityQuestionnairePage.tsx`
-- `frontend/src/lib/controlQuestionnaire.ts`
+- `frontend/src/components/controls/SecurityScorePage.tsx`
+- `frontend/src/lib/securityScore.ts`
 - `frontend/src/api/controls.ts`
 
 ## Backend Files
 
 - `backend/app/api/controls.py`
-- `backend/app/services/control_questionnaire.py`
+- `backend/app/services/security_score.py`
 - `backend/app/schemas.py`
 
-## Questionnaire JSON Shape
+## Security Score JSON Shape
 
 The visible/copyable payload uses nested domains:
 
@@ -56,7 +56,7 @@ The visible/copyable payload uses nested domains:
 The frontend stores answers in `localStorage` under:
 
 ```text
-vulncontext.controlQuestionnaire
+vulncontext.securityScore
 ```
 
 The local format is flat because the FAIR control scorer expects flat keys:
@@ -69,7 +69,7 @@ The local format is flat because the FAIR control scorer expects flat keys:
 }
 ```
 
-`controlQuestionnaire.ts` contains helpers for:
+`securityScore.ts` contains helpers for:
 
 - default values
 - reading from local storage
@@ -81,7 +81,7 @@ The local format is flat because the FAIR control scorer expects flat keys:
 
 File:
 
-- `backend/app/services/control_questionnaire.py`
+- `backend/app/services/security_score.py`
 
 The service:
 
@@ -121,10 +121,10 @@ File:
 ### Score Only
 
 ```http
-POST /controls/questionnaire-score
+POST /controls/security-score
 ```
 
-Scores a submitted questionnaire but does not save it.
+Scores a submitted Security Score payload but does not save it.
 
 ### Save Current Assessment
 
@@ -184,7 +184,7 @@ Alias for saving the current assessment.
 GET /controls/saved/latest
 ```
 
-Returns the latest saved control assessment row, or `null` if none exists.
+Returns the latest saved security score row, or `null` if none exists.
 
 ## Frontend Save Behavior
 

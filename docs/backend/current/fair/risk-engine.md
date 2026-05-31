@@ -12,14 +12,15 @@ Orchestrator:
 
 Frontend display:
 
-- `frontend/src/components/dashboard/FindingDetailPage.tsx`
+- `frontend/src/components/business-services/BusinessServiceDetailPage.tsx`
+- `frontend/src/components/fair/FairScopeLossPanel.tsx`
 
 ## Purpose
 
 The risk engine answers:
 
 ```text
-What is the annualized loss distribution for this finding?
+What is the annualized loss distribution for this business service?
 ```
 
 It combines:
@@ -32,6 +33,30 @@ Formula:
 ```text
 Annual Loss = LEF * LM
 ```
+
+In the current hierarchy, monetary annual loss is shown only at the business-service layer. Finding, asset, and application views show frequency indicators only.
+
+## Current Business-Service Flow
+
+The business-service FAIR flow is:
+
+```text
+finding TEF/LEF simulations
+        |
+        v
+scope TEF rollup using max + diversity bonus
+        |
+        v
+scope LEF = TEF * vulnerability * material-loss factor
+        |
+        v
+loss magnitude sampling from primary/secondary means
+        |
+        v
+annual loss distribution
+```
+
+This prevents finding count from directly multiplying annual loss. Findings affect the rollup through threat opportunity breadth and vulnerability, while the business service supplies the monetary impact assumptions.
 
 ## Correlation Handling
 
@@ -91,17 +116,28 @@ This chart data is rendered in Recharts as an area chart.
 
 ## Frontend Display
 
-The Finding detail page displays:
+The business-service FAIR panel displays:
 
-- P50 / median
-- P90
-- P95
-- P99
-- worst simulated loss
-- mean annual loss
-- LEF mean
+- expected annual loss
+- P90 annual loss
+- P95 annual loss
+- worst modeled year
 - TEF mean
-- control score
+- LEF mean
+- Security Score
 - vulnerability
+- primary and secondary loss mean sliders
 
-Changing either magnitude slider triggers a new backend simulation and updates the graph and summary values.
+Changing either magnitude slider triggers a new backend simulation and updates the summary values.
+
+## Interpretation
+
+Expected annual loss is the most stable executive-facing number.
+
+P90 and P95 answer:
+
+```text
+How bad could a high-loss year be?
+```
+
+Worst modeled year is an extreme Monte Carlo sample. It can be useful for stress-testing, but it is less stable and more likely to distract than expected annual loss, P90, or P95.

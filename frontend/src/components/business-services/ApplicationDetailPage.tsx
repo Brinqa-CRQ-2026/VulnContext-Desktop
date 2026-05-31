@@ -1,5 +1,7 @@
 import { Network, ShieldAlert } from "lucide-react";
+import { useCallback } from "react";
 
+import { predictApplicationFairLoss } from "../../api/topology";
 import { useApplicationDetail } from "../../hooks/topology/applications/useApplicationDetail";
 import type { AssetSummary } from "../../types";
 import { isTopologyUnavailable } from "../../lib/topology/topologyStatus";
@@ -18,6 +20,7 @@ import {
 } from "../ui/empty";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { FairFrequencyPanel } from "../fair/FairFrequencyPanel";
 
 interface ApplicationDetailPageProps {
   businessUnitSlug: string | null;
@@ -47,6 +50,16 @@ export function ApplicationDetailPage({
     businessServiceSlug,
     applicationSlug,
     refreshToken
+  );
+  const predictFairLoss = useCallback(
+    (payload: Parameters<typeof predictApplicationFairLoss>[3]) =>
+      predictApplicationFairLoss(
+        businessUnitSlug ?? "",
+        businessServiceSlug ?? "",
+        applicationSlug ?? "",
+        payload
+      ),
+    [applicationSlug, businessServiceSlug, businessUnitSlug]
   );
 
   if (loading) {
@@ -118,6 +131,15 @@ export function ApplicationDetailPage({
             icon={ShieldAlert}
           />
         </dl>
+
+        {businessUnitSlug && businessServiceSlug && applicationSlug ? (
+          <FairFrequencyPanel
+            title="Application FAIR Event Frequency"
+            description="Aggregates TEF, LEF, vulnerability, and Security Score for this application. Monetary loss is modeled at the business service level."
+            scopeLabel="application"
+            onPredict={predictFairLoss}
+          />
+        ) : null}
 
         <AssetInventoryPanel
           businessUnit={application.business_unit}

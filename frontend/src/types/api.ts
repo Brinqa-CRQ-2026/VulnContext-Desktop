@@ -83,6 +83,7 @@ export interface ScoredFinding {
   risk_owner_name?: string | null;
   remediation_owner_name?: string | null;
   remediation_status?: string | null;
+  disposition?: string | null;
 
   detail_source?: string | null;
   detail_fetched_at?: string | null;

@@ -5,7 +5,7 @@ export async function getCurrentControlAssessment(): Promise<ControlAssessment> 
   const res = await fetch(buildApiUrl("/controls/current"));
   return parseJsonOrThrow(
     res,
-    `Failed to fetch control assessment: ${res.status} ${res.statusText}`
+    `Failed to fetch security score: ${res.status} ${res.statusText}`
   );
 }
 
@@ -23,6 +23,6 @@ export async function saveCurrentControlAssessment(
   });
   return parseJsonOrThrow(
     res,
-    `Failed to save control assessment: ${res.status} ${res.statusText}`
+    `Failed to save security score: ${res.status} ${res.statusText}`
   );
 }

@@ -183,22 +183,26 @@ export function FindingSupportingDetailsSection({
   finding: ScoredFinding;
   hasAttackContext: boolean;
 }) {
-  const identifierItems = [
+  const identifierItems: Array<{ label: string; value: ReactNode }> = [
     { label: "Internal finding row ID", value: finding.id },
     { label: "CVE", value: finding.cve_id || "-" },
-  ].concat(
-    finding.uid && finding.uid !== finding.id ? [{ label: "Source UID", value: finding.uid }] : [],
-    isPopulatedText(finding.cwe_ids) ? [{ label: "CWE", value: finding.cwe_ids || "-" }] : [],
-    finding.record_link ? [{ label: "Record link", value: renderLink(finding.record_link) }] : [],
-    finding.detail_fetched_at
-      ? [
-          {
-            label: "Detail fetched",
-            value: formatDate(finding.detail_fetched_at, true),
-          },
-        ]
-      : []
-  );
+  ];
+
+  if (finding.uid && finding.uid !== finding.id) {
+    identifierItems.push({ label: "Source UID", value: finding.uid });
+  }
+  if (isPopulatedText(finding.cwe_ids)) {
+    identifierItems.push({ label: "CWE", value: finding.cwe_ids || "-" });
+  }
+  if (finding.record_link) {
+    identifierItems.push({ label: "Record link", value: renderLink(finding.record_link) });
+  }
+  if (finding.detail_fetched_at) {
+    identifierItems.push({
+      label: "Detail fetched",
+      value: formatDate(finding.detail_fetched_at, true),
+    });
+  }
   const scoringItems = [
     { label: "Display risk source", value: finding.score_source || "Vendor fallback" },
     {
