@@ -1,5 +1,5 @@
 import { ShieldAlert } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useAssetFindings } from "../../hooks/topology/assets/useAssetFindings";
 import { useAssetFindingsAnalytics } from "../../hooks/topology/assets/useAssetFindingsAnalytics";
@@ -30,6 +30,8 @@ import {
 import { Button } from "../ui/button";
 import { FindingsExplorerPanel } from "./shared/FindingsExplorerPanel";
 import { StatusBadge } from "./shared/TopologyBadges";
+import { FairFrequencyPanel } from "../fair/FairFrequencyPanel";
+import { predictAssetFairLoss } from "../../api/topology";
 
 interface AssetFindingsPageProps {
   businessUnitSlug: string | null;
@@ -116,6 +118,11 @@ export function AssetFindingsPage({
   );
   const analyticsSummary = analytics?.analytics;
   const summaryAsset = analytics?.asset;
+  const predictFairLoss = useCallback(
+    (payload: Parameters<typeof predictAssetFairLoss>[1]) =>
+      predictAssetFairLoss(assetId ?? "", payload),
+    [assetId]
+  );
 
   if (loading) {
     return (
@@ -280,6 +287,15 @@ export function AssetFindingsPage({
         loading={analyticsLoading}
         error={analyticsError}
       />
+
+      {assetId ? (
+        <FairFrequencyPanel
+          title="Asset FAIR Event Frequency"
+          description="Aggregates TEF, LEF, vulnerability, and Security Score for this asset using its highest-risk findings as likelihood drivers."
+          scopeLabel="asset"
+          onPredict={predictFairLoss}
+        />
+      ) : null}
 
       <FindingsExplorerPanel
         searchDraft={searchDraft}

@@ -5,7 +5,7 @@ import { DashboardOverview } from "./components/dashboard/DashboardOverview";
 import { RiskTable } from "./components/dashboard/RiskTable";
 import { FindingDetailPage } from "./components/dashboard/FindingDetailPage";
 import { IntegrationsPage } from "./components/integrations/IntegrationsPage";
-import { SecurityQuestionnairePage } from "./components/controls/SecurityQuestionnairePage";
+import { SecurityScorePage } from "./components/controls/SecurityScorePage";
 import { ApplicationDetailPage } from "./components/business-services/ApplicationDetailPage";
 import { AssetFindingsPage } from "./components/business-services/AssetFindingsPage";
 import { BusinessServiceDetailPage } from "./components/business-services/BusinessServiceDetailPage";
@@ -414,9 +414,9 @@ function App() {
       description: "Review imported sources and the number of findings stored for each.",
     },
     controls: {
-      title: "Security Questionnaire",
+      title: "Security Score",
       description:
-        "Capture concise control maturity answers and map them into FAIR-aligned scoring context.",
+        "Capture concise security maturity answers and map them into FAIR-aligned scoring context.",
     },
     "business-services": {
       title: inAssetFindings
@@ -447,7 +447,7 @@ function App() {
   }> = [
     { id: "business-services", label: "Companies", icon: BriefcaseBusiness },
     { id: "findings", label: "Findings", icon: ListFilter },
-    { id: "controls", label: "Controls", icon: ShieldCheck },
+    { id: "controls", label: "Security Score", icon: ShieldCheck },
     { id: "integrations", label: "Sources", icon: PlugZap },
   ];
 
@@ -641,7 +641,7 @@ function App() {
                 />
               )
             ) : page === "controls" ? (
-              <SecurityQuestionnairePage />
+              <SecurityScorePage />
             ) : (
               <IntegrationsPage refreshToken={refreshToken} />
             )}

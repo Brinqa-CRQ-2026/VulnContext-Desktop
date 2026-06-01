@@ -387,15 +387,15 @@ class FairLossPredictionResponse(BaseModel):
     histogram: list[FairLossHistogramPoint]
 
 
-class ControlQuestionnaireRequest(BaseModel):
+class SecurityScoreRequest(BaseModel):
     answers: dict[str, Any] = Field(default_factory=dict)
 
 
-class ControlAssessmentRequest(ControlQuestionnaireRequest):
+class ControlAssessmentRequest(SecurityScoreRequest):
     pass
 
 
-class ControlQuestionnaireResponse(BaseModel):
+class SecurityScoreResponse(BaseModel):
     control_score: float
     confidence: float
     prevent_score: float

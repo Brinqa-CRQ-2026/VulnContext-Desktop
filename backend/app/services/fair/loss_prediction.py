@@ -25,6 +25,15 @@ class FairLossPredictionService:
         finding: models.Finding,
         inputs: LossPredictionInputs,
     ) -> dict[str, Any]:
+        result = self.simulate_with_distribution(finding, inputs)
+        result.pop("risk_distribution", None)
+        return result
+
+    def simulate_with_distribution(
+        self,
+        finding: models.Finding,
+        inputs: LossPredictionInputs,
+    ) -> dict[str, Any]:
         context = self._build_context(finding, inputs)
 
         frequency = FrequencyEngine(seed=42).simulate(
@@ -54,6 +63,7 @@ class FairLossPredictionService:
             "primary_mean": float(magnitude["primary_mean"]),
             "secondary_mean": float(magnitude["secondary_mean"]),
             "histogram": self._histogram(risk_distribution),
+            "risk_distribution": risk_distribution,
         }
 
     def _build_context(

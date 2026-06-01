@@ -6,9 +6,9 @@ from fastapi import APIRouter, HTTPException
 from supabase import create_client
 
 from app import schemas
-from app.services.control_questionnaire import (
+from app.services.security_score import (
     DEFAULT_CONTROL_ANSWERS,
-    compute_control_questionnaire,
+    compute_security_score,
 )
 
 router = APIRouter(tags=["controls"])
@@ -29,16 +29,16 @@ def get_supabase_client():
 
 
 @router.post(
-    "/controls/questionnaire-score",
-    response_model=schemas.ControlQuestionnaireResponse,
+    "/controls/security-score",
+    response_model=schemas.SecurityScoreResponse,
 )
-def score_control_questionnaire(payload: schemas.ControlQuestionnaireRequest):
-    return compute_control_questionnaire(payload.answers)
+def score_security_score(payload: schemas.SecurityScoreRequest):
+    return compute_security_score(payload.answers)
 
 
 @router.put("/controls/current", response_model=schemas.ControlAssessmentResponse)
 def save_current_control_assessment(payload: schemas.ControlAssessmentRequest):
-    result = compute_control_questionnaire(payload.answers)
+    result = compute_security_score(payload.answers)
     now = datetime.now(timezone.utc).isoformat()
 
     data = {
@@ -76,7 +76,7 @@ def save_current_control_assessment(payload: schemas.ControlAssessmentRequest):
     except Exception as exc:
         raise HTTPException(
             status_code=502,
-            detail="Failed to save control assessment to Supabase.",
+            detail="Failed to save security score to Supabase.",
         ) from exc
 
     return _coerce_control_assessment_response(response.data, fallback=data)
@@ -97,11 +97,11 @@ def get_current_control_assessment():
     except Exception as exc:
         raise HTTPException(
             status_code=502,
-            detail="Failed to retrieve control assessment from Supabase.",
+            detail="Failed to retrieve security score from Supabase.",
         ) from exc
 
     if not response.data:
-        default_result = compute_control_questionnaire(DEFAULT_CONTROL_ANSWERS)
+        default_result = compute_security_score(DEFAULT_CONTROL_ANSWERS)
         return schemas.ControlAssessmentResponse(
             id=None,
             created_at=None,
@@ -132,7 +132,7 @@ def get_latest_control_assessment():
     except Exception as exc:
         raise HTTPException(
             status_code=502,
-            detail="Failed to retrieve latest control assessment from Supabase.",
+            detail="Failed to retrieve latest security score from Supabase.",
         ) from exc
 
     return _coerce_control_assessment_response(response.data) if response.data else None
@@ -145,7 +145,7 @@ def _coerce_control_assessment_response(
 ) -> schemas.ControlAssessmentResponse:
     row = rows[0] if rows else fallback
     if not row:
-        raise HTTPException(status_code=502, detail="Supabase returned no control assessment data.")
+        raise HTTPException(status_code=502, detail="Supabase returned no security score data.")
 
     return schemas.ControlAssessmentResponse(
         id=row.get("id"),

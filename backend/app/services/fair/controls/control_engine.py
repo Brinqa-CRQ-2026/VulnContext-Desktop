@@ -32,6 +32,6 @@ class ControlEngine:
             1 for k in context if k.endswith("_maturity")
         )
 
-        total_expected = 8  # adjust based on questionnaire size
+        total_expected = 8  # adjust based on security score input size
 
         return min(answered / total_expected, 1.0)
