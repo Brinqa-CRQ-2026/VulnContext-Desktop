@@ -7,7 +7,7 @@ import requests
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from scripts.brinqa_source_helpers import BASE_URL, DATA_DIR, build_headers, create_session, save_records_to_csv
+from brinqa_source_helpers import BASE_URL, DATA_DIR, build_headers, create_session, save_records_to_csv
 
 # =========================
 # pull_asset_findings.py
@@ -15,7 +15,7 @@ from scripts.brinqa_source_helpers import BASE_URL, DATA_DIR, build_headers, cre
 # Pull lean Vulnerability rows for a single Host asset id.
 #
 # Run:
-# python3 backend/scripts/pull_asset_findings.py --asset-id 1891896448114794549
+# python3 backend/legacy/scripts/pull_asset_findings.py --asset-id 1891896448114794549
 
 API_URL = f"{BASE_URL}/api/caasm/bql"
 OUTPUT_CSV = DATA_DIR / "asset_findings.csv"

@@ -9,7 +9,7 @@ import requests
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from scripts.brinqa_source_helpers import (
+from brinqa_source_helpers import (
     BASE_URL,
     DATA_DIR,
     build_headers,

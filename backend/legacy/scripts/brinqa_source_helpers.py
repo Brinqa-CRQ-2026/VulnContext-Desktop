@@ -7,7 +7,7 @@ import requests
 
 BASE_URL = "https://ucsc.brinqa.net"
 RELATED_API_URL = f"{BASE_URL}/api/caasm/bql/related"
-DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 
 BEARER_TOKEN = os.getenv("BRINQA_BEARER_TOKEN", "").strip()
 

@@ -9,8 +9,8 @@ import requests
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from scripts.brinqa_source_helpers import DATA_DIR
-from scripts.manual.pull_asset_findings import DEFAULT_PAGE_SIZE, THIN_COLUMNS, fetch_asset_findings
+from brinqa_source_helpers import DATA_DIR
+from pull_asset_findings import DEFAULT_PAGE_SIZE, THIN_COLUMNS, fetch_asset_findings
 
 ASSET_CONTEXT_CSV = DATA_DIR / "asset_business_context.csv"
 OUTPUT_CSV = DATA_DIR / "findings_for_supabase.csv"

@@ -9,7 +9,7 @@ The active runtime is narrower than some older docs and tests in the repo used t
 - business-unit, business-service, application, asset, and asset-findings drill-down routes
 - asset findings analytics route for full filtered-set summary cards/charts
 - source summary reporting
-- manual backend scripts for Brinqa export, enrichment sync, asset reseed, and CRQ scoring
+- manual backend scripts for CRQ scoring, plus scheduled enrichment sync jobs
 
 ## Quick Start
 
@@ -87,9 +87,10 @@ The current project expects operational data to be managed through backend scrip
 
 The main scripts live under `backend/scripts/`:
 
-- Manual operator scripts: `manual/pull_asset_business_context.py`, `manual/pull_asset_findings.py`, `manual/export_assets_for_supabase.py`, `manual/export_findings_for_supabase.py`, `manual/reseed_assets_for_supabase.py`
 - Manual CRQ scoring: `manual/score_crq_findings_v1.py`, `manual/score_crq_assets_v2.py`, `manual/score_crq_applications_v2.py`, `manual/score_crq_business_services_v1.py`
+- Manual benchmark: `manual/benchmark_topology_routes.py`
 - GitHub Actions sync jobs: `automation/sync_epss.py`, `automation/sync_kev.py`, `automation/sync_nvd.py`, `automation/sync_daily.py`
+- Legacy one-time Brinqa pull/export/reseed scripts: `backend/legacy/scripts/`
 
 ## Documentation
 

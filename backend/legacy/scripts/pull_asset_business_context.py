@@ -16,14 +16,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 # and export them to CSV.
 #
 # Run:
-# python3 backend/scripts/manual/pull_asset_business_context.py
+# python3 backend/legacy/scripts/pull_asset_business_context.py
 
 API_URL = "https://ucsc.brinqa.net/api/caasm/bql"
 BASE_URL = "https://ucsc.brinqa.net"
 LIMIT = 25
 
-SCRIPT_DIR = Path(__file__).resolve().parent
-OUTPUT_CSV = SCRIPT_DIR.parent.parent / "data" / "asset_business_context.csv"
+BACKEND_ROOT = Path(__file__).resolve().parents[2]
+OUTPUT_CSV = BACKEND_ROOT / "data" / "asset_business_context.csv"
 
 BRINQA_BEARER_TOKEN = ""
 BEARER_TOKEN = BRINQA_BEARER_TOKEN.strip() or os.getenv("BRINQA_BEARER_TOKEN", "").strip()
