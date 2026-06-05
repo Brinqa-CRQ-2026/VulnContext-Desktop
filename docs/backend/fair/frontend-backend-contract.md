@@ -2,18 +2,18 @@
 
 This document describes how the React frontend connects to the backend FAIR endpoints.
 
-## Controls Questionnaire Flow
+## Security Score Flow
 
 Frontend files:
 
-- `frontend/src/components/controls/SecurityQuestionnairePage.tsx`
+- `frontend/src/components/controls/SecurityScorePage.tsx`
 - `frontend/src/api/controls.ts`
-- `frontend/src/lib/controlQuestionnaire.ts`
+- `frontend/src/lib/securityScore.ts`
 
 Backend files:
 
 - `backend/app/api/controls.py`
-- `backend/app/services/control_questionnaire.py`
+- `backend/app/services/security_score.py`
 
 ### Load Current Assessment
 
@@ -70,7 +70,7 @@ The backend:
 
 The UI saves when:
 
-- a questionnaire answer changes
+- a security score answer changes
 - `Save Changes` is clicked
 - reset is clicked
 
@@ -78,26 +78,54 @@ Local storage is still updated immediately so the UI remains usable if backend s
 
 ## Finding FAIR Loss Flow
 
-Frontend file:
+Frontend files:
 
+- `frontend/src/components/business-services/BusinessServiceDetailPage.tsx`
+- `frontend/src/components/business-services/ApplicationDetailPage.tsx`
+- `frontend/src/components/business-services/AssetFindingsPage.tsx`
 - `frontend/src/components/dashboard/FindingDetailPage.tsx`
+- `frontend/src/components/fair/FairScopeLossPanel.tsx`
+- `frontend/src/components/fair/FairFrequencyPanel.tsx`
 
 Backend files:
 
+- `backend/app/api/topology.py`
 - `backend/app/api/findings.py`
 - `backend/app/services/fair/loss_prediction.py`
+- `backend/app/services/fair/scope_loss_prediction.py`
 
-### Generate Loss Prediction
+### Generate FAIR Metrics
 
-The Finding detail page calls:
+Business service pages call:
+
+```http
+POST /topology/business-units/{business_unit_slug}/business-services/{business_service_slug}/fair-loss
+```
+
+Application pages call:
+
+```http
+POST /topology/business-units/{business_unit_slug}/business-services/{business_service_slug}/applications/{application_slug}/fair-loss
+```
+
+Asset pages call:
+
+```http
+POST /assets/{asset_id}/fair-loss
+```
+
+Finding pages call:
 
 ```http
 POST /findings/{finding_id}/fair-loss
 ```
 
-Frontend function:
+Frontend functions:
 
 ```ts
+predictBusinessServiceFairLoss(businessUnitSlug, businessServiceSlug, payload)
+predictApplicationFairLoss(businessUnitSlug, businessServiceSlug, applicationSlug, payload)
+predictAssetFairLoss(assetId, payload)
 predictFindingFairLoss(findingId, payload)
 ```
 
@@ -153,19 +181,31 @@ secondary_mean
 histogram
 ```
 
-The frontend renders:
+Business service frontend renders:
 
-- histogram chart
-- P50/P90/P95/P99/worst loss
-- LEF and TEF means
-- control score
+- expected annual loss
+- P90/P95/worst modeled year
+- LEF and TEF
+- Security Score
 - vulnerability
+- primary and secondary loss mean sliders
+
+Application, asset, and finding frontends render:
+
+- TEF
+- LEF
+- vulnerability
+- Security Score
+
+They do not ask for monetary loss assumptions in the UI.
 
 ## TypeScript API Files
 
-`frontend/src/api/controls.ts` owns controls assessment requests.
+`frontend/src/api/controls.ts` owns security score assessment requests.
 
 `frontend/src/api/findings.ts` owns finding loss prediction requests.
+
+`frontend/src/api/topology.ts` owns business-service, application, and asset FAIR requests.
 
 `frontend/src/api/types.ts` contains:
 
@@ -177,8 +217,8 @@ The frontend renders:
 
 `backend/app/schemas.py` contains:
 
-- `ControlQuestionnaireRequest`
-- `ControlQuestionnaireResponse`
+- `SecurityScoreRequest`
+- `SecurityScoreResponse`
 - `ControlAssessmentRequest`
 - `ControlAssessmentResponse`
 - `FairLossPredictionRequest`

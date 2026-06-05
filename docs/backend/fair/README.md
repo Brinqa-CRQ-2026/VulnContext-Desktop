@@ -6,17 +6,20 @@ This folder documents the current FAIR-style loss prediction pipeline and how th
 
 The pipeline is used in two UI areas:
 
-- the Controls questionnaire, which captures control maturity and stores/retrieves the current assessment
-- the Finding detail page, which can generate a predicted annualized loss distribution for an individual finding
+- the Security Score, which captures control maturity and stores/retrieves the current assessment
+- the Business Service detail page, which generates annualized loss exposure for one business-service scenario
+- application, asset, and finding pages, which show TEF, LEF, vulnerability, and Security Score without assigning dollar loss
 
 ## Documents
 
 - [pipeline-overview.md](pipeline-overview.md)
-  End-to-end flow from frontend controls and finding detail UI through backend FAIR simulation.
-- [control-questionnaire.md](control-questionnaire.md)
-  Questionnaire format, scoring, Supabase upload/retrieve endpoints, and frontend storage.
+  End-to-end flow from Security Score and topology UI through backend FAIR simulation.
+- [security-score.md](security-score.md)
+  Security Score format, scoring, Supabase upload/retrieve endpoints, and frontend storage.
 - [frequency-engine.md](frequency-engine.md)
   TEF, vulnerability, escalation, and LEF pipeline.
+- [hierarchy-scoring.md](hierarchy-scoring.md)
+  Layer-by-layer scoring for findings, assets, applications, and business services.
 - [magnitude-engine.md](magnitude-engine.md)
   Primary and secondary loss magnitude simulation and UI sliders.
 - [risk-engine.md](risk-engine.md)
@@ -28,23 +31,26 @@ The pipeline is used in two UI areas:
 
 Controls:
 
-- `POST /controls/questionnaire-score`
+- `POST /controls/security-score`
 - `PUT /controls/current`
 - `GET /controls/current`
 - `POST /controls/save`
 - `GET /controls/saved/latest`
 
-Finding-level FAIR loss:
+Scope FAIR:
 
+- `POST /topology/business-units/{business_unit_slug}/business-services/{business_service_slug}/fair-loss`
+- `POST /topology/business-units/{business_unit_slug}/business-services/{business_service_slug}/applications/{application_slug}/fair-loss`
+- `POST /assets/{asset_id}/fair-loss`
 - `POST /findings/{finding_id}/fair-loss`
 
 ## Current Frontend Entry Points
 
-- `frontend/src/components/controls/SecurityQuestionnairePage.tsx`
+- `frontend/src/components/controls/SecurityScorePage.tsx`
 - `frontend/src/components/dashboard/FindingDetailPage.tsx`
 - `frontend/src/api/controls.ts`
 - `frontend/src/api/findings.ts`
-- `frontend/src/lib/controlQuestionnaire.ts`
+- `frontend/src/lib/securityScore.ts`
 
 ## Related Docs
 

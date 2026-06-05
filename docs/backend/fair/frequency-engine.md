@@ -1,6 +1,6 @@
 # Frequency Engine
 
-The frequency engine estimates annual loss event frequency for a finding.
+The frequency engine estimates annual threat and loss event frequency. Finding-level frequency is calculated directly. Asset, application, and business-service frequency are rollups built from finding-level outputs.
 
 Backend files:
 
@@ -15,7 +15,7 @@ Backend files:
 The frequency layer answers:
 
 ```text
-How often should this finding create a business-impacting loss event in a year?
+How often should this scope create a business-impacting loss event in a year?
 ```
 
 It is not just exploit attempts. It converts threat activity into loss events by accounting for:
@@ -74,6 +74,53 @@ Outputs include:
 - `lambda_distribution`
 - `tef_distribution`
 
+## Scope TEF Rollup
+
+Finding-level TEF is accurate for a single finding, but it cannot be summed directly above the finding layer.
+
+Example of what the app avoids:
+
+```text
+finding_1_tef = 20
+finding_2_tef = 25
+finding_3_tef = 30
+
+bad_asset_tef = 20 + 25 + 30
+```
+
+That over-counts because the findings may share the same asset, service, network exposure, attacker population, and attack path.
+
+The current rollup model is:
+
+```text
+scope_tef =
+    max(finding_tef)
+    + median(finding_tef) * breadth_multiplier * log(1 + diversity_count)
+```
+
+The constants are:
+
+```text
+asset breadth multiplier:            0.25
+application breadth multiplier:      3.0
+business service breadth multiplier: 8.0
+```
+
+Diversity count is:
+
+```text
+asset: finding count
+application: distinct asset count
+business service: distinct asset count
+```
+
+This produces a few useful behaviors:
+
+- one highly exposed or attractive finding can dominate TEF
+- many findings increase TEF, but not linearly
+- applications and business services can have higher TEF because they span more assets
+- low-risk services with many findings do not automatically explode into unrealistic TEF
+
 ## Vulnerability
 
 File:
@@ -109,12 +156,12 @@ Files:
 
 `ControlEngine` blends:
 
-- user questionnaire score
+- user security score
 - inferred controls from context
 
 If maturity answers are present, the user score is blended with inferred score. If not, the inferred score is used.
 
-The questionnaire answers enter the FAIR loss prediction through `control_context`.
+The security score answers enter the FAIR loss prediction through `control_context`.
 
 ## LEF
 
@@ -135,6 +182,53 @@ Outputs:
 - `lef_mean`
 - `lef_distribution`
 - `lambda_loss_mean`
+
+## Scope LEF Rollup
+
+Above the finding layer, LEF is not summed from every finding.
+
+Current scope formula:
+
+```text
+scope_lef =
+    scope_tef
+    * scope_vulnerability
+    * material_loss_factor
+```
+
+Scope vulnerability is a weighted average of finding vulnerabilities. The weighting uses each finding's modeled loss contribution so higher-impact findings influence the rollup more than low-impact findings.
+
+Material-loss factor represents the chance that a successful technical event becomes a business-impacting loss event. It is intentionally much lower than a generic incident probability.
+
+Current material-loss factors:
+
+```text
+asset:            0.04
+application:      0.06
+business service: 0.08
+KEV bonus:       +0.03
+cap:              0.18
+```
+
+So, for a business service:
+
+```text
+business_service_lef =
+    business_service_tef
+    * business_service_vulnerability
+    * 0.08
+```
+
+If any scoped finding is KEV:
+
+```text
+business_service_lef =
+    business_service_tef
+    * business_service_vulnerability
+    * 0.11
+```
+
+This distinction matters. TEF can represent many threat contacts, scans, probes, or exploit opportunities, while LEF should represent material loss events per year.
 
 ## FrequencyEngine
 

@@ -26,7 +26,7 @@ export function Header({
       : page === "integrations"
         ? "Sources"
         : page === "controls"
-          ? "Controls"
+          ? "Security Score"
           : "Companies";
 
   return (
@@ -61,7 +61,7 @@ export function Header({
             className="border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800 hover:text-white"
             onClick={() => onNavigate("controls")}
           >
-            Controls
+            Security Score
           </Button>
           <Button
             variant="outline"

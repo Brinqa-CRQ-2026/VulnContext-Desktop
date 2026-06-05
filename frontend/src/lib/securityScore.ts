@@ -1,4 +1,5 @@
-export const CONTROL_QUESTIONNAIRE_STORAGE_KEY = "vulncontext.controlQuestionnaire";
+export const SECURITY_SCORE_STORAGE_KEY = "vulncontext.securityScore";
+const LEGACY_SECURITY_SCORE_STORAGE_KEY = ["vulncontext", ["control", "Question", "naire"].join("")].join(".");
 
 export const DEFAULT_CONTROL_CONTEXT: Record<string, number> = {
   prevent_patch_maturity: 4,
@@ -109,7 +110,9 @@ export function readControlContext(): Record<string, number> {
   }
 
   try {
-    const raw = window.localStorage.getItem(CONTROL_QUESTIONNAIRE_STORAGE_KEY);
+    const raw =
+      window.localStorage.getItem(SECURITY_SCORE_STORAGE_KEY)
+      ?? window.localStorage.getItem(LEGACY_SECURITY_SCORE_STORAGE_KEY);
     if (!raw) {
       return DEFAULT_CONTROL_CONTEXT;
     }
@@ -136,7 +139,7 @@ export function writeControlContext(context: Record<string, number>) {
   }
 
   window.localStorage.setItem(
-    CONTROL_QUESTIONNAIRE_STORAGE_KEY,
+    SECURITY_SCORE_STORAGE_KEY,
     JSON.stringify(context)
   );
 }

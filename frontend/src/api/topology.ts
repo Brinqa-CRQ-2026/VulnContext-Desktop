@@ -12,6 +12,8 @@ import type {
   BusinessUnitDetail,
   BusinessUnitRiskOverview,
   BusinessUnitSummary,
+  FairLossPredictionRequest,
+  FairLossPredictionResponse,
   FindingsSortBy,
   PaginatedAssets,
   PaginatedFindings,
@@ -123,6 +125,29 @@ export async function getBusinessServiceAnalytics(
   );
 }
 
+export async function predictBusinessServiceFairLoss(
+  businessUnitSlug: string,
+  businessServiceSlug: string,
+  payload: FairLossPredictionRequest
+): Promise<FairLossPredictionResponse> {
+  const res = await apiFetch(
+    buildApiUrl(
+      `/topology/business-units/${businessUnitSlug}/business-services/${businessServiceSlug}/fair-loss`
+    ),
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    }
+  );
+  return parseJsonOrThrow(
+    res,
+    `Failed to generate business service FAIR loss prediction: ${res.status} ${res.statusText}`
+  );
+}
+
 export async function getApplicationDetail(
   businessUnitSlug: string,
   businessServiceSlug: string,
@@ -139,11 +164,52 @@ export async function getApplicationDetail(
   );
 }
 
+export async function predictApplicationFairLoss(
+  businessUnitSlug: string,
+  businessServiceSlug: string,
+  applicationSlug: string,
+  payload: FairLossPredictionRequest
+): Promise<FairLossPredictionResponse> {
+  const res = await apiFetch(
+    buildApiUrl(
+      `/topology/business-units/${businessUnitSlug}/business-services/${businessServiceSlug}/applications/${applicationSlug}/fair-loss`
+    ),
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    }
+  );
+  return parseJsonOrThrow(
+    res,
+    `Failed to generate application FAIR loss prediction: ${res.status} ${res.statusText}`
+  );
+}
+
 export async function getAssetDetail(assetId: string): Promise<AssetDetail> {
   const res = await apiFetch(buildApiUrl(`/assets/${assetId}`));
   return parseJsonOrThrow(
     res,
     `Failed to fetch asset detail: ${res.status} ${res.statusText}`
+  );
+}
+
+export async function predictAssetFairLoss(
+  assetId: string,
+  payload: FairLossPredictionRequest
+): Promise<FairLossPredictionResponse> {
+  const res = await apiFetch(buildApiUrl(`/assets/${assetId}/fair-loss`), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  return parseJsonOrThrow(
+    res,
+    `Failed to generate asset FAIR loss prediction: ${res.status} ${res.statusText}`
   );
 }
 
