@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends
 from app import schemas
 from app.api.topology.dependencies import require_topology_schema
 from app.core.db import get_db
-from app.services.topology_view import get_application_detail as _get_application_detail
+from app.services.topology import get_application_detail as _get_application_detail
 
 router = APIRouter()
 

@@ -1,7 +1,7 @@
 import pytest
 from sqlalchemy import create_engine, text
 
-from app.services.crq_finding_scoring import (
+from app.services.scoring.crq_finding import (
     _where_clause,
     missing_crq_columns,
     require_crq_columns,

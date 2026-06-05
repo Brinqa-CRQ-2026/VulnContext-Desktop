@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 import pytest
 
 from app import models
-from app.services.crq_asset_scoring import (
+from app.services.scoring.crq_asset import (
     calculate_aggregated_finding_risk,
     calculate_asset_context_score,
     calculate_asset_risk_score,

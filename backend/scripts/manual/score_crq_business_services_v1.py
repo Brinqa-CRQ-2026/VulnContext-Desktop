@@ -7,7 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from app.core.db import SQLALCHEMY_DATABASE_URL, SessionLocal, engine
-from app.services.crq_business_service_scoring import (
+from app.services.scoring.crq_business_service import (
     BUSINESS_SERVICE_SCORING_VERSION,
     require_business_service_scoring_columns,
     score_business_services_and_business_units,

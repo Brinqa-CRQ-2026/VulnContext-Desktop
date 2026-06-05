@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends
 from app import schemas
 from app.api.topology.dependencies import require_topology_schema
 from app.core.db import get_db
-from app.services.topology_view import (
+from app.services.topology import (
     get_business_service_analytics as _get_business_service_analytics,
     get_business_service_detail as _get_business_service_detail,
 )

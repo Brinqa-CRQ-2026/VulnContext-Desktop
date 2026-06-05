@@ -11,9 +11,12 @@
 ## Backend Coverage
 
 - `backend/app/api/topology/`
-- `backend/app/services/topology.py`
-- `backend/app/services/topology_view.py`
-- `backend/app/services/topology_shared.py`
+- `backend/app/services/topology/maintenance.py`
+- `backend/app/services/topology/business_units.py`
+- `backend/app/services/topology/business_services.py`
+- `backend/app/services/topology/applications.py`
+- `backend/app/services/topology/assets.py`
+- `backend/app/services/topology/shared.py`
 
 ## Cases Covered
 

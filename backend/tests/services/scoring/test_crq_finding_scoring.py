@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 import pytest
 
 from app import models
-from app.services.crq_finding_scoring import CRQ_VERSION, preview_scores, score_findings
+from app.services.scoring.crq_finding import CRQ_VERSION, preview_scores, score_findings
 
 
 def seed_finding(db_session, *, idx: int, age_in_days: float | None, cve_id: str):

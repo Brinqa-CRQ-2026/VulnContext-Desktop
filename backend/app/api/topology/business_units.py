@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, Query
 from app import schemas
 from app.api.topology.dependencies import require_topology_schema
 from app.core.db import get_db
-from app.services.topology_view import (
+from app.services.topology import (
     get_business_unit_detail as _get_business_unit_detail,
     get_business_unit_findings as _get_business_unit_findings,
     get_business_unit_risk_overview as _get_business_unit_risk_overview,

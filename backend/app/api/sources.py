@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 
 from app import schemas
 from app.core.db import get_db
-from app.services.sources_view import get_sources_summary as _get_sources_summary
+from app.services.views.sources import get_sources_summary as _get_sources_summary
 
 router = APIRouter(tags=["sources"])
 

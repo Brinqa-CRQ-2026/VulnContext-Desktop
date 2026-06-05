@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, Query
 from app import schemas
 from app.api.topology.dependencies import require_business_unit_filter_schema
 from app.core.db import get_db
-from app.services.topology_view import (
+from app.services.topology import (
     get_asset_detail as _get_asset_detail,
     get_asset_findings as _get_asset_findings,
     get_asset_findings_analytics as _get_asset_findings_analytics,

@@ -4,7 +4,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app import models
 from app.api.topology import dependencies as topology_dependencies
-from app.services.crq_business_service_scoring import score_business_unit_rollups
+from app.services.scoring.crq_business_service import score_business_unit_rollups
 from app.services.topology import backfill_asset_topology_foreign_keys
 from helpers.topology import seed_asset, seed_topology
 

@@ -96,3 +96,17 @@ Finding EPSS and KEV adjustments are point adjustments into the `0-10` finding s
 - [Asset Risk Scoring](asset-risk-scoring.md)
 - [Application Risk Scoring](application-risk-scoring.md)
 - [Business Service Scoring](business-service-scoring.md)
+
+## Implementation Modules
+
+CRQ scoring code lives under `backend/app/services/scoring/`:
+
+- `crq_finding.py`
+- `crq_asset.py`
+- `crq_application.py`
+- `crq_business_service.py`
+- `crq_rollup.py`
+
+Manual scoring scripts in `backend/scripts/manual/` call these modules. API
+routes surface persisted CRQ fields and do not run scoring jobs during request
+handling.

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app import schemas
-from app.api.common import derive_risk_band
+from app.services.views.helpers import derive_risk_band
 from app.repositories import findings as findings_repo
 
 

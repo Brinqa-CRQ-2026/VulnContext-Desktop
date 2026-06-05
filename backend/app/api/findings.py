@@ -9,7 +9,7 @@ from app.services.fair.loss_prediction import (
     FairLossPredictionService,
     LossPredictionInputs,
 )
-from app.services.findings_view import (
+from app.services.views.findings import (
     get_finding_detail as _get_finding_detail,
     get_findings_summary as _get_findings_summary,
     list_findings as _list_findings,

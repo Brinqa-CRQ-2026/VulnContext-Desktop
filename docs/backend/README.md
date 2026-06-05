@@ -11,6 +11,7 @@ and backend test coverage.
 - [Overview](overview/README.md)
 - [API Reference](api/README.md)
 - [Architecture Map](architecture/README.md)
+- [Detailed Backend Architecture](architecture/backend-architecture.md)
 - [Backend Scoring Overview](scoring/README.md)
 - [Canonical CRQ Scoring Reference](../scoring/crq-scoring-and-rollups.md)
 
@@ -20,7 +21,7 @@ and backend test coverage.
 | --- | --- | --- |
 | Overview | [overview/](overview/README.md) | Runtime summary and request flow |
 | API | [api/](api/README.md) | Active HTTP routes and response behavior |
-| Architecture | [architecture/](architecture/README.md) | Backend layers and database reference |
+| Architecture | [architecture/](architecture/README.md) | Backend layers, service layout, request flow, and database reference |
 | Scoring | [scoring/](scoring/README.md) | Code-specific CRQ scoring implementation references |
 | FAIR | [fair/](fair/README.md) | FAIR-style loss prediction pipeline and frontend/backend contract |
 | Workflows | [workflows/](workflows/README.md) | Manual scripts and automation workflows |

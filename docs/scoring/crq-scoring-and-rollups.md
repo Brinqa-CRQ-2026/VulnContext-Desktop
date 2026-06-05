@@ -101,7 +101,7 @@ vulnerability using severity and exploitation evidence before asset or business
 context is added.
 
 Implementation reference:
-`backend/app/services/crq_finding_scoring.py`
+`backend/app/services/scoring/crq_finding.py`
 
 Current version:
 `v4`
@@ -313,7 +313,7 @@ It produces three important outputs:
 - `crq_asset_risk_score`
 
 Implementation reference:
-`backend/app/services/crq_asset_scoring.py`
+`backend/app/services/scoring/crq_asset.py`
 
 Current version:
 `v5`
@@ -563,7 +563,7 @@ Application scoring rolls up persisted asset risk scores. It does not recompute
 finding or asset scoring.
 
 Implementation reference:
-`backend/app/services/crq_application_scoring.py`
+`backend/app/services/scoring/crq_application.py`
 
 Current version:
 `v4`
@@ -690,7 +690,7 @@ combining service risk with business criticality. This is separate from the
 target unified finding-level priority model documented in section 4.
 
 Implementation reference:
-`backend/app/services/crq_business_service_scoring.py`
+`backend/app/services/scoring/crq_business_service.py`
 
 Current version:
 `v4`
@@ -887,7 +887,7 @@ scoring module. The entrypoint scores business services first, then updates
 affected business units.
 
 Implementation reference:
-`backend/app/services/crq_business_service_scoring.py`
+`backend/app/services/scoring/crq_business_service.py`
 
 ### Formula
 
@@ -1300,10 +1300,10 @@ score fields and a company scoring entrypoint.
 
 Implementation:
 
-- `backend/app/services/crq_finding_scoring.py`
-- `backend/app/services/crq_asset_scoring.py`
-- `backend/app/services/crq_application_scoring.py`
-- `backend/app/services/crq_business_service_scoring.py`
+- `backend/app/services/scoring/crq_finding.py`
+- `backend/app/services/scoring/crq_asset.py`
+- `backend/app/services/scoring/crq_application.py`
+- `backend/app/services/scoring/crq_business_service.py`
 - `backend/app/api/common.py`
 
 Tests:

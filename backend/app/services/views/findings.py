@@ -3,8 +3,7 @@ from __future__ import annotations
 from fastapi import HTTPException
 
 from app import schemas
-from app.api.common import (
-    _parse_datetime,
+from app.services.views.helpers import (
     derive_risk_band,
     normalize_risk_band,
     resolve_sorting,
@@ -90,4 +89,3 @@ def get_finding_detail(db, finding_id: str) -> schemas.FindingDetail:
         raise HTTPException(status_code=404, detail="Finding not found.")
 
     return to_finding_detail(finding, detail=None)
-

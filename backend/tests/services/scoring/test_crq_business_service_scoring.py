@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 import pytest
 
 from app import models
-from app.services.crq_business_service_scoring import (
+from app.services.scoring.crq_business_service import (
     calculate_aggregated_application_risk,
     calculate_aggregated_direct_asset_risk,
     calculate_business_service_priority_score,

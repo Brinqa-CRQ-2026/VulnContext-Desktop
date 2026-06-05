@@ -7,7 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from app.core.db import SessionLocal, engine
-from app.services.crq_finding_scoring import (
+from app.services.scoring.crq_finding import (
     CRQ_VERSION,
     preview_scores,
     require_crq_columns,

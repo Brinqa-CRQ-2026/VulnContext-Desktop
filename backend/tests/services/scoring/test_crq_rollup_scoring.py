@@ -1,6 +1,6 @@
 import pytest
 
-from app.services.crq_rollup_scoring import (
+from app.services.scoring.crq_rollup import (
     calculate_aggregated_risk,
     calculate_aggregated_risk_from_parts,
     calculate_log_scaled_volume,

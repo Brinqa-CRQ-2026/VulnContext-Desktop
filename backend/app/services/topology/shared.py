@@ -6,7 +6,7 @@ from fastapi import HTTPException
 from sqlalchemy import or_
 
 from app import models, schemas
-from app.api.common import normalize_risk_band, summary_band_filter
+from app.services.views.helpers import normalize_risk_band, summary_band_filter
 from app.repositories.topology import has_topology_schema
 
 REQUIRED_TOPOLOGY_TABLES = (

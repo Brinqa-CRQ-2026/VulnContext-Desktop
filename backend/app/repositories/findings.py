@@ -4,7 +4,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app import models
-from app.api.common import display_score_expression
+from app.services.views.helpers import display_score_expression
 
 
 def top_findings_query(db: Session):
@@ -38,4 +38,3 @@ def findings_count_query(db: Session):
 def get_finding_by_id(db: Session, finding_id: str, *, include_asset: bool = False):
     query = findings_query(db, include_asset=include_asset)
     return query.filter(models.Finding.finding_id == finding_id).first()
-
