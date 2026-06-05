@@ -1,26 +1,35 @@
-# Backend Test Matrix
+# Backend Testing
 
-## Summary
+The backend test suite is organized by the backend layer or contract it protects.
 
-This page maps the current backend tests to the runtime behavior they protect.
+## Quick Commands
 
-## Coverage Map
+Run all backend tests:
 
-| Test file | What it covers |
-| --- | --- |
-| `backend/tests/test_findings_api.py` | health endpoints, findings summary/list/detail, explicit finding enrichment, read-only sources summary |
-| `backend/tests/test_topology_api.py` | topology drill-down, asset browsing, asset enrichment, asset findings, topology 503 behavior, normalized topology backfill |
-| `backend/tests/test_crq_scoring.py` | CRQ finding scoring inputs, persistence, and banding |
-| `backend/tests/test_asset_scoring.py` | CRQ asset aggregation and asset context scoring |
-| `backend/tests/test_asset_reseed_csv.py` | asset reseed CSV behavior and topology backfill support |
-| `backend/tests/test_backend_architecture.py` | route-layer thinness and layering regression checks |
+```bash
+pytest backend/tests -q
+```
 
-## Behavior Areas
+Run backend tests with a report-only coverage summary:
 
-- boot and docs endpoints
-- findings reads and enrichment
-- topology and asset browsing
-- asset enrichment contract states
-- scoring persistence and bands
-- backend layering rules
+```bash
+pytest backend/tests --cov=backend/app --cov-report=term-missing
+```
 
+Coverage is intentionally report-only for now. There is no enforced percentage gate until the FAIR and controls gaps are covered.
+
+## Test Areas
+
+| Area | Test files | Details |
+| --- | --- | --- |
+| API contracts | `backend/tests/api/` | [api-tests.md](api-tests.md) |
+| Topology API contracts | `backend/tests/api/topology/` | [topology-tests.md](topology-tests.md) |
+| CRQ scoring services | `backend/tests/services/scoring/` | [scoring-tests.md](scoring-tests.md) |
+| Data contracts | `backend/tests/data_contracts/` | [data-contract-tests.md](data-contract-tests.md) |
+| Architecture checks | `backend/tests/architecture/` | [architecture-tests.md](architecture-tests.md) |
+| Coverage reporting | `.coveragerc`, `pytest-cov` | [coverage.md](coverage.md) |
+| Known gaps | untested or partial areas | [coverage-gaps.md](coverage-gaps.md) |
+
+## Current Position
+
+The suite is strong around CRQ scoring persistence, topology browsing, asset browsing, findings reads, and asset enrichment contracts. The highest-priority missing production coverage is FAIR loss prediction and controls/security-score persistence.

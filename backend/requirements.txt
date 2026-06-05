@@ -13,4 +13,5 @@ python-dotenv
 
 # Test dependencies
 pytest
+pytest-cov
 httpx

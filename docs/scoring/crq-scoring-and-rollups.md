@@ -1308,10 +1308,10 @@ Implementation:
 
 Tests:
 
-- `backend/tests/test_crq_scoring.py`
-- `backend/tests/test_asset_scoring.py`
-- `backend/tests/test_application_scoring.py`
-- `backend/tests/test_business_service_scoring.py`
+- `backend/tests/services/scoring/test_crq_finding_scoring.py`
+- `backend/tests/services/scoring/test_crq_asset_scoring.py`
+- `backend/tests/services/scoring/test_crq_application_scoring.py`
+- `backend/tests/services/scoring/test_crq_business_service_scoring.py`
 
 Operational commands:
 

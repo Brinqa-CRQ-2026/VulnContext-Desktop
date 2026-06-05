@@ -4,7 +4,7 @@ import csv
 from pathlib import Path
 
 
-DATA_DIR = Path(__file__).resolve().parents[1] / "data"
+DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 CSV_PATH = DATA_DIR / "assets_for_supabase.csv"
 SOURCE_CSV_PATH = DATA_DIR / "assets_source_detail.csv"
 CONTEXT_CSV_PATH = DATA_DIR / "asset_business_context.csv"

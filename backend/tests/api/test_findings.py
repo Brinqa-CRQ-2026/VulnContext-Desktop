@@ -1,59 +1,8 @@
 from datetime import datetime, timezone
 
-from app import models
 from app.api import findings as findings_api
 from app.services.brinqa_detail import DetailResult
-
-
-def seed_asset_and_finding(
-    db_session,
-    *,
-    idx: int,
-    risk: float,
-    status: str = "Confirmed active",
-    crq_finding_score: float | None = None,
-    crq_finding_risk_band: str | None = None,
-    crq_finding_is_kev: bool | None = None,
-):
-    asset = models.Asset(
-        asset_id=f"asset-{idx}",
-        hostname=f"host-{idx}",
-        business_service=f"Business Service {idx}",
-        application=f"Application {idx}",
-        environment="test",
-    )
-    finding = models.Finding(
-        id=idx,
-        asset_id=asset.asset_id,
-        finding_id=f"200{idx}",
-        finding_uid=f"uid-{idx}",
-        finding_name=f"Finding {idx}",
-        status=status,
-        cve_id=f"CVE-2024-{idx:04d}",
-        brinqa_base_risk_score=max(0.0, risk - 1),
-        brinqa_risk_score=risk,
-        first_found=datetime(2024, 1, 1, tzinfo=timezone.utc),
-        last_found=datetime(2024, 1, 15, tzinfo=timezone.utc),
-        age_in_days=14.0,
-        date_created=datetime(2024, 1, 1, tzinfo=timezone.utc),
-        last_updated=datetime(2024, 1, 20, tzinfo=timezone.utc),
-        crq_finding_score=crq_finding_score,
-        crq_finding_risk_band=crq_finding_risk_band,
-        crq_finding_score_version="v4" if crq_finding_score is not None else None,
-        crq_finding_scored_at=datetime(2024, 1, 21, tzinfo=timezone.utc) if crq_finding_score is not None else None,
-        crq_finding_cvss_score=8.8 if crq_finding_score is not None else None,
-        crq_finding_epss_score=0.42 if crq_finding_score is not None else None,
-        crq_finding_epss_percentile=0.97 if crq_finding_score is not None else None,
-        crq_finding_epss_multiplier=0.35 if crq_finding_score is not None else None,
-        crq_finding_is_kev=crq_finding_is_kev,
-        crq_finding_kev_bonus=0.9 if crq_finding_is_kev else 0.0 if crq_finding_score is not None else None,
-        crq_finding_age_days=14.0 if crq_finding_score is not None else None,
-        crq_finding_age_bonus=0.0 if crq_finding_score is not None else None,
-    )
-    db_session.add(asset)
-    db_session.add(finding)
-    db_session.commit()
-    return asset, finding
+from helpers.findings import seed_asset_and_finding
 
 
 def test_health_docs_and_openapi_are_available(client):
@@ -185,13 +134,3 @@ def test_findings_enrichment_route_returns_explicit_narrative_payload(
     assert payload["description"] == "Narrative description"
     assert payload["detail_source"] == "brinqa"
     assert payload["detail_fetched_at"] == "2026-04-26T12:00:00Z"
-
-
-def test_sources_summary_is_read_only(client, db_session):
-    seed_asset_and_finding(db_session, idx=7, risk=6.0)
-
-    response = client.get("/sources")
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload[0]["source"] == "Brinqa"
-    assert payload[0]["total_findings"] == 1

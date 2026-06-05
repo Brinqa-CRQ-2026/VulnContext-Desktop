@@ -2,7 +2,7 @@ from pathlib import Path
 
 
 def test_active_api_modules_are_thin_wrappers():
-    backend_root = Path(__file__).resolve().parents[1]
+    backend_root = Path(__file__).resolve().parents[2]
     api_dir = backend_root / "app" / "api"
     files = [
         api_dir / "findings.py",

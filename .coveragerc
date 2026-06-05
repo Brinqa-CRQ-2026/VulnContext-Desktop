@@ -1,0 +1,10 @@
+[run]
+source =
+    backend/app
+omit =
+    */__pycache__/*
+    backend/tests/*
+
+[report]
+show_missing = True
+skip_covered = False
