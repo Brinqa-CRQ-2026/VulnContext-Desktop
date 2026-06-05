@@ -9,10 +9,8 @@ from app.services.fair.loss_prediction import (
     FairLossPredictionService,
     LossPredictionInputs,
 )
-from app.services.brinqa_detail import finding_detail_service
 from app.services.findings_view import (
     get_finding_detail as _get_finding_detail,
-    get_finding_enrichment as _get_finding_enrichment,
     get_findings_summary as _get_findings_summary,
     list_findings as _list_findings,
     list_top_findings as _list_top_findings,
@@ -80,9 +78,4 @@ def predict_finding_fair_loss(
             iterations=payload.iterations,
         ),
     )
-
-
-@router.get("/findings/{finding_id}/enrichment", response_model=schemas.FindingEnrichment)
-def get_finding_enrichment(finding_id: str, db=Depends(get_db)):
-    return _get_finding_enrichment(db, finding_id)
 

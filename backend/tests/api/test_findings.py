@@ -1,7 +1,3 @@
-from datetime import datetime, timezone
-
-from app.api import findings as findings_api
-from app.services.brinqa_detail import DetailResult
 from helpers.findings import seed_asset_and_finding
 
 
@@ -88,49 +84,3 @@ def test_findings_detail_returns_thin_persisted_data_only(client, db_session):
     assert payload["summary"] is None
     assert payload["description"] is None
     assert payload["detail_source"] is None
-
-
-def test_findings_enrichment_route_returns_explicit_narrative_payload(
-    client,
-    db_session,
-    monkeypatch,
-):
-    _, finding = seed_asset_and_finding(
-        db_session,
-        idx=6,
-        risk=7.5,
-        crq_finding_score=8.0,
-        crq_finding_risk_band="High",
-    )
-
-    monkeypatch.setattr(
-        findings_api.finding_detail_service,
-        "get_detail",
-        lambda db, finding: DetailResult(
-            payload={
-                "summary": "Narrative summary",
-                "description": "Narrative description",
-                "record_link": "https://example.com/findings/2006",
-                "source_status": "Open",
-                "severity": "High",
-                "due_date": "2026-05-01T00:00:00Z",
-                "attack_pattern_names": "Initial Access",
-                "attack_technique_names": "T1190",
-                "attack_tactic_names": "Execution",
-                "risk_owner_name": "owner-1",
-                "remediation_owner_name": "owner-2",
-                "remediation_status": "Investigating",
-            },
-            fetched_at=datetime(2026, 4, 26, 12, 0, tzinfo=timezone.utc),
-            source="brinqa",
-        ),
-    )
-
-    response = client.get(f"/findings/{finding.finding_id}/enrichment")
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["finding_id"] == "2006"
-    assert payload["summary"] == "Narrative summary"
-    assert payload["description"] == "Narrative description"
-    assert payload["detail_source"] == "brinqa"
-    assert payload["detail_fetched_at"] == "2026-04-26T12:00:00Z"

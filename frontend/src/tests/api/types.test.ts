@@ -1,7 +1,6 @@
 import { describe, expectTypeOf, it } from "vitest";
 
 import type {
-  AssetEnrichment,
   FindingsSortBy,
   RiskBandFilter,
   SourceSummary,
@@ -33,18 +32,6 @@ describe("types", () => {
         Medium: number;
         Low: number;
       };
-    }>();
-
-    expectTypeOf<AssetEnrichment>().toMatchTypeOf<{
-      asset_id: string;
-      status:
-        | "missing_token"
-        | "unauthorized_token"
-        | "no_related_source"
-        | "partial_success"
-        | "success"
-        | "upstream_error";
-      reason: string;
     }>();
   });
 });

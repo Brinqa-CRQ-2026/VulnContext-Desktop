@@ -179,37 +179,3 @@ export interface AssetDetail extends AssetSummary {
   detail_source?: string | null;
   detail_fetched_at?: string | null;
 }
-
-export interface AssetEnrichment {
-  asset_id: string;
-  status:
-    | "missing_token"
-    | "unauthorized_token"
-    | "no_related_source"
-    | "partial_success"
-    | "success"
-    | "upstream_error";
-  reason: string;
-  uid?: string | null;
-  dnsname?: string | null;
-  mac_addresses?: string | null;
-  uuid?: string | null;
-  tracking_method?: string | null;
-  owner?: string | null;
-  service_team?: string | null;
-  division?: string | null;
-  it_sme?: string | null;
-  it_director?: string | null;
-  location?: string | null;
-  internal_or_external?: string | null;
-  device_type?: string | null;
-  category?: string | null;
-  virtual_or_physical?: string | null;
-  compliance_flags?: string | null;
-  pci?: boolean | null;
-  pii?: boolean | null;
-  last_authenticated_scan?: string | null;
-  last_scanned?: string | null;
-  detail_source?: string | null;
-  detail_fetched_at?: string | null;
-}

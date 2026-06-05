@@ -13,6 +13,5 @@ describe("api/index", () => {
     expect(api).toHaveProperty("getFindingById");
     expect(api).toHaveProperty("getAssetFindingsPage");
     expect(api).toHaveProperty("getAssetDetail");
-    expect(api).toHaveProperty("getAssetEnrichment");
   });
 });

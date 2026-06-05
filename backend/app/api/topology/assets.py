@@ -1,11 +1,10 @@
-from fastapi import APIRouter, Depends, Header, Query
+from fastapi import APIRouter, Depends, Query
 
 from app import schemas
 from app.api.topology.dependencies import require_business_unit_filter_schema
 from app.core.db import get_db
 from app.services.topology_view import (
     get_asset_detail as _get_asset_detail,
-    get_asset_enrichment as _get_asset_enrichment,
     get_asset_findings as _get_asset_findings,
     get_asset_findings_analytics as _get_asset_findings_analytics,
     get_assets as _get_assets,
@@ -80,22 +79,6 @@ def get_assets_analytics(
 @router.get("/assets/{asset_id}", response_model=schemas.AssetDetail)
 def get_asset_detail(asset_id: str, db=Depends(get_db)):
     return _get_asset_detail(asset_id, db)
-
-
-@router.get("/assets/{asset_id}/enrichment", response_model=schemas.AssetEnrichment)
-def get_asset_enrichment(
-    asset_id: str,
-    db=Depends(get_db),
-    x_brinqa_auth_token: str | None = Header(None, alias="X-Brinqa-Auth-Token"),
-    x_brinqa_session_cookie: str | None = Header(None, alias="X-Brinqa-Session-Cookie"),
-):
-    return _get_asset_enrichment(
-        asset_id,
-        db,
-        x_brinqa_auth_token=x_brinqa_auth_token,
-        x_brinqa_session_cookie=x_brinqa_session_cookie,
-    )
-
 
 @router.get("/assets/{asset_id}/findings", response_model=schemas.AssetFindingsPage)
 def get_asset_findings(

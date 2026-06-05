@@ -5,7 +5,6 @@ from datetime import datetime
 from fastapi import HTTPException
 from sqlalchemy import case, func
 from app import models, schemas
-from app.services.brinqa_detail import DetailResult
 
 
 def normalize_risk_band(raw_band: str) -> str:
@@ -194,7 +193,7 @@ def _parse_datetime(value) -> datetime | None:
 def to_finding_detail(
     finding: models.Finding,
     *,
-    detail: DetailResult | None = None,
+    detail=None,
 ) -> schemas.FindingDetail:
     summary = to_finding_summary(finding)
     asset = finding.asset
@@ -343,7 +342,7 @@ def to_asset_detail(
     asset: models.Asset,
     *,
     finding_count: int | None = None,
-    detail: DetailResult | None = None,
+    detail=None,
 ) -> schemas.AssetDetail:
     payload = (detail.payload or {}) if detail else {}
     return schemas.AssetDetail(
@@ -379,39 +378,3 @@ def to_asset_detail(
         detail_fetched_at=detail.fetched_at if detail else None,
     )
 
-
-def to_asset_enrichment(
-    asset: models.Asset,
-    *,
-    detail: DetailResult,
-    status: str,
-    reason: str,
-) -> schemas.AssetEnrichment:
-    payload = detail.payload or {}
-    return schemas.AssetEnrichment(
-        asset_id=asset.asset_id,
-        status=status,
-        reason=reason,
-        uid=payload.get("uid"),
-        dnsname=payload.get("dnsname"),
-        mac_addresses=payload.get("mac_addresses"),
-        uuid=payload.get("uuid"),
-        tracking_method=payload.get("tracking_method"),
-        owner=payload.get("owner"),
-        service_team=payload.get("service_team"),
-        division=payload.get("division"),
-        it_sme=payload.get("it_sme"),
-        it_director=payload.get("it_director"),
-        location=payload.get("location"),
-        internal_or_external=payload.get("internal_or_external"),
-        device_type=payload.get("device_type"),
-        category=payload.get("category"),
-        virtual_or_physical=payload.get("virtual_or_physical"),
-        compliance_flags=payload.get("compliance_flags"),
-        pci=payload.get("pci"),
-        pii=payload.get("pii"),
-        last_authenticated_scan=_parse_datetime(payload.get("last_authenticated_scan")),
-        last_scanned=_parse_datetime(payload.get("last_scanned")),
-        detail_source=detail.source,
-        detail_fetched_at=detail.fetched_at,
-    )

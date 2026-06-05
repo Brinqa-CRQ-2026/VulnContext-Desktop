@@ -179,24 +179,6 @@ export interface AssetFindingsAnalyticsResponse {
   analytics: AssetFindingsAnalytics;
 }
 
-export interface FindingEnrichment {
-  finding_id: string;
-  summary?: string | null;
-  description?: string | null;
-  record_link?: string | null;
-  source_status?: string | null;
-  severity?: string | null;
-  due_date?: string | null;
-  attack_pattern_names?: string | null;
-  attack_technique_names?: string | null;
-  attack_tactic_names?: string | null;
-  risk_owner_name?: string | null;
-  remediation_owner_name?: string | null;
-  remediation_status?: string | null;
-  detail_source?: string | null;
-  detail_fetched_at?: string | null;
-}
-
 export interface FairLossPredictionRequest {
   control_context: Record<string, number | Record<string, number>>;
   primary_loss_mean: number;

@@ -3,7 +3,6 @@ import { describe, expect, it, vi } from "vitest";
 
 import { AssetFindingsPage } from "../../../components/business-services/AssetFindingsPage";
 import { useAssetDetail } from "../../../hooks/topology/assets/useAssetDetail";
-import { useAssetEnrichment } from "../../../hooks/topology/assets/useAssetEnrichment";
 import { useAssetFindings } from "../../../hooks/topology/assets/useAssetFindings";
 import { useAssetFindingsAnalytics } from "../../../hooks/topology/assets/useAssetFindingsAnalytics";
 
@@ -13,27 +12,15 @@ vi.mock("../../../hooks/topology/assets/useAssetFindings", () => ({
 vi.mock("../../../hooks/topology/assets/useAssetDetail", () => ({
   useAssetDetail: vi.fn(),
 }));
-vi.mock("../../../hooks/topology/assets/useAssetEnrichment", () => ({
-  useAssetEnrichment: vi.fn(),
-}));
 vi.mock("../../../hooks/topology/assets/useAssetFindingsAnalytics", () => ({
   useAssetFindingsAnalytics: vi.fn(),
 }));
 
 const mockedUseAssetFindings = vi.mocked(useAssetFindings);
 const mockedUseAssetDetail = vi.mocked(useAssetDetail);
-const mockedUseAssetEnrichment = vi.mocked(useAssetEnrichment);
 const mockedUseAssetFindingsAnalytics = vi.mocked(useAssetFindingsAnalytics);
 
-function seedAssetHooks({
-  enrichmentStatus = "success",
-  enrichmentLoading = false,
-  enrichmentError = null,
-}: {
-  enrichmentStatus?: "success" | "partial_success" | "missing_token" | "unauthorized_token";
-  enrichmentLoading?: boolean;
-  enrichmentError?: string | null;
-} = {}) {
+function seedAssetHooks() {
   mockedUseAssetDetail.mockReturnValue({
     assetDetail: {
       asset_id: "asset-10",
@@ -48,9 +35,9 @@ function seedAssetHooks({
       aggregated_finding_risk: 8.7,
       owner: null,
       service_team: null,
-      device_type: null,
-      category: null,
-      internal_or_external: null,
+      device_type: "Server",
+      category: "Compute",
+      internal_or_external: "Internal",
       last_scanned: null,
       last_authenticated_scan: null,
       detail_source: null,
@@ -58,33 +45,6 @@ function seedAssetHooks({
     },
     loading: false,
     error: null,
-  });
-  mockedUseAssetEnrichment.mockReturnValue({
-    enrichment: {
-      asset_id: "asset-10",
-      status: enrichmentStatus,
-      reason:
-        enrichmentStatus === "missing_token"
-          ? "missing_auth_token"
-          : enrichmentStatus === "unauthorized_token"
-            ? "brinqa_unauthorized"
-            : enrichmentStatus === "partial_success"
-              ? "qualys_source_missing"
-              : "both_sources_succeeded",
-      owner: enrichmentStatus === "missing_token" ? null : "asset-owner",
-      service_team: enrichmentStatus === "missing_token" ? null : "blue-team",
-      device_type: enrichmentStatus === "missing_token" ? null : "Server",
-      category: enrichmentStatus === "missing_token" ? null : "Compute",
-      internal_or_external: enrichmentStatus === "missing_token" ? null : "Internal",
-      last_scanned: enrichmentStatus === "missing_token" ? null : "2025-02-20T10:00:00Z",
-      last_authenticated_scan:
-        enrichmentStatus === "missing_token" ? null : "2025-02-21T11:00:00Z",
-      detail_source: enrichmentStatus === "partial_success" ? "servicenow" : "qualys+servicenow",
-      detail_fetched_at: "2025-02-21T11:05:00Z",
-    },
-    loading: enrichmentLoading,
-    error: enrichmentError,
-    run: vi.fn(),
   });
   mockedUseAssetFindingsAnalytics.mockReturnValue({
     analytics: {
@@ -249,7 +209,7 @@ describe("AssetFindingsPage", () => {
     );
   });
 
-  it("passes the auto-load option to the enrichment hook", () => {
+  it("passes analytics filters without requesting live enrichment", () => {
     seedFindingsHook();
     seedAssetHooks();
 
@@ -267,9 +227,6 @@ describe("AssetFindingsPage", () => {
       />
     );
 
-    expect(mockedUseAssetEnrichment).toHaveBeenCalledWith("asset-10", 4, {
-      loadOnMount: true,
-    });
     expect(mockedUseAssetFindingsAnalytics).toHaveBeenCalledWith("asset-10", {
       bandFilter: "All",
       kevOnly: false,
@@ -279,83 +236,11 @@ describe("AssetFindingsPage", () => {
     });
   });
 
-  it("shows a compact missing-token enrichment state without blocking the page", () => {
-    seedFindingsHook();
-    seedAssetHooks({ enrichmentStatus: "missing_token" });
-
-    render(
-      <AssetFindingsPage
-        businessUnitSlug="online-store"
-        businessServiceSlug="digital-storefront"
-        assetId="asset-10"
-        refreshToken={0}
-        onBack={vi.fn()}
-        onOpenOverview={vi.fn()}
-        onOpenBusinessUnit={vi.fn()}
-        onOpenBusinessService={vi.fn()}
-        onOpenFinding={vi.fn()}
-      />
-    );
-
-    expect(screen.queryByText("Missing Brinqa token")).not.toBeInTheDocument();
-    expect(screen.getByRole("table")).toBeInTheDocument();
-    expect(screen.queryByText("Asset overview")).not.toBeInTheDocument();
-    expect(screen.getAllByText("Active").length).toBeGreaterThan(0);
-    expect(screen.getByText("production")).toBeInTheDocument();
-  });
-
-  it("shows partial or unauthorized enrichment states without hiding findings", () => {
-    seedFindingsHook();
-    seedAssetHooks({ enrichmentStatus: "partial_success" });
-
-    const { rerender } = render(
-      <AssetFindingsPage
-        businessUnitSlug="online-store"
-        businessServiceSlug="digital-storefront"
-        assetId="asset-10"
-        refreshToken={0}
-        onBack={vi.fn()}
-        onOpenOverview={vi.fn()}
-        onOpenBusinessUnit={vi.fn()}
-        onOpenBusinessService={vi.fn()}
-        onOpenFinding={vi.fn()}
-      />
-    );
-
-    expect(screen.queryByText("Partial enrichment")).not.toBeInTheDocument();
-    expect(screen.getByText("Remote Code Execution")).toBeInTheDocument();
-
-    seedFindingsHook();
-    seedAssetHooks({ enrichmentStatus: "unauthorized_token" });
-    rerender(
-      <AssetFindingsPage
-        businessUnitSlug="online-store"
-        businessServiceSlug="digital-storefront"
-        assetId="asset-10"
-        refreshToken={1}
-        onBack={vi.fn()}
-        onOpenOverview={vi.fn()}
-        onOpenBusinessUnit={vi.fn()}
-        onOpenBusinessService={vi.fn()}
-        onOpenFinding={vi.fn()}
-      />
-    );
-
-    expect(screen.queryByText("Unauthorized")).not.toBeInTheDocument();
-    expect(screen.getByRole("table")).toBeInTheDocument();
-  });
-
   it("shows table rows in server-provided order", () => {
     mockedUseAssetDetail.mockReturnValue({
       assetDetail: null,
       loading: false,
       error: null,
-    });
-    mockedUseAssetEnrichment.mockReturnValue({
-      enrichment: null,
-      loading: true,
-      error: null,
-      run: vi.fn(),
     });
     mockedUseAssetFindingsAnalytics.mockReturnValue({
       analytics: {

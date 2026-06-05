@@ -1,11 +1,10 @@
-import { apiFetch, buildApiUrl, buildBrinqaEnrichmentRequestInit, parseJsonOrThrow } from "./client";
+import { apiFetch, buildApiUrl, parseJsonOrThrow } from "./client";
 import type {
   AssetListSortBy,
   AssetFindingsAnalyticsResponse,
   AssetAnalyticsResponse,
   ApplicationDetail,
   AssetDetail,
-  AssetEnrichment,
   AssetFindingsPage,
   BusinessServiceAnalytics,
   BusinessServiceDetail,
@@ -210,17 +209,6 @@ export async function predictAssetFairLoss(
   return parseJsonOrThrow(
     res,
     `Failed to generate asset FAIR loss prediction: ${res.status} ${res.statusText}`
-  );
-}
-
-export async function getAssetEnrichment(assetId: string): Promise<AssetEnrichment> {
-  const res = await apiFetch(
-    buildApiUrl(`/assets/${assetId}/enrichment`),
-    buildBrinqaEnrichmentRequestInit()
-  );
-  return parseJsonOrThrow(
-    res,
-    `Failed to fetch asset enrichment: ${res.status} ${res.statusText}`
   );
 }
 

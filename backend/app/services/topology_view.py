@@ -15,7 +15,6 @@ from app.api.common import (
     normalize_risk_band,
     resolve_sorting,
     summary_band_filter,
-    to_asset_enrichment,
     to_asset_detail,
     to_asset_summary,
     to_application_summary,
@@ -31,7 +30,6 @@ from app.repositories.topology import (
     findings_for_business_unit,
     has_topology_schema,
 )
-from app.services.brinqa_detail import BrinqaAuthContext, asset_detail_service
 from app.services.topology_shared import (
     _asset_findings_filters,
     _build_asset_score_distribution,
@@ -642,39 +640,6 @@ def get_asset_detail(asset_id: str, db):
     if asset is None:
         raise HTTPException(status_code=404, detail="Asset not found.")
     return to_asset_detail(asset, detail=None)
-
-
-def get_asset_enrichment(
-    asset_id: str,
-    db,
-    *,
-    x_brinqa_auth_token: str | None,
-    x_brinqa_session_cookie: str | None,
-):
-    asset = asset_by_id(db, asset_id)
-    if asset is None:
-        raise HTTPException(status_code=404, detail="Asset not found.")
-
-    if x_brinqa_auth_token is None or not x_brinqa_auth_token.strip():
-        return schemas.AssetEnrichment(
-            asset_id=asset.asset_id,
-            status="missing_token",
-            reason="missing_auth_token",
-        )
-
-    detail = asset_detail_service.get_detail(
-        asset,
-        auth=BrinqaAuthContext(
-            bearer_token=x_brinqa_auth_token.strip(),
-            session_cookie=x_brinqa_session_cookie.strip() if x_brinqa_session_cookie else None,
-        ),
-    )
-    return to_asset_enrichment(
-        asset,
-        detail=detail,
-        status=detail.status or "upstream_error",
-        reason=detail.reason or detail.error or "upstream_request_failed",
-    )
 
 
 def get_asset_findings(

@@ -4,6 +4,7 @@ source =
 omit =
     */__pycache__/*
     backend/tests/*
+    backend/legacy/*
 
 [report]
 show_missing = True

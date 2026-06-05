@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAssetFindings } from "../../hooks/topology/assets/useAssetFindings";
 import { useAssetFindingsAnalytics } from "../../hooks/topology/assets/useAssetFindingsAnalytics";
 import { useAssetDetail } from "../../hooks/topology/assets/useAssetDetail";
-import { useAssetEnrichment } from "../../hooks/topology/assets/useAssetEnrichment";
 import { getPaginationWindow } from "../../lib/pagination/getPaginationWindow";
 import type {
   FindingRouteOrigin,
@@ -94,12 +93,6 @@ export function AssetFindingsPage({
     loading: assetDetailLoading,
     error: assetDetailError,
   } = useAssetDetail(assetId, refreshToken);
-  const {
-    enrichment,
-    loading: enrichmentLoading,
-    error: enrichmentError,
-  } = useAssetEnrichment(assetId, refreshToken, { loadOnMount: true });
-
   const findings = assetFindings?.items ?? [];
   const sources = Array.from(new Set(findings.map((finding) => finding.source).filter(Boolean))) as string[];
   const showSourceFilter = sources.length > 1;
@@ -201,15 +194,14 @@ export function AssetFindingsPage({
     assetFindings.asset.business_service ??
     formatSlugLabel(businessServiceSlug, "Business Service");
   const displayDeviceType =
-    enrichment?.device_type ??
     assetDetail?.device_type ??
     assetFindings.asset.device_type ??
     "Device type unavailable";
   const heroTags = [
     assetDetail?.status ?? assetFindings.asset.status,
     assetDetail?.environment ?? assetFindings.asset.environment,
-    enrichment?.category ?? assetDetail?.category ?? assetFindings.asset.category,
-    enrichment?.internal_or_external ?? assetDetail?.internal_or_external,
+    assetDetail?.category ?? assetFindings.asset.category,
+    assetDetail?.internal_or_external,
   ].flatMap((value) => {
     const trimmed = value?.trim();
     return trimmed ? [trimmed] : [];
@@ -272,12 +264,6 @@ export function AssetFindingsPage({
           Asset detail is temporarily unavailable. Findings data is still loaded.
         </p>
       ) : null}
-      {enrichmentError && !enrichmentLoading ? (
-        <p className="text-sm text-amber-700">
-          Asset enrichment is temporarily unavailable. Findings data is still loaded.
-        </p>
-      ) : null}
-
       <AssetDistributionChartCard
         title="Finding risk spread"
         description="Aggregated finding risk distribution for this asset under the current filters"
