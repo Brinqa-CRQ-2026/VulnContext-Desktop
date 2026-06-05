@@ -96,7 +96,6 @@ function seedAssetHooks({
         application: "Identity Verify",
         status: "Active",
         environment: "production",
-        asset_context_score: 9,
       },
       analytics: {
         total_findings: 8,
@@ -138,6 +137,7 @@ function seedFindingsHook() {
       items: [
         {
           id: "finding-1",
+          asset_id: "asset-10",
           display_name: "TLS Weak Cipher",
           cve_id: "CVE-2024-1111",
           risk_band: "High",
@@ -153,6 +153,7 @@ function seedFindingsHook() {
         },
         {
           id: "finding-2",
+          asset_id: "asset-10",
           display_name: "Remote Code Execution",
           cve_id: "CVE-2024-9999",
           risk_band: "Critical",
@@ -389,6 +390,7 @@ describe("AssetFindingsPage", () => {
         items: [
           {
             id: "finding-z",
+            asset_id: "asset-11",
             display_name: "Zulu Finding",
             risk_band: "Low",
             risk_score: 1.1,
@@ -396,6 +398,7 @@ describe("AssetFindingsPage", () => {
           },
           {
             id: "finding-a",
+            asset_id: "asset-11",
             display_name: "Alpha Finding",
             risk_band: "Critical",
             risk_score: 9.9,

@@ -68,10 +68,15 @@ describe("usePaginatedFindings", () => {
         usePaginatedFindings(20, bandFilter, sortBy, sortOrder, sourceFilter),
       {
         initialProps: {
-          bandFilter: "All" as const,
-          sortBy: "risk_score" as const,
-          sortOrder: "desc" as const,
-          sourceFilter: null as string | null,
+          bandFilter: "All",
+          sortBy: "risk_score",
+          sortOrder: "desc",
+          sourceFilter: null,
+        } as {
+          bandFilter: "All" | "Critical";
+          sortBy: "risk_score" | "cvss_score";
+          sortOrder: "asc" | "desc";
+          sourceFilter: string | null;
         },
       }
     );

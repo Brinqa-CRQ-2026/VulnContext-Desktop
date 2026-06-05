@@ -56,7 +56,7 @@ vi.mock("../components/dashboard/RiskTable", () => ({
     onOpenIntegrations,
   }: {
     refreshToken: number;
-    onOpenFinding?: (finding: { id: number; source: string }) => void;
+    onOpenFinding?: (finding: { id: string; source: string }) => void;
     onOpenIntegrations: () => void;
   }) => (
     <div>

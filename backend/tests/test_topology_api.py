@@ -6,6 +6,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app import models
 from app.api import topology as topology_api
+from app.api.topology import dependencies as topology_dependencies
 from app.services.brinqa_detail import BrinqaAuthContext, DetailResult, SourceAttempt
 from app.services.crq_business_service_scoring import score_business_unit_rollups
 from app.services.topology import backfill_asset_topology_foreign_keys
@@ -497,7 +498,7 @@ def test_business_unit_risk_routes_return_503_when_topology_schema_is_missing(
     client, db_session, monkeypatch
 ):
     seed_topology(db_session)
-    monkeypatch.setattr(topology_api, "_has_topology_schema", lambda db: False)
+    monkeypatch.setattr(topology_dependencies, "_has_topology_schema", lambda db: False)
 
     overview = client.get("/topology/business-units/online-store/risk-overview")
     findings = client.get("/topology/business-units/online-store/findings")
@@ -1309,7 +1310,7 @@ def test_topology_routes_return_503_when_normalized_tables_are_not_initialized(
         application="Inventory Manager",
         finding_risks=[7.5],
     )
-    monkeypatch.setattr(topology_api, "_has_topology_schema", lambda _db: False)
+    monkeypatch.setattr(topology_dependencies, "_has_topology_schema", lambda _db: False)
 
     topology_response = client.get("/topology/business-units")
     assert topology_response.status_code == 503
@@ -1335,7 +1336,7 @@ def test_asset_routes_still_work_without_normalized_topology_tables(client, db_s
         application="Inventory Manager",
         finding_risks=[9.0, 4.0],
     )
-    monkeypatch.setattr(topology_api, "_has_topology_schema", lambda _db: False)
+    monkeypatch.setattr(topology_dependencies, "_has_topology_schema", lambda _db: False)
 
     response = client.get("/assets?business_service=Digital%20Media&application=Inventory%20Manager")
     assert response.status_code == 200
