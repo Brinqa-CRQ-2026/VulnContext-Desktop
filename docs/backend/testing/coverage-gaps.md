@@ -1,45 +1,25 @@
 # Backend Coverage Gaps
 
-These gaps are known and should be handled in a later test-addition pass.
+These gaps are known and should be handled in later test-addition or environment-specific validation passes.
 
-## FAIR Loss Prediction
+## Recently Covered
 
-Untested endpoints:
+- FAIR loss prediction endpoints for finding, asset, application, and business-service scopes.
+- FAIR internal frequency, magnitude, controls, vulnerability, and loss-prediction paths.
+- Controls/security-score calculation and mocked Supabase persistence routes.
+- CRQ rollup helpers and CRQ finding schema edge behavior.
 
-- `POST /findings/{finding_id}/fair-loss`
-- `POST /assets/{asset_id}/fair-loss`
-- `POST /topology/business-units/{business_unit_slug}/business-services/{business_service_slug}/fair-loss`
-- `POST /topology/business-units/{business_unit_slug}/business-services/{business_service_slug}/applications/{application_slug}/fair-loss`
+## Remaining Gaps
 
-Needed cases:
-
-- successful response shape with deterministic low-iteration request
-- missing finding behavior
-- empty asset/application/business-service scope behavior
-- topology-missing `503` behavior for topology FAIR routes
-- request validation for out-of-range `iterations` and loss means
-
-## Controls And Security Score
-
-Untested endpoints:
-
-- `POST /controls/security-score`
-- `PUT /controls/current`
-- `GET /controls/current`
-- `POST /controls/save`
-- `GET /controls/saved/latest`
-
-Needed cases:
-
-- nested answers and flat fallback answers normalize correctly
-- maturity values clamp to `0-5`
-- confidence reflects answered controls
-- missing Supabase environment returns `503`
-- Supabase read/write failures return `502`
-- insert/update/latest behavior is mocked without requiring real Supabase
+- Live Supabase behavior, including row-level security, network failures, and production auth configuration.
+- Postgres-specific SQL behavior, constraints, query plans, and performance characteristics.
+- High-iteration FAIR simulation confidence and latency under production-like workloads.
+- Legacy Brinqa live-fetch internals under `backend/legacy/`.
+- Manual scripts and automation entrypoints.
+- End-to-end desktop runtime behavior across Electron, backend, and renderer.
 
 ## Environment Limits
 
-- The suite uses SQLite, so it does not fully prove Postgres/Supabase behavior.
-- External Brinqa calls are mocked.
+- The suite uses SQLite for backend tests, so it does not fully prove Postgres/Supabase behavior.
+- External services are mocked or outside active coverage.
 - Coverage is not enforced yet.

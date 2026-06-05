@@ -18,4 +18,4 @@
 
 - This is a lightweight regression check, not a full static analyzer.
 - It does not prove every route is thin; it only catches common violations.
-- Controls routes currently use Supabase persistence directly and should be reviewed separately when controls tests are added.
+- Controls routes use Supabase persistence directly and are covered by focused mocked-Supabase API tests.

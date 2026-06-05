@@ -11,6 +11,7 @@ Coverage currently measures:
 Coverage currently omits:
 
 - `backend/tests`
+- `backend/legacy`
 - Python cache files
 
 ## Commands
@@ -29,4 +30,6 @@ pytest backend/tests --cov=backend/app --cov-report=term-missing
 
 ## Policy
 
-Coverage is report-only. Do not add an enforced threshold until missing FAIR and controls tests are implemented. A threshold before those tests would mostly encode known gaps rather than improve quality.
+Coverage is report-only. The FAIR, controls, security-score, and CRQ edge tests now cover the largest previously documented gaps, but the suite still relies on SQLite and mocked external services.
+
+Do not add an enforced threshold until the team decides which production-only areas, such as Supabase/Postgres behavior and legacy code, should be excluded from the gate.

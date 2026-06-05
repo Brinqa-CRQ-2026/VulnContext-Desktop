@@ -2,18 +2,20 @@
 
 ## Summary
 
-The frontend API layer is read-only. It wraps backend routes and leaves state coordination to hooks.
+The frontend API layer wraps backend read routes plus active FAIR and controls calls. State coordination stays in hooks and components.
 
 ## Active Modules
 
 - `frontend/src/api/client.ts`
-  Base URL resolution, request URL construction, Brinqa enrichment request headers, and JSON error parsing.
+  Base URL resolution, request URL construction, and JSON error parsing.
 - `frontend/src/api/findings.ts`
-  Findings summary, paginated findings, finding detail, and finding enrichment requests.
+  Findings summary, paginated findings, finding detail, and finding FAIR loss requests.
 - `frontend/src/api/sources.ts`
   Source summary request.
 - `frontend/src/api/topology.ts`
-  Business-unit, business-service, application, asset, asset analytics, asset enrichment, and asset findings requests.
+  Business-unit, business-service, application, asset, asset analytics, asset FAIR loss, and asset findings requests.
+- `frontend/src/api/controls.ts`
+  Security-score current assessment read/write and score calculation requests.
 - `frontend/src/api/index.ts`
   Barrel export for the active API surface.
 - `frontend/src/api/types.ts`

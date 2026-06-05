@@ -2,7 +2,7 @@
 
 ## Summary
 
-The frontend is a React/Electron renderer for read-only vulnerability review, source summaries, and topology drill-down workflows.
+The frontend is a React/Electron renderer for vulnerability review, source summaries, topology drill-down workflows, FAIR loss views, and security-score controls.
 
 ## Folder Ownership
 
@@ -18,6 +18,8 @@ The frontend is a React/Electron renderer for read-only vulnerability review, so
   Topology drill-down pages, asset inventory, asset findings, and topology shared UI.
 - `frontend/src/components/integrations/`
   Read-only source-summary page.
+- `frontend/src/components/controls/`
+  Security-score assessment page and controls UI.
 - `frontend/src/lib/`
   Shared formatting, sorting, chart, asset, finding, pagination, and topology helpers.
 - `frontend/src/auth/`
@@ -47,6 +49,7 @@ Component props should stay local when used once. Feature-only business-services
 
 - business-unit overview -> business-unit detail -> business-service detail -> optional application detail -> asset findings -> finding detail
 - findings dashboard -> finding detail
+- security score controls -> current assessment read/write
 - sources summary page
 - desktop launcher -> backend -> renderer -> Electron -> logout/shutdown cleanup
 

@@ -63,11 +63,11 @@ Current behavior:
 - Electron watches the Brinqa MFA response
 - the shell looks for token-like fields such as `token`, `access_token`, `accessToken`, `id_token`, and `idToken`
 - the MFA payload and extracted token are stored in renderer `localStorage`
-- enrichment requests forward the stored token to the backend with `X-Brinqa-Auth-Token`
+- logout and shutdown use the stored token/session cookie for best-effort Brinqa session cleanup
 
 Current limitation:
 
-- opaque tokens are still treated as usable at startup unless a later Brinqa-backed request returns `unauthorized_token`
+- opaque tokens are still treated as usable at startup unless Electron can determine that they are expired
 
 ## Session reset behavior
 
@@ -90,15 +90,12 @@ Current reset sequence:
 
 Remote Brinqa logout is best-effort. Local cleanup is mandatory even if Brinqa logout fails.
 
-## Unauthorized recovery
-
-The frontend uses the existing asset enrichment status as the recovery signal for dead Brinqa sessions.
+## Unauthorized Recovery
 
 Current behavior:
 
-- `useAssetEnrichment` treats `unauthorized_token` as a dead Brinqa session
-- the renderer calls the Electron reset bridge
-- local auth is cleared
+- renderer code can call the Electron reset bridge with an `unauthorized` reason
+- local auth is cleared before Electron resets Brinqa cookies and site storage
 - the app returns to the Brinqa login flow
 
 This avoids leaving the app stuck with a stale token after Brinqa invalidates the session.

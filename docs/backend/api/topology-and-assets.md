@@ -2,7 +2,7 @@
 
 ## Summary
 
-These routes power the topology drill-down experience and the asset browsing surface. They include business-unit hierarchy pages, asset lists, asset analytics, asset detail, asset enrichment, and asset findings drill-down.
+These routes power the topology drill-down experience and the asset browsing surface. They include business-unit hierarchy pages, asset lists, asset analytics, persisted asset detail, FAIR loss prediction, and asset findings drill-down.
 
 ## Important Preconditions
 
@@ -18,11 +18,13 @@ These routes power the topology drill-down experience and the asset browsing sur
 | `GET /topology/business-units/{business_unit_slug}` | Returns one business-unit detail page | returns `503` until topology tables exist |
 | `GET /topology/business-units/{business_unit_slug}/business-services/{business_service_slug}` | Returns one business-service detail page | returns `503` until topology tables exist |
 | `GET /topology/business-units/{business_unit_slug}/business-services/{business_service_slug}/analytics` | Returns business-service analytics | returns `503` until topology tables exist |
+| `POST /topology/business-units/{business_unit_slug}/business-services/{business_service_slug}/fair-loss` | Predicts FAIR loss for one business service | returns `503` until topology tables exist |
 | `GET /topology/business-units/{business_unit_slug}/business-services/{business_service_slug}/applications/{application_slug}` | Returns one application detail page | returns `503` until topology tables exist |
+| `POST /topology/business-units/{business_unit_slug}/business-services/{business_service_slug}/applications/{application_slug}/fair-loss` | Predicts FAIR loss for one application | returns `503` until topology tables exist |
 | `GET /assets` | Lists assets with filters, sorting, and pagination | supports legacy and normalized topology filters |
 | `GET /assets/analytics` | Returns filtered asset analytics | uses the same non-pagination filters as `/assets` |
 | `GET /assets/{asset_id}` | Returns persisted asset detail only | no Brinqa call |
-| `GET /assets/{asset_id}/enrichment` | Returns request-scoped Brinqa enrichment | reads auth from request headers |
+| `POST /assets/{asset_id}/fair-loss` | Predicts FAIR loss for one asset | uses persisted asset/finding context |
 | `GET /assets/{asset_id}/findings` | Returns findings attached to one asset | supports finding-level filters and sort order |
 | `GET /assets/{asset_id}/findings/analytics` | Returns analytics for the full filtered finding set | ignores pagination and returns aggregate metrics |
 
@@ -57,11 +59,25 @@ These routes power the topology drill-down experience and the asset browsing sur
 - returns the top asset-type buckets for the service
 - returns `service_risk_score`, derived `service_risk_label`, `service_priority_score`, and business criticality context when present
 
+### `POST /topology/business-units/{business_unit_slug}/business-services/{business_service_slug}/fair-loss`
+
+- predicts FAIR loss for the selected business service
+- aggregates ranked findings across assets in scope
+- returns an empty prediction when the scope has no eligible findings
+- returns `404` when the business service does not resolve
+
 ### `GET /topology/business-units/{business_unit_slug}/business-services/{business_service_slug}/applications/{application_slug}`
 
 - returns one application with its child assets
 - includes aggregate finding counts for the application and its assets
 - includes aggregated asset risk, compliance score, application risk score, and scoring timestamp when present
+- returns `404` when the slug trio does not resolve
+
+### `POST /topology/business-units/{business_unit_slug}/business-services/{business_service_slug}/applications/{application_slug}/fair-loss`
+
+- predicts FAIR loss for the selected application
+- uses normalized asset foreign keys when topology links have been backfilled
+- returns an empty prediction when the application scope has no eligible findings
 - returns `404` when the slug trio does not resolve
 
 ## Asset Routes
@@ -125,27 +141,12 @@ Behavior notes:
 - does not call Brinqa enrichment
 - returns `404` when the asset does not exist
 
-### `GET /assets/{asset_id}/enrichment`
+### `POST /assets/{asset_id}/fair-loss`
 
-- returns request-scoped Brinqa enrichment for the asset
-- requires `X-Brinqa-Auth-Token`
-- accepts optional `X-Brinqa-Session-Cookie`
-- returns a structured status and reason instead of throwing away upstream failure detail
-
-Known status values:
-
-- `missing_token`
-- `unauthorized_token`
-- `no_related_source`
-- `partial_success`
-- `success`
-- `upstream_error`
-
-The response also includes:
-
-- `detail_source`
-- `detail_fetched_at`
-- asset metadata fields when available
+- predicts FAIR loss for the selected asset
+- uses persisted asset metadata and related findings
+- returns an empty prediction when the asset has no eligible findings
+- returns `404` when the asset does not exist
 
 ### `GET /assets/{asset_id}/findings`
 

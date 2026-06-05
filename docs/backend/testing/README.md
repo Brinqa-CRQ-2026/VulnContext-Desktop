@@ -16,7 +16,7 @@ Run backend tests with a report-only coverage summary:
 pytest backend/tests --cov=backend/app --cov-report=term-missing
 ```
 
-Coverage is intentionally report-only for now. There is no enforced percentage gate until the FAIR and controls gaps are covered.
+Coverage is intentionally report-only for now. There is no enforced percentage gate while production-only Supabase/Postgres behavior is still separated from unit coverage.
 
 ## Test Areas
 
@@ -25,6 +25,7 @@ Coverage is intentionally report-only for now. There is no enforced percentage g
 | API contracts | `backend/tests/api/` | [api-tests.md](api-tests.md) |
 | Topology API contracts | `backend/tests/api/topology/` | [topology-tests.md](topology-tests.md) |
 | CRQ scoring services | `backend/tests/services/scoring/` | [scoring-tests.md](scoring-tests.md) |
+| FAIR, controls, and security score | FAIR/controls API and service tests | [fair-and-controls-tests.md](fair-and-controls-tests.md) |
 | Data contracts | `backend/tests/data_contracts/` | [data-contract-tests.md](data-contract-tests.md) |
 | Architecture checks | `backend/tests/architecture/` | [architecture-tests.md](architecture-tests.md) |
 | Coverage reporting | `.coveragerc`, `pytest-cov` | [coverage.md](coverage.md) |
@@ -32,4 +33,6 @@ Coverage is intentionally report-only for now. There is no enforced percentage g
 
 ## Current Position
 
-The suite is strong around CRQ scoring persistence, topology browsing, asset browsing, findings reads, and asset enrichment contracts. The highest-priority missing production coverage is FAIR loss prediction and controls/security-score persistence.
+The suite is strong around CRQ scoring persistence, CRQ rollups, topology browsing, asset browsing, findings reads, FAIR loss prediction, controls persistence contracts, and security-score internals.
+
+Brinqa live-fetch enrichment is not part of the active backend test target. That implementation lives under `backend/legacy/` and is omitted from backend coverage.

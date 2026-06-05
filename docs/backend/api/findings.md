@@ -2,7 +2,7 @@
 
 ## Summary
 
-These routes power finding lists, summaries, persisted detail, and explicit finding enrichment. The main detail route stays persisted-data-only; enrichment is separate.
+These routes power finding lists, summaries, persisted detail, and finding-scoped FAIR loss prediction. Finding detail is persisted-data-only and does not call live Brinqa enrichment.
 
 ## Route Table
 
@@ -12,14 +12,14 @@ These routes power finding lists, summaries, persisted detail, and explicit find
 | `GET /findings/summary` | Returns overall risk-band totals and KEV totals | `ScoresSummary` |
 | `GET /findings` | Returns paginated findings with filters and sorting | `PaginatedFindings` |
 | `GET /findings/{finding_id}` | Returns persisted finding detail only | `FindingDetail` |
-| `GET /findings/{finding_id}/enrichment` | Returns explicit narrative enrichment for one finding | `FindingEnrichment` |
+| `POST /findings/{finding_id}/fair-loss` | Predicts FAIR loss for one finding | `FairLossPredictionResponse` |
 
 ## Shared Behavior
 
 - the display score prefers `crq_finding_score` and falls back to `brinqa_risk_score`
 - `FindingSummary.source` is always `Brinqa`
 - the main detail route does not call external enrichment services
-- the enrichment route is opt-in and can fail independently of the persisted-detail route
+- live Brinqa enrichment fetches are legacy code outside the active API surface
 
 ## `GET /findings/top`
 
@@ -70,10 +70,9 @@ Behavior notes:
 - joins asset context for summary shaping, but does not call external enrichment services
 - returns `404` when the finding does not exist
 
-## `GET /findings/{finding_id}/enrichment`
+## `POST /findings/{finding_id}/fair-loss`
 
-- returns the explicit narrative payload for one finding
-- uses the persisted finding as the lookup key and Brinqa detail service for enrichment
+- predicts FAIR loss for the selected finding
+- uses persisted finding and asset context as the model input
 - returns `404` when the finding does not exist
-- `due_date` is parsed when the payload provides an ISO-like timestamp
-
+- accepts request body controls such as iteration count and loss magnitude inputs through the FAIR schema

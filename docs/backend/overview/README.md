@@ -6,10 +6,10 @@ The backend is a read-oriented FastAPI service over Supabase-backed tables. The 
 
 - legacy root routes such as `/findings` and `/assets`
 - versioned routes under `/api/v1`
-- read-only data access plus explicit enrichment routes
+- read-mostly data access plus FAIR loss and controls endpoints
 - manual scoring and export workflows through scripts
 
-`services/fair/` remains separate and is not part of this docs set.
+Legacy Brinqa live-fetch enrichment code lives under `backend/legacy/` and is not part of the active HTTP surface.
 
 ## Request Flow
 
@@ -25,7 +25,7 @@ The backend is a read-oriented FastAPI service over Supabase-backed tables. The 
 - [Architecture Map](../architecture/README.md)
 - [Database Reference](../architecture/database.md)
 - [Scoring Overview](../scoring/README.md)
+- [FAIR Overview](../fair/README.md)
 - [Manual Workflows](../workflows/manual.md)
 - [Automation Workflows](../workflows/automation.md)
 - [Test Matrix](../testing/README.md)
-

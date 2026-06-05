@@ -28,7 +28,7 @@ Topology hooks are split by domain:
 - `frontend/src/hooks/topology/applications/`
   Application detail.
 - `frontend/src/hooks/topology/assets/`
-  Asset detail, enrichment, findings, findings analytics, inventory state, asset analytics, and paginated assets.
+  Asset detail, findings, findings analytics, inventory state, asset analytics, and paginated assets.
 
 Keep existing hook names and return shapes stable unless all consumers and tests are updated together.
 
@@ -37,7 +37,7 @@ Keep existing hook names and return shapes stable unless all consumers and tests
 - Return `loading`, `error`, and data consistently.
 - Reset page state when filters or sort inputs change.
 - Keep hook option object types local until reused.
-- Put Brinqa unauthorized recovery in asset enrichment state, not in visual components.
+- Keep Brinqa session reset behavior in the auth/runtime layer, not in visual components.
 - Do not put JSX or display formatting in hooks.
 
 ## Removed From Active Surface
