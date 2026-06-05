@@ -2,18 +2,23 @@
 
 ## Summary
 
-The backend currently supports four persisted CRQ layers:
+The backend currently supports five persisted CRQ layers or rollups:
 
 - finding-level scoring in `public.findings`
 - asset-level scoring in `public.assets`
 - application-level scoring in `public.applications`
 - business-service-level scoring in `public.business_services`
+- business-unit rollups in `public.business_units`
 
 The API surfaces those scores directly when present, and it does not recalculate them during request handling.
 
+For the full business and formula explanation, use the canonical reference:
+
+- [CRQ Scoring And Rollups](../../scoring/crq-scoring-and-rollups.md)
+
 ## Scale Convention
 
-Product-facing CRQ risk and rollup scores are stored on a `0-10` scale. This includes finding scores, asset rollups, asset context and risk, application rollups, application compliance, and application risk.
+Product-facing CRQ risk, priority, and rollup scores are stored on a `0-10` scale. This includes finding scores, asset rollups, asset context and risk, application rollups, application compliance and risk, business service risk and priority, and business unit risk and priority.
 
 Atomic modifiers stay on a `0-1` scale when they represent probabilities or normalized factors. This includes asset exposure, data sensitivity, environment, asset type components, EPSS score, and EPSS percentile.
 
@@ -59,23 +64,35 @@ Finding EPSS and KEV adjustments are point adjustments into the `0-10` finding s
 
 ### Business Services
 
+- `business_criticality_score`
 - `crq_business_service_aggregated_application_risk`
 - `crq_business_service_aggregated_direct_asset_risk`
 - `crq_business_service_risk_score`
+- `crq_business_service_priority_score`
 - `crq_business_service_application_count`
 - `crq_business_service_asset_count`
 - `crq_business_service_finding_count`
 - `crq_business_service_scored_at`
 
+### Business Units
+
+- `crq_business_unit_risk_score`
+- `crq_business_unit_priority_score`
+- `crq_business_unit_business_service_count`
+- `crq_business_unit_application_count`
+- `crq_business_unit_asset_count`
+- `crq_business_unit_finding_count`
+
 ## API Behavior
 
 - finding summaries and detail responses prefer CRQ values when present
 - asset analytics prefer the persisted asset CRQ fields
+- topology routes surface persisted business service and business unit risk/priority fields when present
 - missing CRQ fields are returned as `null` rather than being recomputed on the fly
 
 ## Detailed References
 
-- [CRQ Finding Scoring V4](crq-finding-scoring-v4.md)
-- [CRQ Asset Scoring V5](crq-asset-scoring-v2.md)
-- [CRQ Application Scoring V4](crq-application-scoring-v1.md)
-- [CRQ Business Service Scoring V4](crq-business-service-scoring-v2.md)
+- [Finding Risk Scoring](finding-risk-scoring.md)
+- [Asset Risk Scoring](asset-risk-scoring.md)
+- [Application Risk Scoring](application-risk-scoring.md)
+- [Business Service Scoring](business-service-scoring.md)

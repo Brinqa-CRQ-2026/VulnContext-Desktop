@@ -1,33 +1,33 @@
 # Backend Docs
 
+## Summary
+
+Backend docs describe the current FastAPI service, Supabase-backed data model,
+API surface, CRQ scoring implementation, FAIR pipeline, operational workflows,
+and backend test coverage.
+
 ## Start Here
 
-- [docs/backend/current/README.md](current/README.md)
-  Backend docs index.
-- [docs/backend/current/overview/README.md](current/overview/README.md)
-  High-level runtime summary and request flow.
-- [docs/backend/current/api/README.md](current/api/README.md)
-  Entry point for the active HTTP surface.
-- [docs/backend/current/architecture/README.md](current/architecture/README.md)
-  Where the backend layers live.
-- [docs/backend/current/scoring/README.md](current/scoring/README.md)
-  Scoring summary plus detailed scoring references.
-- [docs/backend/current/workflows/README.md](current/workflows/README.md)
-  Manual scripts and GitHub Actions scripts.
-- [docs/backend/current/testing/README.md](current/testing/README.md)
-  Test coverage map and gaps.
+- [Overview](overview/README.md)
+- [API Reference](api/README.md)
+- [Architecture Map](architecture/README.md)
+- [Backend Scoring Overview](scoring/README.md)
+- [Canonical CRQ Scoring Reference](../scoring/crq-scoring-and-rollups.md)
 
-## Seed Source Of Truth
+## Documents
 
-- `docs/backend/topology-seed/`
+| Area | Path | Purpose |
+| --- | --- | --- |
+| Overview | [overview/](overview/README.md) | Runtime summary and request flow |
+| API | [api/](api/README.md) | Active HTTP routes and response behavior |
+| Architecture | [architecture/](architecture/README.md) | Backend layers and database reference |
+| Scoring | [scoring/](scoring/README.md) | Code-specific CRQ scoring implementation references |
+| FAIR | [fair/](fair/README.md) | FAIR-style loss prediction pipeline and frontend/backend contract |
+| Workflows | [workflows/](workflows/README.md) | Manual scripts and automation workflows |
+| Testing | [testing/](testing/README.md) | Backend test matrix and behavior coverage |
+| Topology Seed | [topology-seed/](topology-seed/) | Seed CSV and SQL files for normalized topology |
 
-## Layout Note
+## Ownership
 
-The backend docs are grouped by purpose now:
-
-- overview
-- api
-- architecture
-- scoring
-- workflows
-- testing
+Backend docs are implementation docs. Business/adoption narrative belongs in
+`docs/business/`, while canonical CRQ formula detail belongs in `docs/scoring/`.

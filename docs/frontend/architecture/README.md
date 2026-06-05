@@ -1,5 +1,7 @@
 # Frontend Architecture
 
+## Summary
+
 The frontend is a React/Electron renderer for read-only vulnerability review, source summaries, and topology drill-down workflows.
 
 ## Folder Ownership
@@ -50,9 +52,9 @@ Component props should stay local when used once. Feature-only business-services
 
 ## Related Docs
 
-- [API Client](api-client.md)
-- [Data Contracts](data-contracts.md)
-- [State And Hooks](state-and-hooks.md)
-- [UI Patterns](ui-patterns.md)
-- [Frontend Style Guide](style-guide.md)
-- [Desktop Runtime And Brinqa Auth](desktop-runtime-and-auth.md)
+- [API Client](../api/README.md)
+- [Data Contracts](../api/data-contracts.md)
+- [State And Hooks](../state/README.md)
+- [UI Patterns](../ui/README.md)
+- [Frontend Style Guide](../ui/style-guide.md)
+- [Desktop Runtime And Brinqa Auth](../runtime/README.md)

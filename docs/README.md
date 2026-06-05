@@ -1,33 +1,34 @@
 # Documentation
 
-Docs are split into backend and frontend views of the current runtime.
+## Summary
 
-## Scoring
+Documentation is organized by audience and system area. Business docs explain
+adoption and scoring concepts, scoring docs hold canonical formulas, backend
+docs cover FastAPI/Supabase implementation, and frontend docs cover the
+React/Electron renderer.
 
-- [docs/scoring/master-scoring-overview.md](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/scoring/master-scoring-overview.md)
-  Master overview of implemented CRQ scoring, persisted scoring fields, and planned topology rollups.
+## Start Here
 
-## Backend
+- [Business Scoring And Prioritization](business/scoring-and-prioritization.md)
+- [Canonical CRQ Scoring Reference](scoring/crq-scoring-and-rollups.md)
+- [Backend Docs](backend/README.md)
+- [Frontend Docs](frontend/README.md)
 
-- [docs/backend/README.md](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/backend/README.md)
-  Backend docs index and folder map.
+## Documents
 
-## Frontend
+| Area | Path | Purpose |
+| --- | --- | --- |
+| Business | [business/](business/README.md) | Sponsor-facing scoring and prioritization narrative |
+| Scoring | [scoring/](scoring/README.md) | Canonical CRQ formulas, rollups, and scoring methodology |
+| Backend | [backend/](backend/README.md) | FastAPI, Supabase, API, scoring implementation, workflows, and tests |
+| Frontend | [frontend/](frontend/README.md) | React/Electron architecture, API contracts, state, UI, runtime, and tests |
+| Governance | [documentation-audit.md](documentation-audit.md) | Documentation organization rules and remaining gaps |
 
-- [docs/frontend/README.md](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/frontend/README.md)
-  Frontend docs index.
-- [docs/frontend/desktop-runtime-and-auth.md](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/frontend/desktop-runtime-and-auth.md)
-  Primary desktop runtime, Brinqa auth/session lifecycle, logout, shutdown, and window-close behavior.
-- [docs/frontend/architecture.md](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/frontend/architecture.md)
-  Frontend folder ownership, type boundaries, import rules, and primary flows.
-- [docs/frontend/api-client.md](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/frontend/api-client.md)
-  Active read-only API modules and frontend API type ownership.
-- [docs/frontend/data-contracts.md](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/frontend/data-contracts.md)
-  Backend routes used by the frontend and DTO contract rules.
-- [docs/frontend/state-and-hooks.md](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/frontend/state-and-hooks.md)
-  Hook organization, topology hook domains, and state conventions.
-- [docs/frontend/ui-patterns.md](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/frontend/ui-patterns.md)
-  Component ownership and current UI patterns.
-- [docs/frontend/style-guide.md](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/frontend/style-guide.md)
-  Defaults for future frontend features, types, UI, hooks, and tests.
-- [docs/frontend/feature-test-matrix.md](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/frontend/feature-test-matrix.md)
+## Ownership
+
+- Put sponsor and adoption material in `docs/business/`.
+- Put canonical scoring formulas and methodology in `docs/scoring/`.
+- Put backend implementation details in `docs/backend/`.
+- Put frontend implementation details in `docs/frontend/`.
+- Do not keep superseded legacy material unless it is actively needed for a
+  migration.

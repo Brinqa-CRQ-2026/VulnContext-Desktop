@@ -1,5 +1,7 @@
 # Frontend State And Hooks
 
+## Summary
+
 Hooks own async loading state and small UI state machines. They should keep fetch behavior predictable and leave rendering to components.
 
 ## Active Hook Areas
@@ -41,3 +43,9 @@ Keep existing hook names and return shapes stable unless all consumers and tests
 ## Removed From Active Surface
 
 Risk-weight hooks are no longer part of the active runtime.
+
+## Related Docs
+
+- [Frontend Architecture](../architecture/README.md)
+- [Frontend API Client](../api/README.md)
+- [UI Patterns](../ui/README.md)

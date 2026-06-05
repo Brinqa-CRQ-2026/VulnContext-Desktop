@@ -1,6 +1,11 @@
 # Frontend Feature And Test Matrix
 
-## Current suite
+## Summary
+
+This page maps the current frontend test suite to the runtime behavior it
+protects.
+
+## Current Suite
 
 - API tests cover the active read-only findings, sources, topology, and shared client modules.
 - Hook tests cover dashboard, findings, topology, and source-summary loading behavior.
@@ -10,7 +15,7 @@
 - Auth bridge tests cover renderer reset behavior and deduping.
 - Unauthorized enrichment recovery is covered through `useAssetEnrichment`.
 
-## Manual verification
+## Manual Verification
 
 - The user manually verified that `Log Out` works as intended.
 - The user manually verified that `Shut Down` works as intended.
@@ -18,7 +23,7 @@
 
 Do not read the manual notes above as automated coverage for native window-close interception unless a dedicated test is added later.
 
-## Explicitly removed from test scope
+## Explicitly Removed From Test Scope
 
 The suite no longer needs direct coverage for:
 
@@ -37,3 +42,8 @@ For frontend code changes, run:
 - `cd frontend && npm run build`
 
 For docs-only changes, validate links and stale path references with `rg` before committing.
+
+## Related Docs
+
+- [Frontend Architecture](../architecture/README.md)
+- [Frontend Runtime](../runtime/README.md)

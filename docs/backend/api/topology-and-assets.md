@@ -32,19 +32,22 @@ These routes power the topology drill-down experience and the asset browsing sur
 
 - returns a list of business units ordered by name
 - includes company data, business-unit description, and aggregate counts for services, assets, and findings
-- includes nullable `risk_score`, `risk_band`, and `risk_trend` placeholders until business-unit scoring is implemented
+- includes persisted `risk_score`, derived `risk_band`, persisted `priority_score`, and `risk_trend = null`
 - returns `503` when the normalized topology tables are missing
 
 ### `GET /topology/business-units/{business_unit_slug}`
 
 - returns one business unit with metadata and child business-service summaries
 - includes per-child metrics for applications, assets, and findings
+- includes business-unit `risk_score`, derived `risk_band`, and `priority_score`
+- child business services include risk, priority, and parsed business criticality when present
 - returns `404` when the slug does not resolve
 
 ### `GET /topology/business-units/{business_unit_slug}/business-services/{business_service_slug}`
 
 - returns one business service with its applications and direct assets
 - direct assets are assets attached to the service without an application
+- includes service risk, priority, parsed criticality, aggregated application risk, aggregated direct asset risk, and scoring timestamp when present
 - returns `404` when the slug pair does not resolve
 
 ### `GET /topology/business-units/{business_unit_slug}/business-services/{business_service_slug}/analytics`
@@ -52,12 +55,13 @@ These routes power the topology drill-down experience and the asset browsing sur
 - returns service-level totals
 - returns asset criticality distribution from persisted asset context scores
 - returns the top asset-type buckets for the service
-- `service_risk_score` and `service_risk_label` are currently unset
+- returns `service_risk_score`, derived `service_risk_label`, `service_priority_score`, and business criticality context when present
 
 ### `GET /topology/business-units/{business_unit_slug}/business-services/{business_service_slug}/applications/{application_slug}`
 
 - returns one application with its child assets
 - includes aggregate finding counts for the application and its assets
+- includes aggregated asset risk, compliance score, application risk score, and scoring timestamp when present
 - returns `404` when the slug trio does not resolve
 
 ## Asset Routes

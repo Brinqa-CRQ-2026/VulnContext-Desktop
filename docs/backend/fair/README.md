@@ -1,5 +1,7 @@
 # FAIR Pipeline Documentation
 
+## Summary
+
 This folder documents the current FAIR-style loss prediction pipeline and how the backend connects it to the React frontend.
 
 The pipeline is used in two UI areas:
@@ -43,3 +45,9 @@ Finding-level FAIR loss:
 - `frontend/src/api/controls.ts`
 - `frontend/src/api/findings.ts`
 - `frontend/src/lib/controlQuestionnaire.ts`
+
+## Related Docs
+
+- [Backend API Reference](../api/README.md)
+- [Backend Architecture Map](../architecture/README.md)
+- [Frontend Docs](../../frontend/README.md)

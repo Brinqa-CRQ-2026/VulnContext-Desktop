@@ -1,5 +1,7 @@
 # Frontend API Client
 
+## Summary
+
 The frontend API layer is read-only. It wraps backend routes and leaves state coordination to hooks.
 
 ## Active Modules
@@ -36,3 +38,9 @@ The frontend no longer exports helpers for:
 - risk-weight editing
 - finding disposition writes
 - source rename/delete
+
+## Related Docs
+
+- [Data Contracts](data-contracts.md)
+- [Frontend Architecture](../architecture/README.md)
+- [Backend API Reference](../../backend/api/README.md)

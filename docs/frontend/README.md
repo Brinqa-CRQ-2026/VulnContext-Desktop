@@ -1,22 +1,32 @@
 # Frontend Docs
 
-These docs describe the current React/Electron frontend and the conventions for future frontend work.
+## Summary
 
-## Guides
+Frontend docs describe the current React/Electron renderer and the conventions
+for future frontend work.
 
-- [Architecture](architecture.md)
-  Folder ownership, type boundaries, import rules, and high-traffic flows.
-- [API Client](api-client.md)
-  Read-only API modules and shared API type ownership.
-- [Data Contracts](data-contracts.md)
-  Backend routes used by the frontend and schema-aligned DTO rules.
-- [State And Hooks](state-and-hooks.md)
-  Hook organization, topology hook domains, and state conventions.
-- [UI Patterns](ui-patterns.md)
-  Component ownership and current UI patterns.
-- [Style Guide](style-guide.md)
-  Defaults for future frontend features, types, UI, hooks, and tests.
-- [Desktop Runtime And Brinqa Auth](desktop-runtime-and-auth.md)
-  Electron-owned Brinqa auth/session lifecycle and runtime shutdown behavior.
-- [Feature Test Matrix](feature-test-matrix.md)
-  Current automated and manual coverage notes.
+## Start Here
+
+- [Architecture](architecture/README.md)
+- [API Client And Data Contracts](api/README.md)
+- [State And Hooks](state/README.md)
+- [UI Patterns](ui/README.md)
+- [Desktop Runtime And Brinqa Auth](runtime/README.md)
+- [Frontend Test Matrix](testing/README.md)
+
+## Documents
+
+| Area | Path | Purpose |
+| --- | --- | --- |
+| Architecture | [architecture/](architecture/README.md) | Folder ownership, type boundaries, import rules, and high-traffic flows |
+| API | [api/](api/README.md) | Read-only API modules and schema-aligned DTO rules |
+| State | [state/](state/README.md) | Hook organization, topology hook domains, and state conventions |
+| UI | [ui/](ui/README.md) | Component ownership, UI patterns, and frontend style guide |
+| Runtime | [runtime/](runtime/README.md) | Electron-owned Brinqa auth/session lifecycle and shutdown behavior |
+| Testing | [testing/](testing/README.md) | Current automated and manual frontend coverage notes |
+
+## Ownership
+
+Put frontend implementation details here. Backend route contracts belong in
+`docs/backend/api/`, and shared frontend/backend expectations belong in
+`docs/frontend/api/`.

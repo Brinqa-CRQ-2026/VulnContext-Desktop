@@ -1,5 +1,7 @@
 # Frontend UI Patterns
 
+## Summary
+
 The UI is an operational desktop interface. It should be dense, readable, and built for repeated vulnerability review workflows.
 
 ## Dashboard Area
@@ -48,3 +50,9 @@ These controls are runtime lifecycle actions, not just navigation.
 ## Removed From Active Surface
 
 The risk-weight editor and CSV empty-state importer are not part of the active component surface.
+
+## Related Docs
+
+- [Frontend Style Guide](style-guide.md)
+- [Frontend Architecture](../architecture/README.md)
+- [Frontend State And Hooks](../state/README.md)

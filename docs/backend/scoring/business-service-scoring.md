@@ -1,12 +1,17 @@
 # CRQ Business Service Scoring V4
 
-Business-service CRQ v4 rolls persisted application and direct-asset CRQ scores into `public.business_services`.
+Business-service CRQ v4 rolls persisted application and direct-asset CRQ scores into `public.business_services`. The same scoring entrypoint also updates business-unit rollups in `public.business_units`.
 
-The scorer keeps three business-service risk signals on a `0-10` scale:
+The scorer keeps business-service risk and priority signals on a `0-10` scale:
 
 - `crq_business_service_aggregated_application_risk`
 - `crq_business_service_aggregated_direct_asset_risk`
 - `crq_business_service_risk_score`
+- `crq_business_service_priority_score`
+
+Business criticality is parsed from `criticality_label` into:
+
+- `business_criticality_score`
 
 Counts are persisted separately as raw counts:
 
@@ -43,3 +48,28 @@ If both exist:
 `crq_business_service_risk_score = (0.80 * crq_business_service_aggregated_application_risk) + (0.20 * crq_business_service_aggregated_direct_asset_risk)`
 
 The result is clamped to `0-10` and rounded to two decimals.
+
+## Business-Service Priority
+
+If `business_criticality_score` is present:
+
+`normalized_business_criticality = (business_criticality_score / 5) * 10`
+
+`crq_business_service_priority_score = (0.70 * crq_business_service_risk_score) + (0.30 * normalized_business_criticality)`
+
+If `business_criticality_score` is missing, priority falls back to `crq_business_service_risk_score`.
+
+## Business-Unit Rollup
+
+The business-service scoring entrypoint also updates affected business units:
+
+`crq_business_unit_risk_score = average(crq_business_service_risk_score)`
+
+`crq_business_unit_priority_score = average(crq_business_service_priority_score)`
+
+The rollup also persists summed counts:
+
+- `crq_business_unit_business_service_count`
+- `crq_business_unit_application_count`
+- `crq_business_unit_asset_count`
+- `crq_business_unit_finding_count`

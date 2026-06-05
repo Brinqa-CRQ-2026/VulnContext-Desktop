@@ -1,6 +1,6 @@
 # Desktop Runtime And Brinqa Auth
 
-## Purpose
+## Summary
 
 The desktop app uses an Electron-owned Brinqa auth shell and a launcher-managed local runtime.
 
@@ -127,3 +127,9 @@ Move this to the backend only if the architecture changes so that:
 - Automated coverage exists for the auth bridge, unauthorized reset flow, and header-triggered logout/shutdown actions.
 - `Log Out` and `Shut Down` were manually verified by the user.
 - Normal window close was later aligned to the same shutdown path as `Shut Down`.
+
+## Related Docs
+
+- [Frontend Architecture](../architecture/README.md)
+- [Frontend API Client](../api/README.md)
+- [Frontend Test Matrix](../testing/README.md)
