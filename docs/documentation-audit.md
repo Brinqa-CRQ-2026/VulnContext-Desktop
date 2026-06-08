@@ -2,14 +2,14 @@
 
 ## Summary
 
-This page records the current documentation split, cleanup rules, and remaining
-documentation or implementation gaps.
+This page records the current documentation split, cleanup rules, completed
+documentation cleanup, and remaining documentation gaps.
 
 ## Current Split
 
 | Area | Path | Purpose |
 | --- | --- | --- |
-| Business | `docs/business/` | Sponsor-facing scoring and adoption narrative |
+| Business | `docs/business/` | Sponsor and Brinqa-facing scoring and adoption narrative |
 | Scoring | `docs/scoring/` | Canonical CRQ formulas, rollups, and scoring methodology |
 | Backend | `docs/backend/` | FastAPI, Supabase, FAIR, workflows, and backend tests |
 | Frontend | `docs/frontend/` | React/Electron architecture, API contracts, state, UI, runtime, and tests |
@@ -21,23 +21,38 @@ documentation or implementation gaps.
 - Removed legacy backend documentation.
 - Split flat frontend docs into focused folders.
 - Added a scoring index under `docs/scoring/`.
-- Updated the scoring docs to document unified remediation priority as the
-  target finding-level ranking methodology.
-- Updated company scoring methodology as a target average of business unit risk
-  and priority, while keeping implementation status explicit.
+- Renamed the canonical scoring reference to
+  `docs/scoring/technical-scoring-reference.md`.
+- Renamed the sponsor scoring narrative to
+  `docs/business/sponsor-scoring-overview.md`.
+- Updated scoring docs to make unified remediation priority the finding-level
+  remediation ranking model.
+- Updated sponsor docs to use Cyber Risk Quantification / CRQ naming and avoid
+  product-name-specific framing.
+- Clarified that asset criticality is the aggregate asset context score backed
+  by `crq_asset_context_score`, calculated from exposure, data sensitivity,
+  environment, and asset type.
+- Removed company scoring and service/unit priority from the sponsor-facing
+  adoption narrative.
 
 ## Remaining Gaps
 
-Unified remediation priority is documented but not fully implemented.
+Scoring documentation is structurally clean.
 
-- No persisted finding-level priority field exists yet.
-- Backend scoring, migrations, API fields, and UI sorting still need follow-up
-  implementation.
+- The technical reference owns formulas, fields, rollups, known limitations,
+  and future improvements.
+- The sponsor overview owns adoption framing, sponsor review questions, and
+  data-quality/weight-tuning guidance.
+- No separate company scoring gap is tracked in the scoring docs.
 
-Company scoring is documented as target methodology but not implemented.
+The remaining scoring documentation hole is sponsor calibration detail.
 
-- No company-level CRQ score fields exist.
-- No company scoring entrypoint exists.
+- The sponsor overview intentionally says sponsors should review asset
+  criticality aggregation, compliance metadata, topology quality, weights, and
+  mappings.
+- If sponsors provide preferred weights or mappings, add those decisions to the
+  technical scoring reference and summarize the business rationale in the
+  sponsor overview.
 
 The FAIR docs are technical and may not be adoption-ready.
 
@@ -47,7 +62,7 @@ The FAIR docs are technical and may not be adoption-ready.
 
 ## Ownership Rules
 
-- Keep sponsor-facing scoring narrative in `docs/business/`.
+- Keep sponsor and Brinqa-facing scoring narrative in `docs/business/`.
 - Keep canonical formula detail and rollup explanation in `docs/scoring/`.
 - Keep code-specific backend implementation references in `docs/backend/`.
 - Keep UI implementation references in `docs/frontend/`.

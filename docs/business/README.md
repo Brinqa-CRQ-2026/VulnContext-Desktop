@@ -1,21 +1,21 @@
-# Business And Sponsor Docs
+# Business, Sponsor, And Brinqa Docs
 
 ## Summary
 
-These docs explain the product ideas and adoption logic without requiring
-readers to understand the application internals.
+These docs explain the product ideas and adoption logic for sponsor and Brinqa
+review without requiring readers to understand the application internals.
 
 ## Start Here
 
-- [Scoring And Prioritization](scoring-and-prioritization.md)
-  Sponsor-facing explanation of how CRQ scoring and priority work, why the model
-  exists, and how risk rolls up through the business hierarchy.
+- [Sponsor Scoring Overview](sponsor-scoring-overview.md)
+  Sponsor and Brinqa-facing overview of how CRQ scoring and priority work, why
+  the model exists, and how risk rolls up through the business hierarchy.
 
 ## Documents
 
 | Document | Purpose |
 | --- | --- |
-| [Scoring And Prioritization](scoring-and-prioritization.md) | Sponsor-facing explanation of CRQ scoring, unified remediation priority, and adoption questions |
+| [Sponsor Scoring Overview](sponsor-scoring-overview.md) | Sponsor and Brinqa-facing explanation of CRQ scoring, unified remediation priority, and adoption questions |
 
 ## Ownership
 
@@ -27,7 +27,7 @@ readers to understand the application internals.
 
 ## Related Docs
 
-- [Canonical CRQ Scoring Reference](../scoring/crq-scoring-and-rollups.md)
+- [Technical Scoring Reference](../scoring/technical-scoring-reference.md)
 - [Documentation Audit](../documentation-audit.md)
 
 ## Out Of Scope

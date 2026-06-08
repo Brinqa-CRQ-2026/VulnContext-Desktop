@@ -1,7 +1,6 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "ignoreDeprecations": "5.0",
     "lib": ["ES2021", "DOM"],
     "module": "ESNext",
     "noEmit": true,
@@ -15,5 +14,6 @@
   "include": [
     "./**/*.ts",
     "./**/*.tsx"
-  ]
+  ],
+  "exclude": []
 }

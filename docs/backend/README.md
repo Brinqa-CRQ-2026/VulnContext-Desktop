@@ -13,7 +13,7 @@ and backend test coverage.
 - [Architecture Map](architecture/README.md)
 - [Detailed Backend Architecture](architecture/backend-architecture.md)
 - [Backend Scoring Overview](scoring/README.md)
-- [Canonical CRQ Scoring Reference](../scoring/crq-scoring-and-rollups.md)
+- [Technical Scoring Reference](../scoring/technical-scoring-reference.md)
 
 ## Documents
 

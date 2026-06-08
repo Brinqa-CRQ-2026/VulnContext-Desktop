@@ -7,15 +7,15 @@ priority model, score scales, and worked examples.
 
 ## Start Here
 
-- [CRQ Scoring And Rollups](crq-scoring-and-rollups.md)
-- [Business Scoring And Prioritization](../business/scoring-and-prioritization.md)
+- [Technical Scoring Reference](technical-scoring-reference.md)
+- [Sponsor Scoring Overview](../business/sponsor-scoring-overview.md)
 - [Backend Scoring Overview](../backend/scoring/README.md)
 
 ## Documents
 
 | Document | Purpose |
 | --- | --- |
-| [CRQ Scoring And Rollups](crq-scoring-and-rollups.md) | Canonical technical reference for CRQ risk, unified remediation priority, rollups, fields, examples, and implementation status |
+| [Technical Scoring Reference](technical-scoring-reference.md) | Canonical technical reference for CRQ risk, unified remediation priority, rollups, fields, examples, and implementation status |
 
 ## Ownership
 

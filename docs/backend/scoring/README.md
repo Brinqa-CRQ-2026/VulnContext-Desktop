@@ -14,7 +14,7 @@ The API surfaces those scores directly when present, and it does not recalculate
 
 For the full business and formula explanation, use the canonical reference:
 
-- [CRQ Scoring And Rollups](../../scoring/crq-scoring-and-rollups.md)
+- [Technical Scoring Reference](../../scoring/technical-scoring-reference.md)
 
 ## Scale Convention
 

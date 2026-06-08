@@ -9,8 +9,8 @@ React/Electron renderer.
 
 ## Start Here
 
-- [Business Scoring And Prioritization](business/scoring-and-prioritization.md)
-- [Canonical CRQ Scoring Reference](scoring/crq-scoring-and-rollups.md)
+- [Sponsor Scoring Overview](business/sponsor-scoring-overview.md)
+- [Technical Scoring Reference](scoring/technical-scoring-reference.md)
 - [Backend Docs](backend/README.md)
 - [Frontend Docs](frontend/README.md)
 
@@ -18,7 +18,7 @@ React/Electron renderer.
 
 | Area | Path | Purpose |
 | --- | --- | --- |
-| Business | [business/](business/README.md) | Sponsor-facing scoring and prioritization narrative |
+| Business | [business/](business/README.md) | Sponsor and Brinqa-facing scoring and prioritization narrative |
 | Scoring | [scoring/](scoring/README.md) | Canonical CRQ formulas, rollups, and scoring methodology |
 | Backend | [backend/](backend/README.md) | FastAPI, Supabase, API, scoring implementation, workflows, and tests |
 | Frontend | [frontend/](frontend/README.md) | React/Electron architecture, API contracts, state, UI, runtime, and tests |

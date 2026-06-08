@@ -94,4 +94,36 @@ The main scripts live under `backend/scripts/`:
 
 ## Documentation
 
-Start with [docs/README.md](/Users/axtopani/Documents/GitHub/VulnContext-Desktop/docs/README.md).
+Start with [docs/README.md](docs/README.md) for the full documentation map.
+
+Important project docs:
+
+- [Sponsor Scoring Overview](docs/business/sponsor-scoring-overview.md)
+  Sponsor and Brinqa-facing CRQ overview, adoption questions, and data/weight
+  review guidance.
+- [Technical Scoring Reference](docs/scoring/technical-scoring-reference.md)
+  Canonical CRQ formulas, score scales, rollups, fields, limitations, future
+  improvements, and worked examples.
+- [Backend Docs](docs/backend/README.md)
+  FastAPI/Supabase implementation, API references, scoring implementation,
+  workflows, and tests.
+- [Frontend Docs](docs/frontend/README.md)
+  React/Electron renderer architecture, API contracts, state, runtime, UI, and
+  tests.
+- [Documentation Audit](docs/documentation-audit.md)
+  Current documentation ownership, completed cleanup, and remaining docs gaps.
+
+Scoring implementation references:
+
+- [Backend Scoring Overview](docs/backend/scoring/README.md)
+- [Finding Risk Scoring](docs/backend/scoring/finding-risk-scoring.md)
+- [Asset Risk Scoring](docs/backend/scoring/asset-risk-scoring.md)
+- [Application Risk Scoring](docs/backend/scoring/application-risk-scoring.md)
+- [Business Service Scoring](docs/backend/scoring/business-service-scoring.md)
+
+Runtime and API references:
+
+- [Backend API Docs](docs/backend/api/README.md)
+- [Topology And Assets API](docs/backend/api/topology-and-assets.md)
+- [Frontend Runtime](docs/frontend/runtime/README.md)
+- [Frontend API Contracts](docs/frontend/api/data-contracts.md)

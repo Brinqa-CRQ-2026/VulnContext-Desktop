@@ -1,9 +1,9 @@
-# CRQ Scoring And Rollups
+# Technical Scoring Reference
 
 This document is the canonical reference for Cyber Risk Quantification
 (CRQ) scoring. It explains what is scored, how each score is calculated, where
-scores are stored, and how risk and priority propagate from individual findings
-up through the business topology.
+scores are stored, how risk rolls up through the business topology, and how
+finding-level priority ranks remediation work.
 
 ## 1. Overview
 
@@ -26,12 +26,8 @@ business context:
   support an application?
 - business service risk answers: how much risk exists in applications and
   direct assets that support a service?
-- business service priority answers: how urgent is that service under the
-  currently implemented service-level priority model?
 - business unit risk answers: what is the portfolio view across services in
   the unit?
-- business unit priority answers: what is the portfolio priority view across
-  services in the unit?
 
 Current topology:
 
@@ -49,30 +45,111 @@ Current implementation status:
 | Level | Status | Main persisted output |
 | --- | --- | --- |
 | Finding | Implemented | `crq_finding_score`, `crq_finding_risk_band` |
-| Finding Priority | Target methodology documented, not fully implemented | No persisted unified finding priority field exists today |
+| Finding Priority | Defined at finding level | `crq_finding_priority_score` |
 | Asset | Implemented | `crq_asset_aggregated_finding_risk`, `crq_asset_context_score`, `crq_asset_risk_score` |
 | Application | Implemented | `crq_application_aggregated_asset_risk`, `crq_application_compliance_score`, `crq_application_risk_score` |
-| Business Service | Implemented | `crq_business_service_risk_score`, `crq_business_service_priority_score` |
-| Business Unit | Implemented as a rollup | `crq_business_unit_risk_score`, `crq_business_unit_priority_score` |
-| Company | Target methodology documented, not implemented | No company-level CRQ score column exists today |
+| Business Service | Implemented | `crq_business_service_risk_score` |
+| Business Unit | Implemented as a rollup | `crq_business_unit_risk_score` |
 
-## 2. Score Scales And Bands
+## 2. Brinqa Data Assumptions
+
+The current CRQ scoring model uses fields that are consistently present or
+derivable from the current Brinqa data shape. These assumptions explain what
+the model trusts today and where richer Brinqa metadata could improve future
+versions.
+
+### Vulnerability Data
+
+The finding scorer trusts CVE identifiers enough to join findings to NVD, EPSS,
+and KEV reference data. NVD CVSS is the primary severity input. EPSS percentile
+and KEV membership are trusted as enrichment signals when available.
+
+Finding age is retained for context, but it is not part of the active v4 finding
+formula. Attack path data, active exploit telemetry, remediation complexity,
+threat actor activity, and compensating controls are not currently represented
+in the implemented finding score.
+
+### Asset Metadata
+
+Asset criticality scoring trusts Brinqa asset metadata for exposure,
+environment, device type, and PCI/PII sensitivity. These values are normalized
+into bounded component scores before they affect asset risk.
+
+The current model assumes asset metadata is complete enough to classify public
+reachability, internal/external placement, environment, and broad device role.
+When values are missing or unknown, scoring uses conservative defaults rather
+than treating unknown assets as fully safe.
+
+The current product-facing asset criticality value is backed by
+`crq_asset_context_score`. In API and UI surfaces, `asset_criticality` refers to
+this scored asset context signal, not to a separate persisted database column.
+
+### Compliance Fields
+
+Current scoring uses PCI and PII because those fields are consistently
+available in current Brinqa data. `compliance_flags` is retained as metadata but
+ignored by active asset scoring v5.
+
+Future versions may expand compliance weighting after additional compliance
+metadata is available, validated, and consistently populated.
+
+### Business Criticality Labels
+
+Business service scoring assumes `criticality_label` is manually assigned,
+maintained, and consistent across services. The scorer only parses labels that
+begin with a number from `0` to `5` followed by `-` or `:`.
+
+If a service has no parseable criticality label, CRQ should not invent business
+criticality. Finding priority should use explicit missing-data behavior for
+that case.
+
+### Topology Relationships
+
+Rollups assume Brinqa topology relationships are accurate enough to connect
+findings to assets, assets to applications or business services, applications
+to business services, and business services to business units.
+
+Topology quality directly affects rollup quality. Missing or stale
+relationships can understate risk concentration at the application, business
+service, or business unit layer.
+
+## 3. Data Mapping And Normalization
+
+The active model maps Brinqa data into CRQ components before formulas are
+applied. Some fields affect scoring directly, while others are retained as
+metadata for future use.
+
+| Brinqa Field | CRQ Component | Usage | Notes |
+| --- | --- | --- | --- |
+| `internal_or_external` | Asset exposure | Active scoring input | `External` maps to full exposure, `Internal` maps to partial exposure, missing values use a conservative default |
+| `public_ip_addresses` | Asset exposure | Active scoring input | Presence of a public IP maps to full exposure |
+| `pci` | Asset data sensitivity, application compliance | Active scoring input | Used with PII to raise sensitivity or compliance context |
+| `pii` | Asset data sensitivity, application compliance | Active scoring input | Used with PCI to raise sensitivity or compliance context |
+| `asset_criticality` | Asset criticality display concept | Backed by `crq_asset_context_score` in asset sorting and criticality distributions | Individual asset responses also expose `asset_context_score` directly |
+| `compliance_flags` | Compliance metadata | Ignored by active asset scoring | Retained for future compliance expansion after field consistency is validated |
+| `environment` | Asset environment | Active scoring input | Normalized into production, test/staging/QA, development, or unknown/default buckets |
+| `device_type` | Asset type | Active scoring input | Normalized into broad infrastructure and endpoint categories |
+| `category` | Asset metadata | Ignored by active asset type scoring | Retained as metadata but does not affect asset type scoring v5 |
+| `criticality_label` | Business criticality | Active business-context input when parseable | Parsed only when the label begins with a `0-5` number followed by `-` or `:` |
+
+## 4. Score Scales And Bands
 
 Product-facing CRQ scores use a `0-10` scale:
 
 - finding scores
-- unified remediation priority scores when implemented
+- unified remediation priority scores
 - aggregated finding risk
 - asset context scores
 - asset risk scores
 - application rollup, compliance, and risk scores
-- business service risk and priority scores
-- business unit risk and priority scores
+- business service risk scores
+- business unit risk scores
 
 Normalized component inputs use a `0-1` scale:
 
 - EPSS score and percentile
 - asset exposure score
+- asset criticality score, backed by `crq_asset_context_score`
 - asset data sensitivity score
 - asset environment score
 - asset type score
@@ -94,7 +171,127 @@ Important storage detail: findings persist `crq_finding_risk_band`. Higher
 layers generally persist numeric scores only; their display bands are derived
 from the numeric score by API or UI helpers.
 
-## 3. Finding Risk Score
+## 5. Unified Remediation Priority
+
+Unified remediation priority is the finding-level score for ranking
+remediation work across the CRQ hierarchy. It is separate from finding risk.
+
+Risk answers:
+
+```text
+How dangerous is this vulnerability?
+```
+
+Priority answers:
+
+```text
+If only one thing can be fixed today, what should it be?
+```
+
+Implementation status: this section documents the approved finding-level
+priority methodology and expected CRQ output field.
+
+### Purpose
+
+Finding risk deliberately excludes asset and business context. That keeps the
+technical vulnerability score explainable, but it does not fully answer how to
+rank all findings across the CRQ hierarchy.
+
+Unified remediation priority combines:
+
+- finding risk from CVSS, EPSS, and KEV
+- asset context from exposure, asset criticality, data sensitivity,
+  environment, and asset type
+- business criticality from the business service supported by the asset
+
+This creates one sorting score for remediation queues, top finding lists, asset
+views, application views, service views, business unit views, and executive
+views.
+
+### Inputs
+
+| Input | Scale | Source | Purpose |
+| --- | --- | --- | --- |
+| Finding risk | `0-10` | `crq_finding_score` | Technical severity and exploitation evidence |
+| Asset context | `0-10` | `crq_asset_context_score` | Exposure, criticality, sensitivity, environment, and asset type |
+| Business criticality | `0-5`, normalized to `0-10` | `business_criticality_score` | Business impact of the service the finding supports |
+
+Business criticality must be normalized before use:
+
+```text
+normalized_business_criticality =
+  (business_criticality_score / 5) * 10
+```
+
+### Formula
+
+```text
+unified_remediation_priority_score =
+  (0.60 * crq_finding_score)
++ (0.20 * crq_asset_context_score)
++ (0.20 * normalized_business_criticality)
+```
+
+The `60/20/20` split keeps technical vulnerability risk as the primary driver
+while allowing asset importance and business impact to change remediation order.
+
+### Example
+
+Inputs:
+
+- finding risk: `9.0`
+- asset context: `8.5`
+- business criticality: `5 / 5`
+
+Normalization:
+
+```text
+normalized_business_criticality = (5 / 5) * 10 = 10
+```
+
+Priority:
+
+```text
+unified_remediation_priority_score =
+  (0.60 * 9.0)
++ (0.20 * 8.5)
++ (0.20 * 10)
+= 9.1
+```
+
+### Current Limitations
+
+Unified remediation priority depends on finding, asset, service, and topology
+context being available in the scoring run. Current views may still display
+finding risk, asset risk, application risk, service risk, or business unit risk
+depending on the layer being shown.
+
+The priority model also depends on reliable topology context. If a finding cannot
+be connected to an asset, service, or parseable business criticality label, the
+priority calculation needs explicit missing-data behavior during implementation.
+
+### Future Improvements
+
+Future scoring versions should keep unified finding priority as the common
+remediation sorting signal across finding, asset, application, service,
+business unit, and executive views.
+
+The model may later incorporate richer inputs from the lower layers, including
+asset criticality, expanded compliance metadata, weighted rollups, attack path
+analysis, exploit telemetry, remediation effort, and compensating controls.
+
+### Output Field
+
+The finding-level priority output should use this field name:
+
+| Field | Meaning |
+| --- | --- |
+| `crq_finding_priority_score` | Unified remediation priority score on a `0-10` scale |
+
+Implementation details such as missing-data behavior, tie-breaking, API response
+fields, and UI sorting should follow this methodology and remain explainable.
+
+## 6. Finding Risk Score
 
 Finding scoring is the first layer. It deliberately stays narrow: it scores the
 vulnerability using severity and exploitation evidence before asset or business
@@ -182,6 +379,25 @@ The scorer persists `crq_finding_risk_band` from the final score:
 | `>= 4.0 and < 7.0` | Medium |
 | `< 4.0` | Low |
 
+### Current Limitations
+
+Finding scoring currently uses CVSS, EPSS, and KEV. It does not include attack
+path awareness, active exploit telemetry, threat actor targeting, remediation
+complexity, or compensating controls.
+
+Finding age is stored for context and retained as a reference field, but age is
+not included in the active v4 final finding score.
+
+### Future Improvements
+
+Future finding scoring may incorporate additional intelligence beyond CVSS,
+EPSS, and KEV, such as attack path analysis, exploit telemetry, threat
+intelligence, exploit maturity, threat actor activity, remediation effort, and
+compensating controls.
+
+These signals should be added only after their source quality and scoring impact
+can be validated.
+
 ### Finding Fields
 
 | Field | Meaning |
@@ -200,110 +416,7 @@ The scorer persists `crq_finding_risk_band` from the final score:
 | `crq_finding_age_bonus` | Reference age bonus, excluded from v4 final scoring |
 | `crq_finding_notes` | Missing-input and fallback notes |
 
-## 4. Unified Remediation Priority
-
-Unified remediation priority is the target finding-level score for ranking
-remediation work across a company. It is separate from finding risk.
-
-Risk answers:
-
-```text
-How dangerous is this vulnerability?
-```
-
-Priority answers:
-
-```text
-If only one thing can be fixed today, what should it be?
-```
-
-Implementation status: this section documents the approved methodology and the
-scoring target for upcoming backend work. The current backend does not yet fully
-persist or calculate a unified finding priority field.
-
-### Purpose
-
-Finding risk deliberately excludes asset and business context. That keeps the
-technical vulnerability score explainable, but it does not fully answer how to
-rank all findings across the company.
-
-Unified remediation priority combines:
-
-- finding risk from CVSS, EPSS, and KEV
-- asset context from exposure, data sensitivity, environment, and asset type
-- business criticality from the business service supported by the asset
-
-This creates one company-wide sorting score for remediation queues, top finding
-lists, asset views, application views, service views, business unit views, and
-company views.
-
-### Inputs
-
-| Input | Scale | Source | Purpose |
-| --- | --- | --- | --- |
-| Finding risk | `0-10` | `crq_finding_score` | Technical severity and exploitation evidence |
-| Asset context | `0-10` | `crq_asset_context_score` | Exposure, sensitivity, environment, and asset type |
-| Business criticality | `0-5`, normalized to `0-10` | `business_criticality_score` | Business impact of the service the finding supports |
-
-Business criticality must be normalized before use:
-
-```text
-normalized_business_criticality =
-  (business_criticality_score / 5) * 10
-```
-
-### Formula
-
-```text
-unified_remediation_priority_score =
-  (0.60 * crq_finding_score)
-+ (0.20 * crq_asset_context_score)
-+ (0.20 * normalized_business_criticality)
-```
-
-The `60/20/20` split keeps technical vulnerability risk as the primary driver
-while allowing asset importance and business impact to change remediation order.
-
-### Example
-
-Inputs:
-
-- finding risk: `9.0`
-- asset context: `8.5`
-- business criticality: `5 / 5`
-
-Normalization:
-
-```text
-normalized_business_criticality = (5 / 5) * 10 = 10
-```
-
-Priority:
-
-```text
-unified_remediation_priority_score =
-  (0.60 * 9.0)
-+ (0.20 * 8.5)
-+ (0.20 * 10)
-= 9.1
-```
-
-### Target Fields
-
-The backend implementation should add a persisted finding-level priority output
-after the required topology context is available.
-
-Recommended field name:
-
-| Field | Meaning |
-| --- | --- |
-| `crq_finding_priority_score` | Unified remediation priority score on a `0-10` scale |
-
-Implementation details such as migrations, missing-data behavior, tie-breaking,
-API response fields, and UI sorting should be defined during the backend scoring
-work. This document establishes the methodology and intent.
-
-## 5. Asset Context And Asset Risk
+## 7. Asset Context And Asset Risk
 
 Asset scoring adds system context to the vulnerability pressure from findings.
 It produces three important outputs:
@@ -415,13 +528,18 @@ aggregate finding risk.
 
 If there are no CRQ-scored findings, aggregated finding risk is `0.0`.
 
-### Asset Context Score
+### Asset Criticality Score
 
-Asset context uses normalized `0-1` component scores and converts them to a
-`0-10` context score.
+Asset criticality is the product-facing name for the current asset context
+score. In code, this is stored as `crq_asset_context_score`. Asset sorting and
+criticality distributions use this score; individual asset responses also expose
+it directly as `asset_context_score`.
+
+The score uses normalized `0-1` component scores and converts them to a `0-10`
+asset criticality/context score.
 
 ```text
-crq_asset_context_score =
+asset criticality score / crq_asset_context_score =
   10 * (
     0.35 * crq_asset_exposure_score
   + 0.30 * crq_asset_data_sensitivity_score
@@ -448,9 +566,9 @@ What each component represents:
 | Environment | Whether the asset supports production, test, staging, or development work | Medium weight because production systems usually carry higher operational consequence |
 | Asset type | The role of the system, such as firewall, router, server, workstation, or printer | Lower but meaningful weight because infrastructure role affects blast radius, but should not overpower exposure and data sensitivity |
 
-These are context factors, not vulnerability factors. They explain how much the
-surrounding environment should preserve or reduce urgency after finding risk has
-already been calculated.
+These are criticality/context factors, not vulnerability factors. They explain
+how much the surrounding asset context should preserve or reduce urgency after
+finding risk has already been calculated.
 
 Exposure score:
 
@@ -498,6 +616,46 @@ Asset type score:
 
 `category` is retained as metadata but does not affect asset type scoring v5.
 
+The current implementation does not require a separate `asset_criticality`
+source column. It computes asset criticality from the fields that are currently
+available and consistently populated in Brinqa data.
+
+Future versions may add a direct business-owner-assigned criticality input. If
+that is added, it should be normalized to the same `0-1` component scale before
+it changes the formula.
+
+Example static mapping:
+
+| Asset or system type | Example criticality |
+| --- | --- |
+| Domain controller | High |
+| Revenue application database | High |
+| Customer portal server | High |
+| Payroll system | High |
+| Internal wiki | Medium |
+| Developer sandbox | Low |
+| Test lab machine | Low |
+
+Example normalized score:
+
+| Criticality | Score |
+| --- | --- |
+| High | `1.0` |
+| Medium | `0.6` |
+| Low | `0.3` |
+| Unknown or missing | `0.5` |
+
+These values are examples for sponsor review of a possible future owner-assigned
+component. A sponsor may choose different component mappings based on industry
+requirements, operating model, asset ownership, revenue impact, customer impact,
+or internal risk appetite.
+
+Important modeling note: asset criticality may not represent risk entirely by
+itself. It represents a signal that the asset may become riskier when
+vulnerabilities are present because the asset is more exposed, sensitive,
+production-relevant, infrastructure-relevant, or important to operations,
+customers, revenue, identity, or service dependencies.
+
 ### Final Asset Risk
 
 The final asset score applies context as a bounded multiplier to vulnerability
@@ -525,6 +683,59 @@ Important behavior:
 - context can reduce or preserve finding pressure
 - final asset risk never exceeds aggregated finding risk
 
+### Current Limitations
+
+The active asset criticality formula is based on exposure, PCI/PII sensitivity,
+environment, and asset type. It does not yet include a separate
+business-owner-assigned criticality field, so a production server and a
+production server supporting a revenue-generating application can receive
+similar asset criticality scores if they share similar component values.
+
+Additional business importance is represented through business service
+criticality, application rollups, and topology relationships.
+
+The exposure model is intentionally simplified. PCI and PII are the only active
+data sensitivity inputs, and `compliance_flags` is currently ignored by asset
+scoring v5.
+
+### Future Improvements
+
+Future versions may add a direct business-owner criticality component to extend
+the existing asset criticality score. Possible future inputs include
+business-owner assigned importance, operational impact, customer impact,
+revenue impact, and dependency importance.
+
+One possible future direction is to rebalance the implemented asset criticality
+formula from the current model:
+
+```text
+Asset Context
+35% Exposure
+30% Data Sensitivity
+20% Environment
+15% Asset Type
+```
+
+to an expanded model that includes a separate owner-assigned business
+criticality component:
+
+```text
+Asset Context
+30% Exposure
+25% Data Sensitivity
+15% Environment
+10% Asset Type
+20% Owner-Assigned Business Criticality
+```
+
+This future weighting is illustrative only. It must not be treated as current
+methodology until implemented, tested, and reflected in the scoring services.
+
+Future versions may also expand compliance weighting after additional
+compliance metadata is available and validated. Potential future signals include
+HIPAA, PHI, SOX, FedRAMP, CJIS, FERPA, GDPR, CCPA, Financial Data, Trade
+Secrets, and Intellectual Property.
+
 ### Asset Fields
 
 | Field | Meaning |
@@ -534,7 +745,7 @@ Important behavior:
 | `crq_asset_data_sensitivity_score` | Normalized sensitivity component |
 | `crq_asset_environment_score` | Normalized environment component |
 | `crq_asset_type_score` | Normalized asset type component |
-| `crq_asset_context_score` | Weighted context score on a `0-10` scale |
+| `crq_asset_context_score` | Weighted asset criticality/context score on a `0-10` scale |
 | `crq_asset_risk_score` | Final asset risk score |
 | `crq_asset_finding_count` | Count of CRQ-scored findings considered by asset scoring |
 | `crq_asset_scored_at` | Timestamp for the last asset scoring run |
@@ -557,7 +768,7 @@ Topology linkage fields:
 - `business_service_id`
 - `application_id`
 
-## 6. Application Scoring
+## 8. Application Scoring
 
 Application scoring rolls up persisted asset risk scores. It does not recompute
 finding or asset scoring.
@@ -666,6 +877,24 @@ Important behavior:
 - compliance does not create risk without asset risk
 - final application risk does not exceed aggregated asset risk
 
+### Current Limitations
+
+Application scoring uses PCI and PII tags only for compliance context. It does
+not currently use broader compliance or business impact metadata.
+
+Application risk quality depends on linkage quality between applications and
+supporting assets. Missing or stale relationships can understate application
+risk.
+
+### Future Improvements
+
+Future application scoring may expand compliance context beyond PCI and PII once
+additional Brinqa metadata is available and validated.
+
+Future versions may also incorporate richer application business context, such
+as application owner, operational impact, customer impact, revenue impact, or
+service dependency importance.
+
 ### Application Fields
 
 | Field | Meaning |
@@ -677,7 +906,7 @@ Important behavior:
 | `crq_application_finding_count` | Count of findings across linked assets |
 | `crq_application_scored_at` | Timestamp for the last application scoring run |
 
-## 7. Business Service Scoring
+## 9. Business Service Scoring
 
 Business service scoring rolls up two lower-level paths:
 
@@ -685,9 +914,9 @@ Business service scoring rolls up two lower-level paths:
 - direct asset risk from assets linked directly to the business service with no
   application
 
-It also calculates the currently implemented service-level priority score by
-combining service risk with business criticality. This is separate from the
-target unified finding-level priority model documented in section 4.
+Business criticality remains important context for remediation decisions, but
+the primary priority model in this reference is the finding-level unified
+remediation priority documented in section 5.
 
 Implementation reference:
 `backend/app/services/scoring/crq_business_service.py`
@@ -717,9 +946,9 @@ between `0` and `5`.
 
 Business criticality represents how important the service is to the business,
 separate from the technical risk currently observed. It is intentionally not
-mixed directly into `crq_business_service_risk_score`; it is used for
-`crq_business_service_priority_score` so the system can explain the difference
-between "how risky is this service?" and "how urgently should we treat it?"
+mixed directly into `crq_business_service_risk_score` so the system can explain
+the difference between "how risky is this service?" and "how important is the
+service that risk affects?"
 
 ### Aggregated Application Risk
 
@@ -820,38 +1049,6 @@ included because some service-supporting systems may not be assigned to an
 application, but they receive less weight to avoid overpowering the application
 view.
 
-### Business Service Priority
-
-Business service priority is the currently implemented service-level priority
-score. It combines technical/business-service risk with business criticality.
-
-```text
-normalized_business_criticality =
-  (business_criticality_score / 5) * 10
-```
-
-```text
-crq_business_service_priority_score =
-  (0.70 * crq_business_service_risk_score)
-+ (0.30 * normalized_business_criticality)
-```
-
-This score answers a service-level priority question: which services should be
-treated first once business importance is considered? The `70/30` split keeps
-technical risk as the main driver while allowing a highly critical service to
-move upward in remediation planning.
-
-Future backend work should align service-level priority rollups with unified
-finding priority so all priority views answer the same question: what should be
-fixed first?
-
-If `business_criticality_score` is null, priority falls back to the risk score:
-
-```text
-crq_business_service_priority_score =
-  crq_business_service_risk_score
-```
-
 ### Business Service Counts
 
 The scorer persists counts that support rollups and UI summaries:
@@ -866,6 +1063,26 @@ business-service relationship and through an application relationship.
 Finding count is based on unique service assets so findings are not double
 counted through multiple paths.
 
+### Current Limitations
+
+Business service criticality assumes labels are manually assigned, maintained,
+and consistent. The current model does not calibrate labels against actual
+revenue impact, customer impact, operational dependency, or service ownership.
+
+The scorer does not infer missing criticality. If `criticality_label` is absent
+or not parseable, the service still receives a risk score, but it does not
+receive additional business-importance context from that label.
+
+### Future Improvements
+
+Future business service scoring may add criticality calibration, criticality
+validation, criticality inheritance from linked applications or assets, and
+automated criticality suggestions.
+
+Future backend work should align service, business unit, and executive views
+around unified finding priority so all remediation views answer the same
+question: what should be fixed first?
+
 ### Business Service Fields
 
 | Field | Meaning |
@@ -874,13 +1091,12 @@ counted through multiple paths.
 | `crq_business_service_aggregated_application_risk` | Weighted rollup of child application risk |
 | `crq_business_service_aggregated_direct_asset_risk` | Weighted rollup of direct asset risk |
 | `crq_business_service_risk_score` | Final business service risk score |
-| `crq_business_service_priority_score` | Risk plus business criticality priority score |
 | `crq_business_service_application_count` | Count of child applications |
 | `crq_business_service_asset_count` | Deduplicated count of service assets |
 | `crq_business_service_finding_count` | Count of findings across unique service assets |
 | `crq_business_service_scored_at` | Timestamp for the last service scoring run |
 
-## 8. Business Unit Rollup
+## 10. Business Unit Rollup
 
 Business unit scoring is implemented as a rollup inside the business-service
 scoring module. The entrypoint scores business services first, then updates
@@ -896,20 +1112,30 @@ crq_business_unit_risk_score =
   average(crq_business_service_risk_score)
 ```
 
-```text
-crq_business_unit_priority_score =
-  average(crq_business_service_priority_score)
-```
-
 Business unit rollups represent a portfolio view across services. The current
 implementation uses a simple average because business services are already the
-business-facing units of risk and priority. This keeps the business unit score
+business-facing units of risk. This keeps the business unit score
 easy to explain: it is the average condition of scored services in that unit,
 not a separate model with hidden weighting.
 
 The database aggregate uses SQL `AVG`, so null business service scores are
 ignored. If a business unit has no scored services, the persisted rollup uses
 `0.0`.
+
+### Current Limitations
+
+Business unit risk uses a simple average of child business service risk scores.
+This is intentionally simple for explainability, but it does not currently
+weight services by size, criticality, asset count, finding count, application
+count, or revenue contribution.
+
+### Future Improvements
+
+Future rollups may consider weighting by service criticality, finding count,
+asset count, application count, or revenue contribution.
+
+Any weighted rollup should preserve the ability to explain why one portfolio
+outranks another.
 
 ### Counts
 
@@ -934,39 +1160,12 @@ crq_business_unit_finding_count =
 | Field | Meaning |
 | --- | --- |
 | `crq_business_unit_risk_score` | Average business service risk |
-| `crq_business_unit_priority_score` | Average business service priority |
 | `crq_business_unit_business_service_count` | Number of services in the unit |
 | `crq_business_unit_application_count` | Sum of application counts from services |
 | `crq_business_unit_asset_count` | Sum of asset counts from services |
 | `crq_business_unit_finding_count` | Sum of finding counts from services |
 
-## 9. Company Scoring
-
-Company entities exist in the topology, and assets and business units can link
-to companies. However, company-level CRQ scoring is not implemented today.
-
-There is currently no persisted company score field such as:
-
-- `crq_company_risk_score`
-- `crq_company_priority_score`
-
-The target company methodology should stay simple and explainable:
-
-```text
-crq_company_risk_score =
-  average(crq_business_unit_risk_score)
-```
-
-```text
-crq_company_priority_score =
-  average(crq_business_unit_priority_score)
-```
-
-This is documented as a target formula only. It is not current persisted
-behavior until the backend includes company score fields and a company scoring
-entrypoint.
-
-## 10. Propagation Model
+## 11. Propagation Model
 
 Risk scoring propagates upward by using already-persisted lower-layer scores:
 
@@ -983,45 +1182,34 @@ Finding risk score
   -> Business unit risk rollup
 ```
 
-The current implemented priority rollup starts at the business service:
-
-```text
-Business service priority score
-  -> Business unit priority rollup
-```
-
-Unified priority is a parallel remediation-ranking signal:
+Unified priority is the remediation-ranking signal:
 
 ```text
 Finding priority
-  -> Asset priority
-  -> Application priority
-  -> Business service priority
-  -> Business unit priority
-  -> Company priority
+  -> Remediation queues
+  -> Asset, application, service, business unit, and executive views
 ```
 
-The finding-level priority calculation is not fully implemented yet. Once it is
-implemented, higher-level priority views should roll up finding priority using
-the same aggregation approach used for risk at each layer unless a later scoring
-version explicitly documents a different method.
+Higher-level views should use finding priority for remediation ranking and risk
+scores for portfolio risk summaries unless a later scoring version explicitly
+documents a different method.
 
 Each layer intentionally adds only the context it owns:
 
 | Layer | Adds |
 | --- | --- |
 | Finding | CVSS, EPSS, KEV, age reference |
-| Asset | Exposure, sensitivity, environment, asset type |
+| Asset | Exposure, asset criticality, sensitivity, environment, asset type |
 | Application | Asset concentration and PCI/PII tag context |
 | Business Service | Application/direct-asset topology and criticality |
 | Business Unit | Portfolio average across services |
-| Company | Target average across business units, not implemented |
+| Company View | Cross-portfolio reporting context |
 
 This keeps the model explainable. A business service score can be decomposed
 back into applications, assets, and findings instead of becoming an opaque
 number.
 
-## 11. Recalculation And Operations
+## 12. Recalculation And Operations
 
 The API surfaces persisted scores. It does not recalculate CRQ scores during
 request handling.
@@ -1064,10 +1252,10 @@ Important operational rule: after EPSS, KEV, NVD, findings, assets, or topology
 data changes, scoring must be rerun in dependency order for upper layers to
 reflect the new inputs.
 
-## 12. Worked Example
+## 13. Worked Example
 
 This example uses rounded values to show propagation. It follows implemented
-risk formulas and includes the target unified remediation priority formula.
+risk formulas and includes the unified remediation priority formula.
 
 ### Finding
 
@@ -1135,6 +1323,9 @@ crq_asset_context_score =
   10 * ((0.35 * 1.0) + (0.30 * 0.8) + (0.20 * 1.0) + (0.15 * 0.8))
   = 9.10
 ```
+
+The calculated `crq_asset_context_score` is the active asset criticality score
+used by asset sorting and criticality distributions.
 
 Final asset risk:
 
@@ -1212,22 +1403,14 @@ crq_finding_priority_score =
 = 9.03
 ```
 
-Priority:
-
-```text
-crq_business_service_priority_score =
-  (0.70 * 6.58) + (0.30 * 10)
-  = 7.61
-```
-
 ### Business Unit
 
 Assume the business unit has two scored services:
 
-| Service | Risk | Priority |
-| --- | ---: | ---: |
-| Service A | `6.58` | `7.61` |
-| Service B | `4.20` | `5.10` |
+| Service | Risk |
+| --- | ---: |
+| Service A | `6.58` |
+| Service B | `4.20` |
 
 Rollup:
 
@@ -1235,19 +1418,9 @@ Rollup:
 crq_business_unit_risk_score =
   (6.58 + 4.20) / 2
   = 5.39
-
-crq_business_unit_priority_score =
-  (7.61 + 5.10) / 2
-  = 6.36
 ```
 
-### Company
-
-No company score is calculated in the current implementation. The target
-company formula would average business unit risk and priority once company
-fields and scoring are implemented.
-
-## 13. FAQ
+## 14. FAQ
 
 ### Why is a high CVSS vulnerability not always the top priority?
 
@@ -1268,19 +1441,12 @@ Context is implemented as a multiplier from `0.7` to `1.0`. This lets context
 reduce urgency for lower-context systems while preventing context from inflating
 the final score above the underlying vulnerability pressure.
 
-### Why does business service priority differ from business service risk?
+### Why add unified remediation priority?
 
-Risk measures technical/topology risk. The currently implemented business
-service priority score adds business criticality. A service with moderate risk
-but very high business criticality can receive a higher priority score than its
-risk score alone.
-
-### Why add unified remediation priority if service priority already exists?
-
-Service priority helps rank services. Unified remediation priority is needed to
-rank individual findings across the whole company. It combines finding risk,
-asset context, and business criticality so a company-level finding queue can
-sort by one remediation urgency score instead of CVSS or service risk alone.
+Risk scores explain where vulnerability pressure exists. Unified remediation
+priority ranks individual findings by combining finding risk, asset context,
+and business criticality so remediation teams can sort by one urgency score
+instead of CVSS or service risk alone.
 
 ### How often are scores recalculated?
 
@@ -1289,14 +1455,7 @@ manual scripts and Make targets. EPSS and KEV enrichment can be refreshed by
 automation, but scoring still needs to be rerun afterward for persisted CRQ
 scores to reflect new enrichment data.
 
-### Why is there no company score?
-
-Company topology exists, but company CRQ scoring is not implemented. The target
-methodology is a simple average of business unit risk and priority. It should
-not be described as current persisted behavior until the backend has company
-score fields and a company scoring entrypoint.
-
-## 14. Source References
+## 15. Source References
 
 Implementation:
 
