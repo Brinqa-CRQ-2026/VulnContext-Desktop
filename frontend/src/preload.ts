@@ -1,22 +1,10 @@
 import { contextBridge, ipcRenderer } from "electron";
+import { DESKTOP_SHUTDOWN_CHANNEL } from "./runtime/desktopBridge";
 
-const BRINQA_RESET_SESSION_CHANNEL = "brinqa-auth:reset-session";
-
-type BrinqaResetRequest = {
-  reason: "logout" | "unauthorized" | "shutdown";
-  reopenLogin?: boolean;
-  includeRemoteLogout?: boolean;
-  quitApp?: boolean;
-};
-
-interface BrinqaDesktopAuthApi {
-  resetSession(request: BrinqaResetRequest): Promise<void>;
-}
-
-const api: BrinqaDesktopAuthApi = {
-  resetSession(request: BrinqaResetRequest) {
-    return ipcRenderer.invoke(BRINQA_RESET_SESSION_CHANNEL, request);
+const api = {
+  shutdown() {
+    return ipcRenderer.invoke(DESKTOP_SHUTDOWN_CHANNEL);
   },
 };
 
-contextBridge.exposeInMainWorld("brinqaDesktopAuth", api);
+contextBridge.exposeInMainWorld("vulnContextDesktop", api);

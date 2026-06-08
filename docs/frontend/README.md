@@ -11,7 +11,7 @@ for future frontend work.
 - [API Client And Data Contracts](api/README.md)
 - [State And Hooks](state/README.md)
 - [UI Patterns](ui/README.md)
-- [Desktop Runtime And Brinqa Auth](runtime/README.md)
+- [Desktop Runtime](runtime/README.md)
 - [Frontend Test Matrix](testing/README.md)
 
 ## Documents
@@ -22,7 +22,7 @@ for future frontend work.
 | API | [api/](api/README.md) | Read-only API modules and schema-aligned DTO rules |
 | State | [state/](state/README.md) | Hook organization, topology hook domains, and state conventions |
 | UI | [ui/](ui/README.md) | Component ownership, UI patterns, and frontend style guide |
-| Runtime | [runtime/](runtime/README.md) | Electron-owned Brinqa auth/session lifecycle and shutdown behavior |
+| Runtime | [runtime/](runtime/README.md) | Electron dashboard lifecycle and shutdown behavior |
 | Testing | [testing/](testing/README.md) | Current automated and manual frontend coverage notes |
 
 ## Ownership

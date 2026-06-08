@@ -37,7 +37,7 @@ Keep existing hook names and return shapes stable unless all consumers and tests
 - Return `loading`, `error`, and data consistently.
 - Reset page state when filters or sort inputs change.
 - Keep hook option object types local until reused.
-- Keep Brinqa session reset behavior in the auth/runtime layer, not in visual components.
+- Keep desktop runtime actions in `frontend/src/runtime`, not in visual components.
 - Do not put JSX or display formatting in hooks.
 
 ## Removed From Active Surface

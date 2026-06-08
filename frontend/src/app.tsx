@@ -12,7 +12,7 @@ import { BusinessServiceDetailPage } from "./components/business-services/Busine
 import { BusinessUnitDetailPage } from "./components/business-services/BusinessUnitDetailPage";
 import { BusinessServicesOverview } from "./components/business-services/BusinessServicesOverview";
 import { PageIntro } from "./components/business-services/shared/PageIntro";
-import { requestBrinqaSessionReset } from "./auth/electronBrinqa";
+import { requestDesktopShutdown } from "./runtime/desktopBridge";
 import { Button } from "./components/ui/button";
 import { cn } from "./lib/utils";
 import type {
@@ -207,7 +207,6 @@ function writeHashRoute(route: AppRoute) {
 function App() {
   const [route, setRoute] = useState<AppRoute>(() => parseHashRoute());
   const [refreshToken, setRefreshToken] = useState(0);
-  const [logoutPending, setLogoutPending] = useState(false);
   const [shutdownPending, setShutdownPending] = useState(false);
 
   useEffect(() => {
@@ -238,30 +237,11 @@ function App() {
     updateRoute(getEmptyRoute(page));
   };
 
-  const handleLogout = async () => {
-    setLogoutPending(true);
-
-    try {
-      await requestBrinqaSessionReset({
-        reason: "logout",
-        reopenLogin: true,
-        includeRemoteLogout: true,
-      });
-    } finally {
-      setLogoutPending(false);
-    }
-  };
-
   const handleShutdown = async () => {
     setShutdownPending(true);
 
     try {
-      await requestBrinqaSessionReset({
-        reason: "shutdown",
-        reopenLogin: false,
-        includeRemoteLogout: true,
-        quitApp: true,
-      });
+      await requestDesktopShutdown();
     } finally {
       setShutdownPending(false);
     }
@@ -456,9 +436,7 @@ function App() {
       <Header
         page={page}
         onNavigate={navigateTo}
-        onLogout={handleLogout}
         onShutdown={handleShutdown}
-        logoutPending={logoutPending}
         shutdownPending={shutdownPending}
       />
       <div className="flex min-h-0 flex-1">

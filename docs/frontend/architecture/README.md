@@ -22,8 +22,8 @@ The frontend is a React/Electron renderer for vulnerability review, source summa
   Security-score assessment page and controls UI.
 - `frontend/src/lib/`
   Shared formatting, sorting, chart, asset, finding, pagination, and topology helpers.
-- `frontend/src/auth/`
-  Renderer auth helpers and Electron reset bridge for Brinqa session lifecycle.
+- `frontend/src/runtime/`
+  Renderer helpers for Electron runtime actions such as desktop shutdown.
 
 ## Type Boundaries
 
@@ -51,7 +51,7 @@ Component props should stay local when used once. Feature-only business-services
 - findings dashboard -> finding detail
 - security score controls -> current assessment read/write
 - sources summary page
-- desktop launcher -> backend -> renderer -> Electron -> logout/shutdown cleanup
+- desktop launcher -> backend -> renderer -> Electron dashboard -> shutdown cleanup
 
 ## Related Docs
 
@@ -60,4 +60,4 @@ Component props should stay local when used once. Feature-only business-services
 - [State And Hooks](../state/README.md)
 - [UI Patterns](../ui/README.md)
 - [Frontend Style Guide](../ui/style-guide.md)
-- [Desktop Runtime And Brinqa Auth](../runtime/README.md)
+- [Desktop Runtime](../runtime/README.md)

@@ -164,27 +164,12 @@ This page maps the current frontend test suite to the runtime behavior it protec
 - Renders the business-services overview by default.
 - Navigates through integrations, topology drill-down, finding detail, and asset finding breadcrumb flows.
 - Increments refresh token when child pages report data changes.
-- Calls the desktop Brinqa session reset bridge for logout and shutdown.
+- Calls the desktop shutdown bridge.
 
 #### Not Covered Here
 
 - Native window-close interception.
 - Backend process shutdown.
-
-## Auth And Runtime Helpers
-
-### frontend/src/tests/auth/electronBrinqa.test.ts and brinqaRemoteLogout.test.ts
-
-#### Cases Covered
-
-- Dedupes unauthorized resets after local auth is cleared.
-- Clears renderer auth after successful logout reset.
-- Calls remote reset/logout with bearer token and session cookie.
-
-#### Not Covered Here
-
-- Real Brinqa authentication behavior.
-- Backend-mediated enrichment or token exchange.
 
 ## Utility Tests
 

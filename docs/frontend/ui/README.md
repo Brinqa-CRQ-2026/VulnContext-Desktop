@@ -41,8 +41,7 @@ It does not expose import, rename, or delete controls because the backend does n
 
 Current behavior:
 
-- `Log Out` clears Brinqa auth/session state and returns to the login flow without shutting down backend or renderer.
-- `Shut Down` performs the same Brinqa cleanup and then exits the desktop runtime.
+- `Shut Down` exits the desktop runtime.
 - normal window close follows the same shutdown path as `Shut Down`.
 
 These controls are runtime lifecycle actions, not just navigation.

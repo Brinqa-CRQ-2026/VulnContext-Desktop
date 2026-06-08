@@ -23,11 +23,9 @@ This is the primary runtime. It starts the local backend, Vite renderer, and Ele
 
 Desktop runtime behavior:
 
-- Electron owns the Brinqa login/logout/reset lifecycle
-- `Log Out` returns the running desktop app to the Brinqa login window
+- Electron opens directly to the dashboard
 - `Shut Down` quits Electron and lets the launcher stop backend and renderer
 - normal window close behaves the same as `Shut Down`
-- next startup prompts for a fresh Brinqa login after shutdown cleanup
 
 If Electron does not open, rerun from the repo root and review the launcher output. The desktop launcher now prefers `8000` and `5173`, but automatically moves to the next free localhost ports when either one is already in use.
 
@@ -58,7 +56,7 @@ npm run dev
 make up
 ```
 
-`make up` starts the backend plus a static web frontend served through nginx. It is not the Electron-owned desktop runtime and does not manage the Brinqa login window lifecycle.
+`make up` starts the backend plus a static web frontend served through nginx. It is not the Electron-owned desktop runtime.
 
 ## Current Developer Commands
 

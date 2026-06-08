@@ -6,18 +6,14 @@ type AppPage = "findings" | "integrations" | "business-services" | "controls";
 interface HeaderProps {
   page: AppPage;
   onNavigate: (page: AppPage) => void;
-  onLogout: () => void;
   onShutdown: () => void;
-  logoutPending?: boolean;
   shutdownPending?: boolean;
 }
 
 export function Header({
   page,
   onNavigate,
-  onLogout,
   onShutdown,
-  logoutPending = false,
   shutdownPending = false,
 }: HeaderProps) {
   const pageLabel =
@@ -66,17 +62,8 @@ export function Header({
           <Button
             variant="outline"
             size="sm"
-            className="border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800 hover:text-white"
-            disabled={logoutPending || shutdownPending}
-            onClick={onLogout}
-          >
-            {logoutPending ? "Logging out..." : "Log Out"}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
             className="border-rose-700 bg-rose-950 text-rose-100 hover:bg-rose-900 hover:text-white"
-            disabled={logoutPending || shutdownPending}
+            disabled={shutdownPending}
             onClick={onShutdown}
           >
             {shutdownPending ? "Shutting down..." : "Shut Down"}
