@@ -84,8 +84,9 @@ def list_findings(
 
 
 def get_finding_detail(db, finding_id: str) -> schemas.FindingDetail:
-    finding = findings_repo.get_finding_by_id(db, finding_id, include_asset=True)
-    if finding is None:
+    row = findings_repo.get_finding_detail_by_id(db, finding_id)
+    if row is None:
         raise HTTPException(status_code=404, detail="Finding not found.")
 
-    return to_finding_detail(finding, detail=None)
+    finding, nvd = row
+    return to_finding_detail(finding, detail=None, nvd=nvd)

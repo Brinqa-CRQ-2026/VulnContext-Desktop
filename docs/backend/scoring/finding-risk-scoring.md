@@ -4,7 +4,7 @@ CRQ v4 is the current manual-run scoring model for `public.findings`.
 
 This version keeps CVSS as the primary driver, turns EPSS into a small bounded downward or upward adjustment, and keeps age as reference-only metadata until the dataset has trustworthy age values.
 
-Schema changes are managed by the tracked Supabase migration in `supabase/migrations/20260423053000_add_crq_fields_to_findings.sql`. The scoring script assumes those columns already exist.
+Schema changes are managed by the tracked Supabase baseline migration in `supabase/migrations/20260609000000_setup_database.sql`. The scoring script assumes those columns already exist.
 
 ## Formula
 

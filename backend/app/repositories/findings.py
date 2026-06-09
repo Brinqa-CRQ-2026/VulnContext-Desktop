@@ -38,3 +38,13 @@ def findings_count_query(db: Session):
 def get_finding_by_id(db: Session, finding_id: str, *, include_asset: bool = False):
     query = findings_query(db, include_asset=include_asset)
     return query.filter(models.Finding.finding_id == finding_id).first()
+
+
+def get_finding_detail_by_id(db: Session, finding_id: str):
+    return (
+        db.query(models.Finding, models.NvdRecord)
+        .options(joinedload(models.Finding.asset))
+        .outerjoin(models.NvdRecord, models.NvdRecord.cve == models.Finding.cve_id)
+        .filter(models.Finding.finding_id == finding_id)
+        .first()
+    )

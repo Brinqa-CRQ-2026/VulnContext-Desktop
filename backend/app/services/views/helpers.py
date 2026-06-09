@@ -195,10 +195,14 @@ def to_finding_detail(
     finding: models.Finding,
     *,
     detail=None,
+    nvd: models.NvdRecord | None = None,
 ) -> schemas.FindingDetail:
     summary = to_finding_summary(finding)
     asset = finding.asset
     payload = (detail.payload or {}) if detail else {}
+    nvd_description = nvd.description if nvd and nvd.description else None
+    nvd_cvss_score = nvd.cvss_score if nvd and nvd.cvss_score is not None else None
+    nvd_cvss_severity = nvd.cvss_severity if nvd and nvd.cvss_severity else None
     return schemas.FindingDetail(
         **summary.model_dump(
             exclude={
@@ -216,9 +220,13 @@ def to_finding_detail(
         source_status=payload.get("source_status"),
         severity=payload.get("severity"),
         due_date=parse_datetime(payload.get("due_date")),
-        cvss_score=finding.crq_finding_cvss_score,
+        cvss_score=(
+            finding.crq_finding_cvss_score
+            if finding.crq_finding_cvss_score is not None
+            else nvd_cvss_score
+        ),
         cvss_version=payload.get("cvss_version"),
-        cvss_severity=summary.cvss_severity,
+        cvss_severity=summary.cvss_severity or nvd_cvss_severity,
         cvss_vector=payload.get("cvss_vector"),
         attack_vector=payload.get("attack_vector"),
         attack_complexity=payload.get("attack_complexity"),
@@ -242,7 +250,7 @@ def to_finding_detail(
         kev_short_description=payload.get("kev_short_description"),
         kev_required_action=payload.get("kev_required_action"),
         kev_ransomware_use=payload.get("kev_ransomware_use"),
-        cve_description=payload.get("cve_description"),
+        cve_description=nvd_description or payload.get("cve_description"),
         attack_pattern_names=payload.get("attack_pattern_names"),
         attack_technique_names=payload.get("attack_technique_names"),
         attack_tactic_names=payload.get("attack_tactic_names"),

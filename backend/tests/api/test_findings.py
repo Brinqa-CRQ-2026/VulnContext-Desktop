@@ -1,3 +1,4 @@
+from app import models
 from helpers.findings import seed_asset_and_finding
 
 
@@ -84,3 +85,24 @@ def test_findings_detail_returns_thin_persisted_data_only(client, db_session):
     assert payload["summary"] is None
     assert payload["description"] is None
     assert payload["detail_source"] is None
+
+
+def test_findings_detail_returns_nvd_description_for_cve(client, db_session):
+    _, finding = seed_asset_and_finding(db_session, idx=6, risk=7.2)
+    db_session.add(
+        models.NvdRecord(
+            cve=finding.cve_id,
+            cvss_score=8.1,
+            cvss_severity="High",
+            description="NVD remediation context for this CVE.",
+        )
+    )
+    db_session.commit()
+
+    response = client.get(f"/findings/{finding.finding_id}")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["cveDescription"] == "NVD remediation context for this CVE."
+    assert payload["cvss_score"] == 8.1
+    assert payload["cvss_severity"] == "High"

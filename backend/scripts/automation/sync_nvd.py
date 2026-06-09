@@ -26,6 +26,24 @@ PAGE_SIZE = 2000
 BATCH_SIZE = 500
 DELAY = 2
 SUPABASE_SELECT_PAGE_SIZE = 1000
+REFERENCE_GROUPS = (
+    "Vendor Advisory",
+    "Patch / Release Notes",
+    "Technical Analysis",
+    "Exploit / PoC",
+    "NVD / CVE Record",
+    "Other",
+)
+SCORES_ONLY_FIELDS = {
+    "cve",
+    "cvss_score",
+    "cvss_severity",
+    "cvss_version",
+    "cvss_vector",
+    "cvss_exploitability_score",
+    "cvss_impact_score",
+    "_metric_source",
+}
 
 
 def log(message):
@@ -103,47 +121,201 @@ def safe_request(params):
             time.sleep(10)
 
 
+def english_value(items):
+    for item in items or []:
+        if item.get("lang") == "en" and item.get("value"):
+            return item.get("value")
+    for item in items or []:
+        if item.get("value"):
+            return item.get("value")
+    return None
+
+
+def selected_metric(metrics):
+    metric_order = (
+        ("cvssMetricV31", "3.1"),
+        ("cvssMetricV30", "3.0"),
+        ("cvssMetricV40", "4.0"),
+        ("cvssMetricV2", "2.0"),
+    )
+    for metric_key, version in metric_order:
+        metric_entries = metrics.get(metric_key) or []
+        if metric_entries:
+            metric = metric_entries[0] or {}
+            return metric_key, version, metric, metric.get("cvssData") or {}
+    return None, None, {}, {}
+
+
+def cvss_display_fields(cvss_data):
+    return {
+        "attack_vector": cvss_data.get("attackVector"),
+        "attack_complexity": cvss_data.get("attackComplexity"),
+        "privileges_required": cvss_data.get("privilegesRequired"),
+        "user_interaction": cvss_data.get("userInteraction"),
+        "scope": cvss_data.get("scope"),
+        "confidentiality_impact": (
+            cvss_data.get("confidentialityImpact")
+            or cvss_data.get("vulnConfidentialityImpact")
+        ),
+        "integrity_impact": (
+            cvss_data.get("integrityImpact")
+            or cvss_data.get("vulnIntegrityImpact")
+        ),
+        "availability_impact": (
+            cvss_data.get("availabilityImpact")
+            or cvss_data.get("vulnAvailabilityImpact")
+        ),
+    }
+
+
+def parse_weaknesses(cve_data):
+    parsed = []
+    for weakness in cve_data.get("weaknesses") or []:
+        value = english_value(weakness.get("description") or [])
+        if not value:
+            continue
+        cwe_match = re.search(r"\bCWE-\d+\b", value)
+        parsed.append(
+            {
+                "cwe_id": cwe_match.group(0) if cwe_match else None,
+                "description": value,
+                "source": weakness.get("source"),
+                "type": weakness.get("type"),
+                "primary": False,
+            }
+        )
+    if parsed:
+        parsed[0]["primary"] = True
+    return parsed
+
+
+def normalize_cpe_part(value):
+    if value in (None, "", "*", "-"):
+        return None
+    return value.replace("\\:", ":").replace("\\/", "/")
+
+
+def parse_cpe_criteria(criteria):
+    if not criteria:
+        return {}
+    parts = criteria.split(":")
+    if len(parts) < 6 or parts[0] != "cpe" or parts[1] != "2.3":
+        return {}
+    return {
+        "vendor": normalize_cpe_part(parts[3]),
+        "product": normalize_cpe_part(parts[4]),
+        "version": normalize_cpe_part(parts[5]),
+    }
+
+
+def iter_cpe_matches(nodes):
+    for node in nodes or []:
+        for match in node.get("cpeMatch") or []:
+            yield match
+        yield from iter_cpe_matches(node.get("nodes") or [])
+
+
+def parse_affected_products(cve_data):
+    products = []
+    for config in cve_data.get("configurations") or []:
+        for match in iter_cpe_matches(config.get("nodes") or []):
+            if match.get("vulnerable") is not True:
+                continue
+            criteria = match.get("criteria")
+            product = {
+                "criteria": criteria,
+                **parse_cpe_criteria(criteria),
+                "version_start_including": match.get("versionStartIncluding"),
+                "version_start_excluding": match.get("versionStartExcluding"),
+                "version_end_including": match.get("versionEndIncluding"),
+                "version_end_excluding": match.get("versionEndExcluding"),
+            }
+            products.append(product)
+    return products
+
+
+def reference_group(reference):
+    url = (reference.get("url") or "").lower()
+    source = (reference.get("source") or "").lower()
+    tags = [str(tag).lower() for tag in reference.get("tags") or []]
+    haystack = " ".join([url, source, *tags])
+
+    if any(token in haystack for token in ("exploit", "proof-of-concept", "poc", "packetstorm", "metasploit")):
+        return "Exploit / PoC"
+    if any(token in haystack for token in ("patch", "release notes", "release-note", "mitigation", "update", "fix")):
+        return "Patch / Release Notes"
+    if any(token in haystack for token in ("technical description", "technical", "analysis", "article", "third party advisory")):
+        return "Technical Analysis"
+    if any(token in haystack for token in ("vendor advisory", "vendor")):
+        return "Vendor Advisory"
+    if any(token in haystack for token in ("nvd.nist.gov", "cve.org", "mitre.org", "cve record")):
+        return "NVD / CVE Record"
+    return "Other"
+
+
+def parse_references(cve_data):
+    references = []
+    grouped = {group: [] for group in REFERENCE_GROUPS}
+    for reference in cve_data.get("references") or []:
+        url = reference.get("url")
+        if not url:
+            continue
+        parsed = {
+            "url": url,
+            "source": reference.get("source"),
+            "tags": reference.get("tags") or [],
+            "group": reference_group(reference),
+        }
+        references.append(parsed)
+        grouped[parsed["group"]].append(parsed)
+    return references, {group: refs for group, refs in grouped.items() if refs}
+
+
+def upload_record(record, *, scores_only):
+    if not scores_only:
+        return {key: value for key, value in record.items() if not key.startswith("_")}
+    return {
+        key: value
+        for key, value in record.items()
+        if key in SCORES_ONLY_FIELDS and not key.startswith("_")
+    }
+
+
 def parse_nvd_record(v):
     cve_data = v.get("cve", {})
     cve_id = cve_data.get("id")
 
-    descriptions = cve_data.get("descriptions") or []
-    desc = None
-
-    for d in descriptions:
-        if d.get("lang") == "en" and d.get("value"):
-            desc = d.get("value")
-            break
-
-    if desc is None and descriptions:
-        desc = descriptions[0].get("value")
+    desc = english_value(cve_data.get("descriptions") or [])
 
     metrics = cve_data.get("metrics", {})
-    score = None
-    severity = None
-    metric_source = None
-
-    if metrics.get("cvssMetricV31"):
-        cvss = metrics["cvssMetricV31"][0]["cvssData"]
-        score = cvss.get("baseScore")
-        severity = cvss.get("baseSeverity")
-        metric_source = "cvssMetricV31"
-    elif metrics.get("cvssMetricV30"):
-        cvss = metrics["cvssMetricV30"][0]["cvssData"]
-        score = cvss.get("baseScore")
-        severity = cvss.get("baseSeverity")
-        metric_source = "cvssMetricV30"
-    elif metrics.get("cvssMetricV2"):
-        cvss = metrics["cvssMetricV2"][0]["cvssData"]
-        score = cvss.get("baseScore")
-        severity = metrics["cvssMetricV2"][0].get("baseSeverity")
-        metric_source = "cvssMetricV2"
+    metric_source, cvss_version, metric, cvss = selected_metric(metrics)
+    weaknesses = parse_weaknesses(cve_data)
+    primary_weakness = weaknesses[0] if weaknesses else {}
+    references, reference_groups = parse_references(cve_data)
 
     return {
         "cve": cve_id,
-        "cvss_score": score,
-        "cvss_severity": severity,
+        "vuln_status": cve_data.get("vulnStatus"),
+        "published": cve_data.get("published"),
+        "last_modified": cve_data.get("lastModified"),
         "description": desc,
+        "cvss_score": cvss.get("baseScore"),
+        "cvss_severity": cvss.get("baseSeverity") or metric.get("baseSeverity"),
+        "cvss_version": cvss_version,
+        "cvss_vector": cvss.get("vectorString"),
+        "cvss_exploitability_score": metric.get("exploitabilityScore"),
+        "cvss_impact_score": metric.get("impactScore"),
+        **cvss_display_fields(cvss),
+        "primary_cwe_id": primary_weakness.get("cwe_id"),
+        "primary_cwe_description": primary_weakness.get("description"),
+        "weaknesses": weaknesses,
+        "affected_products": parse_affected_products(cve_data),
+        "references": references,
+        "reference_groups": reference_groups,
+        "cisa_exploit_add": cve_data.get("cisaExploitAdd"),
+        "cisa_action_due": cve_data.get("cisaActionDue"),
+        "cisa_required_action": cve_data.get("cisaRequiredAction"),
+        "cisa_vulnerability_name": cve_data.get("cisaVulnerabilityName"),
         "_metric_source": metric_source,
     }
 
@@ -171,7 +343,11 @@ def smoke_test():
     log(
         "NVD smoke test parsed "
         f"cve={record['cve']} metric={record['_metric_source']} "
-        f"score={record['cvss_score']} severity={record['cvss_severity']}."
+        f"version={record['cvss_version']} score={record['cvss_score']} "
+        f"severity={record['cvss_severity']} weaknesses={len(record['weaknesses'])} "
+        f"affected_products={len(record['affected_products'])} "
+        f"references={len(record['references'])} "
+        f"has_cisa={bool(record['cisa_required_action'] or record['cisa_exploit_add'])}."
     )
     if record["cvss_score"] is None:
         raise RuntimeError("NVD smoke test parsed a null CVSS score.")
@@ -259,10 +435,7 @@ def process_findings_only(*, scores_only=False, batch_size=BATCH_SIZE):
             record = parse_nvd_record(item)
             if record["cve"] not in wanted:
                 continue
-            record.pop("_metric_source", None)
-            if scores_only:
-                record.pop("description", None)
-            records.append(record)
+            records.append(upload_record(record, scores_only=scores_only))
 
         matched = len(records)
         with_cvss = sum(1 for record in records if record["cvss_score"] is not None)
@@ -320,14 +493,11 @@ def process_and_upload(*, max_pages=None, scores_only=False, batch_size=BATCH_SI
         for v in vulns:
             try:
                 record = parse_nvd_record(v)
-                metric_source = record.pop("_metric_source")
                 if not record["cve"]:
                     continue
                 if record["cvss_score"] is not None:
                     total_with_cvss += 1
-                if scores_only:
-                    record.pop("description", None)
-                batch.append(record)
+                batch.append(upload_record(record, scores_only=scores_only))
 
             except Exception:
                 continue
