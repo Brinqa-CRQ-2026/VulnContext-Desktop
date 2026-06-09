@@ -30,6 +30,7 @@ class FindingSummary(BaseModel):
     epss_percentile: float | None = None
     is_kev: bool = Field(default=False, serialization_alias="isKev")
     risk_score: float | None = None
+    priority_score: float | None = None
     risk_band: str | None = None
     source_risk_score: float | None = None
     source_risk_band: str | None = None

@@ -123,6 +123,7 @@ create table if not exists public.findings (
   date_created timestamp,
   last_updated timestamp,
   crq_finding_score double precision,
+  crq_finding_priority_score double precision,
   crq_finding_risk_band text,
   crq_finding_scored_at timestamptz,
   crq_finding_score_version text,
@@ -230,6 +231,7 @@ create index if not exists ix_findings_cve_id on public.findings (cve_id);
 create index if not exists ix_findings_brinqa_risk_score on public.findings (brinqa_risk_score desc);
 create index if not exists ix_findings_age_in_days on public.findings (age_in_days desc);
 create index if not exists ix_findings_crq_finding_score on public.findings (crq_finding_score desc);
+create index if not exists ix_findings_crq_finding_priority_score on public.findings (crq_finding_priority_score desc);
 create index if not exists ix_findings_crq_finding_risk_band on public.findings (crq_finding_risk_band);
 create index if not exists findings_asset_id_id_desc_idx on public.findings (asset_id, id desc);
 create index if not exists findings_asset_id_age_desc_idx on public.findings (asset_id, age_in_days desc);

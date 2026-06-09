@@ -19,7 +19,6 @@ import { predictBusinessServiceFairLoss } from "../../api/topology";
 import { AssetInventoryPanel } from "./AssetInventoryPanel";
 import {
   formatSlugLabel,
-  TopologyPageSkeleton,
 } from "./TopologyChrome";
 import {
   Empty,
@@ -43,6 +42,7 @@ import { ApplicationEntityCard } from "./shared/EntityCard";
 import { EntityHero } from "./shared/EntityHero";
 import { MetricCard, MetricGrid } from "./shared/MetricCard";
 import { FairScopeLossPanel } from "../fair/FairScopeLossPanel";
+import { LoadingSpinnerState } from "../shared/LoadingSpinnerState";
 
 interface BusinessServiceDetailPageProps {
   businessUnitSlug: string | null;
@@ -87,20 +87,9 @@ export function BusinessServiceDetailPage({
 
   if (loading) {
     return (
-      <TopologyPageSkeleton
-        breadcrumbs={[
-          { label: "Business Units", onClick: onOpenOverview },
-          {
-            label: formatSlugLabel(businessUnitSlug, "Business Unit"),
-            onClick: onOpenBusinessUnit,
-          },
-          { label: formatSlugLabel(businessServiceSlug, "Business Service") },
-        ]}
-        title="Loading business service"
-        backLabel="Back to Business Unit"
-        statCount={3}
-        tableColumns={6}
-      />
+      <div className="space-y-6">
+        <LoadingSpinnerState message="Loading business service" />
+      </div>
     );
   }
 

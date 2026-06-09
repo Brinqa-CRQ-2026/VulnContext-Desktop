@@ -8,10 +8,7 @@ import type {
 } from "../../../types";
 import { formatNumber as formatDisplayNumber } from "../../../lib/formatting/numbers";
 import { getNormalizedFindingTitle } from "../../../lib/findings";
-import {
-  findingStatusTone,
-  normalizeFindingStatus,
-} from "../../../lib/findings/findingStatus";
+import { normalizeFindingStatus } from "../../../lib/findings/findingStatus";
 import { Button } from "../../ui/button";
 import { Card, CardContent } from "../../ui/card";
 import {
@@ -203,29 +200,33 @@ export function FindingsExplorerPanel({
           </Empty>
         ) : (
           <div className="min-h-0 flex-1 overflow-auto">
-            <Table className="table-fixed min-w-[1024px]">
+            <Table className="table-fixed min-w-[980px]">
               <colgroup>
                 <col className="w-[104px]" />
                 <col className="w-[72px]" />
                 <col />
-                <col className="w-[150px]" />
-                <col className="w-[150px]" />
                 <col className="w-[170px]" />
-                <col className="w-[200px]" />
-                <col className="w-[128px]" />
+                <col className="w-[150px]" />
+                <col className="w-[150px]" />
+                <col className="w-[120px]" />
               </colgroup>
               <TableHeader>
                 <TableRow>
                   <TableHead className="whitespace-nowrap px-4 text-[11px] uppercase tracking-[0.16em] text-slate-500">Status</TableHead>
                   <TableHead className="px-4 text-center text-[11px] uppercase tracking-[0.16em] text-slate-500">KEV</TableHead>
                   <TableHead className="px-4 text-[11px] uppercase tracking-[0.16em] text-slate-500">Finding</TableHead>
-                  <TableHead className="whitespace-nowrap px-4 text-left text-[11px] uppercase tracking-[0.16em] text-slate-500">CVSS</TableHead>
-                  <TableHead className="whitespace-nowrap px-4 text-left text-[11px] uppercase tracking-[0.16em] text-slate-500">EPSS</TableHead>
-                  <TableHead className="whitespace-nowrap px-4 text-left text-[11px] uppercase tracking-[0.16em] text-slate-500">Age</TableHead>
                   <TableHead className="whitespace-nowrap border-l border-slate-200 px-4 text-right text-[11px] uppercase tracking-[0.16em] text-slate-500">
-                    Display risk
+                    Score
                   </TableHead>
-                  <TableHead className="whitespace-nowrap px-4 text-right text-[11px] uppercase tracking-[0.16em] text-slate-500">Risk band</TableHead>
+                  <TableHead className="whitespace-nowrap px-4 text-right text-[11px] uppercase tracking-[0.16em] text-slate-500">
+                    CVSS
+                  </TableHead>
+                  <TableHead className="whitespace-nowrap px-4 text-right text-[11px] uppercase tracking-[0.16em] text-slate-500">
+                    EPSS
+                  </TableHead>
+                  <TableHead className="whitespace-nowrap px-4 text-right text-[11px] uppercase tracking-[0.16em] text-slate-500">
+                    Age
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -238,41 +239,38 @@ export function FindingsExplorerPanel({
                       onClick={() => onOpenFinding(finding)}
                     >
                       <TableCell className="px-4 py-4">
-                        <StatusBadge tone={findingStatusTone(normalizedStatus)}>{normalizedStatus}</StatusBadge>
+                        <StatusBadge tone={normalizedStatus === "Fixed" ? "fixed" : "active"}>
+                          {normalizedStatus}
+                        </StatusBadge>
                       </TableCell>
                       <TableCell className="px-4 py-4 text-center">
                         {finding.isKev ? <StatusBadge tone="dark">KEV</StatusBadge> : "-"}
                       </TableCell>
                       <TableCell className="px-4 py-4">
-                        <div className="space-y-1">
-                          <div className="font-medium text-slate-900">
-                            {getNormalizedFindingTitle(finding)}
-                          </div>
-                          <div className="flex flex-wrap items-center gap-1 text-xs text-slate-500">
-                            {finding.cve_id ? <span>{finding.cve_id}</span> : null}
-                            {showSourceFilter && finding.source ? (
-                              <>
-                                {finding.cve_id ? <Dot /> : null}
-                                <span>{finding.source}</span>
-                              </>
-                            ) : null}
-                          </div>
+                        <div className="font-medium text-slate-900">
+                          {finding.cve_id ?? getNormalizedFindingTitle(finding)}
                         </div>
                       </TableCell>
-                      <TableCell className="whitespace-nowrap px-4 py-4 text-left">{formatNumber(finding.cvss_score)}</TableCell>
-                      <TableCell className="whitespace-nowrap px-4 py-4 text-left">{formatNumber(finding.epss_score, 4)}</TableCell>
-                      <TableCell className="whitespace-nowrap px-4 py-4 text-left">
+                      <TableCell className="whitespace-nowrap border-l border-slate-200 px-4 py-4 text-right font-semibold text-slate-900">
+                        <div className="flex items-center justify-end gap-2">
+                          <span>{formatNumber(finding.risk_score)}</span>
+                          {finding.risk_band ? (
+                            <StatusBadge tone={finding.risk_band}>{finding.risk_band}</StatusBadge>
+                          ) : (
+                            <span className="text-slate-500">-</span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap px-4 py-4 text-right">
+                        {formatNumber(finding.cvss_score)}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap px-4 py-4 text-right">
+                        {formatNumber(finding.epss_score, 4)}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap px-4 py-4 text-right">
                         {finding.age_in_days !== null && finding.age_in_days !== undefined
                           ? `${formatNumber(finding.age_in_days, 0)}d`
                           : "-"}
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap border-l border-slate-200 px-4 py-4 text-right font-semibold text-slate-900">
-                        {formatNumber(finding.risk_score)}
-                      </TableCell>
-                      <TableCell className="px-4 py-4 text-right">
-                        <div className="flex justify-end">
-                          {finding.risk_band ? <StatusBadge tone={finding.risk_band}>{finding.risk_band}</StatusBadge> : "-"}
-                        </div>
                       </TableCell>
                     </TableRow>
                   );
@@ -325,8 +323,4 @@ export function FindingsExplorerPanel({
       </CardContent>
     </Card>
   );
-}
-
-function Dot() {
-  return <span className="text-slate-300">/</span>;
 }

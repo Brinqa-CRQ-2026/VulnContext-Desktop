@@ -207,6 +207,7 @@ class Finding(Base):
     date_created = Column(DateTime, nullable=True)
     last_updated = Column(DateTime, nullable=True)
     crq_finding_score = Column(Float, nullable=True, index=True)
+    crq_finding_priority_score = Column(Float, nullable=True, index=True)
     crq_finding_risk_band = Column(String, nullable=True, index=True)
     crq_finding_scored_at = Column(DateTime(timezone=True), nullable=True)
     crq_finding_score_version = Column(String, nullable=True)

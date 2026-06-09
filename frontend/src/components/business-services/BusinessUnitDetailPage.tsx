@@ -30,7 +30,6 @@ import {
 import { AssetDistributionChartCard } from "./AssetDistributionCharts";
 import {
   formatSlugLabel,
-  TopologyPageSkeleton,
 } from "./TopologyChrome";
 import {
   type BusinessUnitRiskBand,
@@ -42,6 +41,7 @@ import { EntityHero } from "./shared/EntityHero";
 import { MetricCard, MetricGrid } from "./shared/MetricCard";
 import { SummaryFindingsTable } from "./shared/SummaryTable";
 import { RiskBadge } from "./shared/TopologyBadges";
+import { LoadingSpinnerState } from "../shared/LoadingSpinnerState";
 
 interface BusinessUnitDetailPageProps {
   businessUnitSlug: string | null;
@@ -88,16 +88,9 @@ export function BusinessUnitDetailPage({
   });
   if (loading) {
     return (
-      <TopologyPageSkeleton
-        breadcrumbs={[
-          { label: "Business Units", onClick: onOpenOverview },
-          { label: formatSlugLabel(businessUnitSlug, "Business Unit") },
-        ]}
-        title="Loading business unit"
-        backLabel="Back to Business Units"
-        statCount={4}
-        tableColumns={3}
-      />
+      <div className="space-y-6">
+        <LoadingSpinnerState message="Loading business unit" />
+      </div>
     );
   }
 

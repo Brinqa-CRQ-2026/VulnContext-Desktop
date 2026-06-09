@@ -8,7 +8,7 @@ import {
   TableRow,
 } from "../ui/table";
 import type { RiskBandFilter, ScoredFinding } from "../../types";
-import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Card, CardContent, CardHeader } from "../ui/card";
 import { Button } from "../ui/button";
 import { useFindingsExplorerState } from "../../hooks/findings/useFindingsExplorerState";
 import { formatNumber as formatDisplayNumber } from "../../lib/formatting/numbers";
@@ -30,6 +30,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
+import { LoadingSpinnerState } from "../shared/LoadingSpinnerState";
+import { normalizeFindingStatus } from "../../lib/findings/findingStatus";
+import { StatusBadge } from "../business-services/shared/TopologyBadges";
 
 interface RiskTableProps {
   refreshToken: number;
@@ -69,19 +72,10 @@ export function RiskTable({
     sortLabel,
   } = useFindingsExplorerState(refreshToken);
 
-  const tagPillClass = (tone: "neutral" | "warn" | "success") => {
-    if (tone === "warn") return "border-amber-200 bg-amber-50 text-amber-700";
-    if (tone === "success") return "border-emerald-200 bg-emerald-50 text-emerald-700";
-    return "border-slate-200 bg-slate-50 text-slate-700";
-  };
   return (
     <Card className="flex-1 overflow-hidden">
       <CardHeader>
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <CardTitle className="text-sm font-semibold">
-            Findings prioritized by Risk Score
-          </CardTitle>
-
           <div className="flex flex-wrap items-center gap-2 md:justify-end">
             <DropdownMenu>
               <DropdownMenuTrigger className="inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50">
@@ -203,6 +197,9 @@ export function RiskTable({
 
       <CardContent className="flex flex-col gap-3 overflow-auto">
         <div className="min-h-0 flex-1">
+          {loading ? (
+            <LoadingSpinnerState message="Loading findings" className="min-h-[16rem]" />
+          ) : null}
           {!loading && !error && bandFilter === "All" && total === 0 ? (
             <div className="flex h-full min-h-[16rem] flex-col items-center justify-center gap-3 rounded-md border border-dashed border-slate-300 bg-slate-50/70 p-6 text-center">
               <p className="text-sm text-slate-600">
@@ -212,17 +209,31 @@ export function RiskTable({
               <Button onClick={onOpenIntegrations}>View Sources</Button>
             </div>
           ) : (
-            <Table>
+            <Table className="table-fixed min-w-[1360px]">
+              <colgroup>
+                <col className="w-[84px]" />
+                <col className="w-[132px]" />
+                <col />
+                <col className="w-[210px]" />
+                <col className="w-[200px]" />
+                <col className="w-[150px]" />
+                <col className="w-[150px]" />
+                <col className="w-[150px]" />
+                <col className="w-[150px]" />
+              </colgroup>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-10">#</TableHead>
-                  <TableHead>Finding</TableHead>
+                  <TableHead className="w-10 pr-4">#</TableHead>
+                  <TableHead className="whitespace-nowrap px-4">Status</TableHead>
+                  <TableHead className="pl-4">Finding</TableHead>
+                  <TableHead>Business Service</TableHead>
                   <TableHead>Asset</TableHead>
-                  <TableHead>Business service</TableHead>
-                  <TableHead>Application</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>CVSS</TableHead>
-                  <TableHead>Risk Score</TableHead>
+                  <TableHead className="whitespace-nowrap border-l border-slate-200 pl-4 text-left">
+                    Business Importance
+                  </TableHead>
+                  <TableHead className="text-right">Asset Criticality</TableHead>
+                  <TableHead className="text-right">Risk Score</TableHead>
+                  <TableHead className="text-right">Priority Score</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -257,91 +268,59 @@ export function RiskTable({
                   visibleFindings.map((f, idx) => (
                     <TableRow
                       key={f.id}
-                      className="cursor-pointer hover:bg-slate-50"
+                      className="h-[4.25rem] cursor-pointer hover:bg-slate-50"
                       onClick={() => onOpenFinding?.(f)}
                     >
-                      <TableCell>{(page - 1) * pageSize + idx + 1}</TableCell>
-                      <TableCell>
-                        <div className="space-y-1">
-                          <div className="font-medium text-slate-900">
-                            {getNormalizedFindingTitle(f)}
-                          </div>
-                          <div className="text-xs text-slate-500">{f.source || "unknown"}</div>
-                          <div className="flex flex-wrap items-center gap-1">
-                            {f.cve_id ? (
-                              <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-700">
-                                {f.cve_id}
-                              </span>
-                            ) : null}
-                          </div>
+                      <TableCell className="pr-4">{(page - 1) * pageSize + idx + 1}</TableCell>
+                      <TableCell className="px-4">
+                        <div className="flex items-center gap-1">
+                          {(() => {
+                            const normalizedStatus = normalizeFindingStatus(f);
+                            return (
+                              <>
+                                <StatusBadge
+                                  tone={normalizedStatus === "Fixed" ? "fixed" : "active"}
+                                >
+                                  {normalizedStatus}
+                                </StatusBadge>
+                                {f.isKev ? <StatusBadge tone="dark">KEV</StatusBadge> : null}
+                              </>
+                            );
+                          })()}
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="space-y-1 text-sm">
-                          <div>{f.target_names || "—"}</div>
-                          <div className="text-xs text-slate-500">
-                            {f.target_ids || f.asset_id || "No target ID"}
-                          </div>
+                      <TableCell className="pl-4">
+                        <div className="font-medium text-slate-900">
+                          {f.cve_id ?? getNormalizedFindingTitle(f)}
                         </div>
                       </TableCell>
                       <TableCell>{f.business_service || "—"}</TableCell>
-                      <TableCell>{f.application || "—"}</TableCell>
-                      <TableCell>
-                        <div className="flex max-w-[18rem] flex-wrap gap-1">
-                          {f.risk_band ? (
-                            <span
-                              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${riskBandPillClass(
-                                f.risk_band
-                              )}`}
-                            >
-                              {f.risk_band}
-                            </span>
-                          ) : null}
-                          {f.lifecycle_status ? (
-                            <span
-                              className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${tagPillClass("neutral")}`}
-                            >
-                              {f.lifecycle_status}
-                            </span>
-                          ) : null}
-                          {f.compliance_status ? (
-                            <span
-                              className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${tagPillClass("warn")}`}
-                            >
-                              {f.compliance_status}
-                            </span>
-                          ) : null}
-                          {f.isKev ? (
-                            <span
-                              className="inline-flex items-center rounded-full border border-slate-900 bg-slate-900 px-2 py-0.5 text-[11px] font-medium text-white"
-                            >
-                              KEV
-                            </span>
-                          ) : null}
-                          {f.disposition && f.disposition !== "none" ? (
-                            <span
-                              className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${tagPillClass("warn")}`}
-                            >
-                              {f.disposition.replaceAll("_", " ")}
-                            </span>
-                          ) : null}
-                          {f.remediation_status ? (
-                            <span
-                              className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${tagPillClass("success")}`}
-                            >
-                              {f.remediation_status}
-                            </span>
-                          ) : null}
+                      <TableCell>{f.asset_name || f.target_names || "—"}</TableCell>
+                      <TableCell className="border-l border-slate-200 pl-4 text-left text-slate-500">
+                        -
+                      </TableCell>
+                      <TableCell className="text-right">
+                        -
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <span className="font-semibold text-slate-900">
+                            {formatNumber(f.risk_score)}
+                          </span>
                         </div>
                       </TableCell>
-                      <TableCell>{formatNumber(f.cvss_score)}</TableCell>
-                      <TableCell>
-                        <div className="space-y-1 text-sm">
-                          <div className="font-semibold text-slate-900">
-                            {formatNumber(f.risk_score)}
-                          </div>
-                          <div className="text-xs text-slate-500">{f.risk_band || "—"}</div>
-                        </div>
+                      <TableCell className="text-right">
+                        {f.risk_band ? (
+                          <span
+                            className={`inline-flex items-center text-[11px] font-semibold ${riskBandPillClass(
+                              f.risk_band
+                            )}`}
+                          >
+                            {f.risk_band}
+                          </span>
+                        ) : (
+                          "-"
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}

@@ -55,7 +55,18 @@ export function StatusBadge({
   className,
 }: {
   children: ReactNode;
-  tone: "Critical" | "High" | "Medium" | "Low" | "neutral" | "warn" | "dark" | "low" | string;
+  tone:
+    | "Critical"
+    | "High"
+    | "Medium"
+    | "Low"
+    | "neutral"
+    | "warn"
+    | "dark"
+    | "low"
+    | "active"
+    | "fixed"
+    | string;
   className?: string;
 }) {
   return (
@@ -95,6 +106,8 @@ function riskBadgeClass(band: RiskBand) {
 }
 
 function statusBadgeClass(tone: string) {
+  if (tone === "active") return "bg-emerald-100 text-emerald-700";
+  if (tone === "fixed") return "bg-slate-100 text-slate-700";
   if (tone === "Critical") return "bg-rose-100 text-rose-700";
   if (tone === "High") return "bg-orange-100 text-orange-700";
   if (tone === "Medium") return "bg-amber-100 text-amber-700";

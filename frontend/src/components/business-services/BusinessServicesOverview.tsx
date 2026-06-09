@@ -5,7 +5,7 @@ import { buildInitials } from "../../lib/formatting/text";
 import { isTopologyUnavailable } from "../../lib/topology/topologyStatus";
 import { cn } from "../../lib/utils";
 import { useBusinessUnits } from "../../hooks/topology/business-units/useBusinessUnits";
-import { TopologyOverviewSkeleton } from "./TopologyChrome";
+import { LoadingSpinnerState } from "../shared/LoadingSpinnerState";
 
 interface BusinessServicesOverviewProps {
   refreshToken: number;
@@ -29,7 +29,11 @@ export function BusinessServicesOverview({
   const { businessUnits, loading, error } = useBusinessUnits(refreshToken);
 
   if (loading) {
-    return <TopologyOverviewSkeleton />;
+    return (
+      <section className="space-y-4">
+        <LoadingSpinnerState message="Loading companies" />
+      </section>
+    );
   }
 
   if (error) {

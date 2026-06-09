@@ -9,7 +9,6 @@ import { AssetInventoryPanel } from "./AssetInventoryPanel";
 import {
   formatSlugLabel,
   TopologyBreadcrumbs,
-  TopologyPageSkeleton,
 } from "./TopologyChrome";
 import {
   Empty,
@@ -21,6 +20,7 @@ import {
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { FairFrequencyPanel } from "../fair/FairFrequencyPanel";
+import { LoadingSpinnerState } from "../shared/LoadingSpinnerState";
 
 interface ApplicationDetailPageProps {
   businessUnitSlug: string | null;
@@ -64,24 +64,9 @@ export function ApplicationDetailPage({
 
   if (loading) {
     return (
-      <TopologyPageSkeleton
-        breadcrumbs={[
-          { label: "Business Units", onClick: onOpenOverview },
-          {
-            label: formatSlugLabel(businessUnitSlug, "Business Unit"),
-            onClick: onOpenBusinessUnit,
-          },
-          {
-            label: formatSlugLabel(businessServiceSlug, "Business Service"),
-            onClick: onOpenBusinessService,
-          },
-          { label: formatSlugLabel(applicationSlug, "Application") },
-        ]}
-        title="Loading application"
-        backLabel="Back to Business Service"
-        statCount={2}
-        tableColumns={6}
-      />
+      <div className="space-y-6">
+        <LoadingSpinnerState message="Loading application" />
+      </div>
     );
   }
 

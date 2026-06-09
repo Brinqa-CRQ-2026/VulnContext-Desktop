@@ -4,14 +4,14 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app import models
-from app.services.views.helpers import display_score_expression
+from app.services.views.helpers import priority_score_expression
 
 
 def top_findings_query(db: Session):
     return (
         db.query(models.Finding)
         .options(joinedload(models.Finding.asset))
-        .order_by(display_score_expression().desc(), models.Finding.id.desc())
+        .order_by(priority_score_expression().desc(), models.Finding.id.desc())
     )
 
 

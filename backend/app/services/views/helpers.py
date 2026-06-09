@@ -58,6 +58,10 @@ def display_score_expression():
     return func.coalesce(models.Finding.crq_finding_score, models.Finding.brinqa_risk_score)
 
 
+def priority_score_expression():
+    return func.coalesce(models.Finding.crq_finding_priority_score, display_score_expression())
+
+
 def display_band_expression():
     score = display_score_expression()
     return case(
@@ -87,6 +91,7 @@ def resolve_sorting(sort_by: str, sort_order: str):
 
     sort_columns = {
         "risk_score": display_score_expression(),
+        "priority_score": priority_score_expression(),
         "internal_risk_score": models.Finding.crq_finding_score,
         "source_risk_score": models.Finding.brinqa_risk_score,
         "cvss_score": models.Finding.crq_finding_cvss_score,
@@ -105,7 +110,8 @@ def resolve_sorting(sort_by: str, sort_order: str):
             status_code=400,
             detail=(
                 "Invalid sort_by. Use one of: risk_score, internal_risk_score, "
-                "source_risk_score, cvss_score, epss_score, age_in_days, due_date, source, status."
+                "priority_score, source_risk_score, cvss_score, epss_score, "
+                "age_in_days, due_date, source, status."
             ),
         )
 
@@ -166,6 +172,7 @@ def to_finding_summary(
         epss_percentile=finding.crq_finding_epss_percentile,
         is_kev=bool(finding.crq_finding_is_kev),
         risk_score=risk_score,
+        priority_score=finding.crq_finding_priority_score,
         risk_band=risk_band,
         source_risk_score=finding.brinqa_risk_score,
         source_risk_band=derive_risk_band(finding.brinqa_risk_score),

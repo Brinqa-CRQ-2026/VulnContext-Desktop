@@ -14,7 +14,6 @@ import type {
 } from "../../types";
 import {
   formatSlugLabel,
-  TopologyPageSkeleton,
 } from "./TopologyChrome";
 import { AssetDistributionChartCard } from "./AssetDistributionCharts";
 import { EntityHero } from "./shared/EntityHero";
@@ -31,6 +30,7 @@ import { FindingsExplorerPanel } from "./shared/FindingsExplorerPanel";
 import { StatusBadge } from "./shared/TopologyBadges";
 import { FairFrequencyPanel } from "../fair/FairFrequencyPanel";
 import { predictAssetFairLoss } from "../../api/topology";
+import { LoadingSpinnerState } from "../shared/LoadingSpinnerState";
 
 interface AssetFindingsPageProps {
   businessUnitSlug: string | null;
@@ -119,32 +119,9 @@ export function AssetFindingsPage({
 
   if (loading) {
     return (
-      <TopologyPageSkeleton
-        breadcrumbs={[
-          { label: "Business Units", onClick: onOpenOverview },
-          {
-            label: formatSlugLabel(businessUnitSlug, "Business Unit"),
-            onClick: onOpenBusinessUnit,
-          },
-          {
-            label: formatSlugLabel(businessServiceSlug, "Business Service"),
-            onClick: onOpenBusinessService,
-          },
-          ...(applicationSlug
-            ? [
-                {
-                  label: formatSlugLabel(applicationSlug, "Application"),
-                  onClick: onOpenApplication,
-                },
-              ]
-            : []),
-          { label: formatSlugLabel(assetId, "Asset Findings") },
-        ]}
-        title="Loading asset findings"
-        backLabel="Back to Asset List"
-        statCount={5}
-        tableColumns={9}
-      />
+      <div className="space-y-6">
+        <LoadingSpinnerState message="Loading asset findings" />
+      </div>
     );
   }
 
