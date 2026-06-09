@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BriefcaseBusiness, ListFilter, PlugZap, ShieldCheck } from "lucide-react";
+import { ArrowLeft, BriefcaseBusiness, ListFilter, PlugZap, ShieldCheck } from "lucide-react";
 import { Header } from "./components/layout/Header";
 import { DashboardOverview } from "./components/dashboard/DashboardOverview";
 import { RiskTable } from "./components/dashboard/RiskTable";
@@ -299,6 +299,19 @@ function App() {
 
   const findingBackLabel =
     route.findingOrigin?.mode === "asset" ? "Back to Asset Findings" : "Back to Findings";
+  const handleFindingBack = () => {
+    if (route.findingOrigin?.mode === "asset") {
+      updateRoute({
+        ...getEmptyRoute("business-services"),
+        businessUnitSlug: route.findingOrigin.businessUnitSlug ?? null,
+        businessServiceSlug: route.findingOrigin.businessServiceSlug ?? null,
+        applicationSlug: route.findingOrigin.applicationSlug ?? null,
+        assetId: route.findingOrigin.assetId ?? null,
+      });
+      return;
+    }
+    navigateTo("findings");
+  };
   const findingBreadcrumbs =
     route.findingOrigin?.mode === "asset"
       ? [
@@ -386,7 +399,7 @@ function App() {
     findings: {
       title: inFindingDetail ? "Finding Details" : "Findings",
       description: inFindingDetail
-        ? `Detailed view for finding row #${route.findingId}`
+        ? "Detailed view for finding context, vulnerability details, and remediation guidance."
         : "Review and filter vulnerability findings using the current backend scoring outputs.",
     },
     integrations: {
@@ -441,9 +454,6 @@ function App() {
       />
       <div className="flex min-h-0 flex-1">
         <aside className="hidden w-64 shrink-0 border-r border-slate-200 bg-neutral-100 p-3 md:block">
-          <div className="mb-3 px-2 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Navigation
-          </div>
           <nav className="space-y-1">
             {navItems.map((item) => {
               const Icon = item.icon;
@@ -455,7 +465,7 @@ function App() {
                   className={cn(
                     "h-10 w-full justify-start gap-2 rounded-lg border border-transparent px-3 text-sm font-medium shadow-none",
                     active
-                      ? "bg-slate-950 text-white hover:bg-slate-950 hover:text-white"
+                      ? "bg-black text-white hover:bg-black hover:text-white"
                       : "text-slate-700 hover:bg-white hover:text-slate-900"
                   )}
                   onClick={() => navigateTo(item.id)}
@@ -473,6 +483,14 @@ function App() {
             <PageIntro
               title={pageMeta[page].title}
               description={pageMeta[page].description}
+              actions={
+                inFindingDetail ? (
+                  <Button variant="outline" size="sm" onClick={handleFindingBack}>
+                    <ArrowLeft className="h-4 w-4" />
+                    {findingBackLabel}
+                  </Button>
+                ) : null
+              }
             />
 
             {page === "findings" ? (
@@ -483,19 +501,7 @@ function App() {
                   origin={route.findingOrigin}
                   breadcrumbs={findingBreadcrumbs}
                   backLabel={findingBackLabel}
-                  onBack={() => {
-                    if (route.findingOrigin?.mode === "asset") {
-                      updateRoute({
-                        ...getEmptyRoute("business-services"),
-                        businessUnitSlug: route.findingOrigin.businessUnitSlug ?? null,
-                        businessServiceSlug: route.findingOrigin.businessServiceSlug ?? null,
-                        applicationSlug: route.findingOrigin.applicationSlug ?? null,
-                        assetId: route.findingOrigin.assetId ?? null,
-                      });
-                      return;
-                    }
-                    navigateTo("findings");
-                  }}
+                  onBack={handleFindingBack}
                   onDataChanged={handleDataChanged}
                 />
               ) : (

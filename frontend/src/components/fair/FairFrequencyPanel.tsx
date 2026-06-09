@@ -74,7 +74,7 @@ export function FairFrequencyPanel({
   }, [onPredict]);
 
   return (
-    <Card>
+    <Card className="h-full">
       <CardHeader>
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -84,7 +84,7 @@ export function FairFrequencyPanel({
           <button
             type="button"
             onClick={() => setInfoOpen(true)}
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50 hover:text-slate-900"
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2"
             aria-label="Explain FAIR frequency indicators"
             title="Explain FAIR frequency indicators"
           >
@@ -107,7 +107,7 @@ export function FairFrequencyPanel({
             Generating FAIR frequency indicators...
           </div>
         ) : prediction ? (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <FrequencyTile
               label="Threat event frequency"
               value={formatNumber(prediction.tef_mean)}
@@ -122,11 +122,6 @@ export function FairFrequencyPanel({
               label="Vulnerability"
               value={formatPercent(prediction.vulnerability, 2)}
               hint="Chance a threat event becomes successful"
-            />
-            <FrequencyTile
-              label="Security Score"
-              value={formatPercent(prediction.control_score)}
-              hint="From the saved Security Score"
             />
           </div>
         ) : null}
@@ -172,10 +167,6 @@ function FairFrequencyInfoPopup({
         : "This application view aggregates likelihood indicators across the application's assets and findings. It does not ask for application-level dollar loss.";
   const sections = [
     {
-      title: "Scope",
-      body: scopeText,
-    },
-    {
       title: "TEF",
       body: "Threat Event Frequency estimates how often threat events are expected to occur in this scope. For assets and rollups, it uses the strongest finding signal plus a diversity bonus instead of summing every finding.",
     },
@@ -200,7 +191,8 @@ function FairFrequencyInfoPopup({
           <div>
             <div className="text-base font-semibold text-slate-900">FAIR frequency guide</div>
             <p className="mt-1 text-sm leading-6 text-slate-500">
-              Findings, assets, and applications explain likelihood. Business services carry the financial loss model.
+              {scopeText} Findings, assets, and applications explain likelihood. Business services
+              carry the financial loss model.
             </p>
           </div>
           <button

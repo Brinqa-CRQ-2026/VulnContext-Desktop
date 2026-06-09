@@ -42,9 +42,10 @@ def get_finding_by_id(db: Session, finding_id: str, *, include_asset: bool = Fal
 
 def get_finding_detail_by_id(db: Session, finding_id: str):
     return (
-        db.query(models.Finding, models.NvdRecord)
+        db.query(models.Finding, models.NvdRecord, models.KevRecord)
         .options(joinedload(models.Finding.asset))
         .outerjoin(models.NvdRecord, models.NvdRecord.cve == models.Finding.cve_id)
+        .outerjoin(models.KevRecord, models.KevRecord.cve == models.Finding.cve_id)
         .filter(models.Finding.finding_id == finding_id)
         .first()
     )

@@ -196,6 +196,7 @@ def to_finding_detail(
     *,
     detail=None,
     nvd: models.NvdRecord | None = None,
+    kev: models.KevRecord | None = None,
 ) -> schemas.FindingDetail:
     summary = to_finding_summary(finding)
     asset = finding.asset
@@ -203,6 +204,10 @@ def to_finding_detail(
     nvd_description = nvd.description if nvd and nvd.description else None
     nvd_cvss_score = nvd.cvss_score if nvd and nvd.cvss_score is not None else None
     nvd_cvss_severity = nvd.cvss_severity if nvd and nvd.cvss_severity else None
+    nvd_cvss_version = nvd.cvss_version if nvd and nvd.cvss_version else None
+    nvd_cvss_vector = nvd.cvss_vector if nvd and nvd.cvss_vector else None
+    nvd_attack_vector = nvd.attack_vector if nvd and nvd.attack_vector else None
+    nvd_attack_complexity = nvd.attack_complexity if nvd and nvd.attack_complexity else None
     return schemas.FindingDetail(
         **summary.model_dump(
             exclude={
@@ -225,14 +230,22 @@ def to_finding_detail(
             if finding.crq_finding_cvss_score is not None
             else nvd_cvss_score
         ),
-        cvss_version=payload.get("cvss_version"),
+        cvss_version=payload.get("cvss_version") or nvd_cvss_version,
         cvss_severity=summary.cvss_severity or nvd_cvss_severity,
-        cvss_vector=payload.get("cvss_vector"),
-        attack_vector=payload.get("attack_vector"),
-        attack_complexity=payload.get("attack_complexity"),
+        cvss_vector=payload.get("cvss_vector") or nvd_cvss_vector,
+        cvss_exploitability_score=nvd.cvss_exploitability_score if nvd else None,
+        cvss_impact_score=nvd.cvss_impact_score if nvd else None,
+        attack_vector=payload.get("attack_vector") or nvd_attack_vector,
+        attack_complexity=payload.get("attack_complexity") or nvd_attack_complexity,
+        privileges_required=nvd.privileges_required if nvd else None,
+        user_interaction=nvd.user_interaction if nvd else None,
+        scope=nvd.scope if nvd else None,
+        confidentiality_impact=nvd.confidentiality_impact if nvd else None,
+        integrity_impact=nvd.integrity_impact if nvd else None,
+        availability_impact=nvd.availability_impact if nvd else None,
         epss_score=finding.crq_finding_epss_score,
         epss_percentile=finding.crq_finding_epss_percentile,
-        is_kev=bool(finding.crq_finding_is_kev),
+        is_kev=bool(finding.crq_finding_is_kev) or kev is not None,
         crq_cvss_score=finding.crq_finding_cvss_score,
         crq_epss_score=finding.crq_finding_epss_score,
         crq_epss_percentile=finding.crq_finding_epss_percentile,
@@ -242,15 +255,34 @@ def to_finding_detail(
         crq_age_days=finding.crq_finding_age_days,
         crq_age_bonus=finding.crq_finding_age_bonus,
         crq_notes=finding.crq_finding_notes,
-        kev_date_added=parse_datetime(payload.get("kev_date_added")),
-        kev_due_date=parse_datetime(payload.get("kev_due_date")),
-        kev_vendor_project=payload.get("kev_vendor_project"),
-        kev_product=payload.get("kev_product"),
-        kev_vulnerability_name=payload.get("kev_vulnerability_name"),
-        kev_short_description=payload.get("kev_short_description"),
-        kev_required_action=payload.get("kev_required_action"),
+        kev_date_added=parse_datetime(
+            payload.get("kev_date_added") or (kev.date_added if kev else None)
+        ),
+        kev_due_date=parse_datetime(
+            payload.get("kev_due_date") or (kev.due_date if kev else None)
+        ),
+        kev_vendor_project=payload.get("kev_vendor_project") or (kev.vendor_project if kev else None),
+        kev_product=payload.get("kev_product") or (kev.product if kev else None),
+        kev_vulnerability_name=(
+            payload.get("kev_vulnerability_name") or (kev.vulnerability_name if kev else None)
+        ),
+        kev_short_description=payload.get("kev_short_description") or (
+            kev.short_description if kev else None
+        ),
+        kev_required_action=payload.get("kev_required_action") or (
+            nvd.cisa_required_action if nvd else None
+        ),
         kev_ransomware_use=payload.get("kev_ransomware_use"),
         cve_description=nvd_description or payload.get("cve_description"),
+        nvd_vuln_status=nvd.vuln_status if nvd else None,
+        nvd_published=parse_datetime(nvd.published if nvd else None),
+        nvd_last_modified=parse_datetime(nvd.last_modified if nvd else None),
+        primary_cwe_id=nvd.primary_cwe_id if nvd else None,
+        primary_cwe_description=nvd.primary_cwe_description if nvd else None,
+        weaknesses=nvd.weaknesses if nvd and nvd.weaknesses else None,
+        affected_products=nvd.affected_products if nvd and nvd.affected_products else None,
+        references=nvd.references if nvd and nvd.references else None,
+        reference_groups=nvd.reference_groups if nvd and nvd.reference_groups else None,
         attack_pattern_names=payload.get("attack_pattern_names"),
         attack_technique_names=payload.get("attack_technique_names"),
         attack_tactic_names=payload.get("attack_tactic_names"),

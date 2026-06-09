@@ -88,5 +88,5 @@ def get_finding_detail(db, finding_id: str) -> schemas.FindingDetail:
     if row is None:
         raise HTTPException(status_code=404, detail="Finding not found.")
 
-    finding, nvd = row
-    return to_finding_detail(finding, detail=None, nvd=nvd)
+    finding, nvd, kev = row
+    return to_finding_detail(finding, detail=None, nvd=nvd, kev=kev)

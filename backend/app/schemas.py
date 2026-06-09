@@ -53,8 +53,16 @@ class FindingDetail(FindingSummary):
     cvss_version: str | None = None
     cvss_severity: str | None = None
     cvss_vector: str | None = None
+    cvss_exploitability_score: float | None = None
+    cvss_impact_score: float | None = None
     attack_vector: str | None = None
     attack_complexity: str | None = None
+    privileges_required: str | None = None
+    user_interaction: str | None = None
+    scope: str | None = None
+    confidentiality_impact: str | None = None
+    integrity_impact: str | None = None
+    availability_impact: str | None = None
     epss_score: float | None = None
     epss_percentile: float | None = None
     is_kev: bool = Field(default=False, serialization_alias="isKev")
@@ -79,6 +87,15 @@ class FindingDetail(FindingSummary):
         serialization_alias="kevRansomwareUse",
     )
     cve_description: str | None = Field(default=None, serialization_alias="cveDescription")
+    nvd_vuln_status: str | None = None
+    nvd_published: datetime | None = None
+    nvd_last_modified: datetime | None = None
+    primary_cwe_id: str | None = None
+    primary_cwe_description: str | None = None
+    weaknesses: list[dict[str, Any]] | None = None
+    affected_products: list[dict[str, Any]] | None = None
+    references: list[dict[str, Any]] | None = None
+    reference_groups: dict[str, list[dict[str, Any]]] | None = None
     attack_pattern_names: str | None = None
     attack_technique_names: str | None = None
     attack_tactic_names: str | None = None

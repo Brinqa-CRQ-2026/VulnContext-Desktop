@@ -33,13 +33,55 @@ describe("FindingDetailPage", () => {
         cwe_ids: "CWE-79",
         description: "Primary finding description.",
         cveDescription: "Separate CVE description.",
+        nvd_vuln_status: "ANALYZED",
+        nvd_published: "2022-01-11T12:00:00Z",
+        nvd_last_modified: "2025-04-15T12:00:00Z",
+        kevDateAdded: "2022-07-20T00:00:00Z",
+        kevDueDate: "2022-08-10T00:00:00Z",
+        kevVulnerabilityName: "Atlassian Questions For Confluence Hardcoded Credentials Vulnerability",
         record_id: "SRC-77",
         uid: "uid-123",
         record_link: "https://example.com/finding/42",
         due_date: "2026-05-12",
         severity: "Critical",
+        cvss_version: "3.1",
+        cvss_vector: "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:H/I:H/A:H",
         attack_vector: "Network",
         attack_complexity: "Low",
+        privileges_required: "NONE",
+        user_interaction: "REQUIRED",
+        scope: "CHANGED",
+        confidentiality_impact: "HIGH",
+        integrity_impact: "HIGH",
+        availability_impact: "HIGH",
+        primary_cwe_id: "CWE-416",
+        primary_cwe_description: "Use After Free",
+        references: [
+          {
+            url: "https://example.com/vendor-advisory",
+            source: "Example Vendor",
+            tags: ["Vendor Advisory"],
+            group: "Vendor Advisory",
+          },
+        ],
+        reference_groups: {
+          "Patch / Release Notes": [
+            {
+              url: "https://example.com/release-notes",
+              source: "Example Project",
+              tags: ["Patch", "Release Notes"],
+              group: "Patch / Release Notes",
+            },
+          ],
+          "Vendor Advisory": [
+            {
+              url: "https://example.com/vendor-advisory",
+              source: "Example Vendor",
+              tags: ["Vendor Advisory"],
+              group: "Vendor Advisory",
+            },
+          ],
+        },
         score_source: "CRQ v4",
         crq_score_version: "v4",
         crq_scored_at: "2026-04-20T10:30:00Z",
@@ -74,28 +116,62 @@ describe("FindingDetailPage", () => {
 
     expect(screen.getAllByText("Finding").length).toBeGreaterThan(0);
     expect(screen.getByText("OpenSSL Vulnerability")).toBeInTheDocument();
-    expect(screen.getByText("Source: Qualys")).toBeInTheDocument();
-    expect(screen.getByText("High / 8.7")).toBeInTheDocument();
-    expect(screen.getByText("CVE: CVE-2025-0001")).toBeInTheDocument();
-    expect(screen.getByText("Status: Open / Active")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Back to Findings/i })).toBeInTheDocument();
-    expect(screen.getByText("Display Risk")).toBeInTheDocument();
-    expect(screen.getByText("Vendor Risk")).toBeInTheDocument();
+    expect(screen.getByText("Active")).toBeInTheDocument();
+    expect(screen.queryByText("KEV")).not.toBeInTheDocument();
+    expect(screen.queryByText("Source: Qualys")).not.toBeInTheDocument();
+    expect(screen.queryByText("High / 8.7")).not.toBeInTheDocument();
+    expect(screen.queryByText("CVE: CVE-2025-0001")).not.toBeInTheDocument();
+    expect(screen.queryByText("Status: Open / Active")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Back to Findings/i })).not.toBeInTheDocument();
+    expect(screen.getByText("Risk Score")).toBeInTheDocument();
+    expect(screen.getByLabelText("About risk score")).toBeInTheDocument();
+    expect(screen.queryByText("Display Risk")).not.toBeInTheDocument();
+    expect(screen.queryByText("Vendor Risk")).not.toBeInTheDocument();
     expect(screen.getByText("CVSS")).toBeInTheDocument();
     expect(screen.getByText("EPSS")).toBeInTheDocument();
     expect(screen.getByText("Age")).toBeInTheDocument();
     expect(screen.getByText("Percentile 0.9912")).toBeInTheDocument();
-    expect(screen.getByText("Action Snapshot")).toBeInTheDocument();
     expect(screen.getByText("Finding Overview")).toBeInTheDocument();
-    expect(screen.getByText("Remediation")).toBeInTheDocument();
-    expect(screen.getByText("Affected Asset & Business Context")).toBeInTheDocument();
     expect(screen.getByText("Supporting Details")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Asset & Business Context" })).toBeInTheDocument();
     expect(screen.queryByText("KEV Details")).not.toBeInTheDocument();
-    expect(screen.queryByText("Recommendation")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open remediation reference" })).toHaveAttribute(
+      "href",
+      "https://example.com/release-notes"
+    );
     expect(screen.queryByText("Short Summary")).not.toBeInTheDocument();
     expect(screen.queryByText("Patch the affected OpenSSL package.")).not.toBeInTheDocument();
-    expect(screen.getByText("Primary Description")).toBeInTheDocument();
+    expect(screen.getByText("Description")).toBeInTheDocument();
     expect(screen.getByText("Separate CVE description.")).toBeInTheDocument();
+    expect(screen.getByText("CVE Intelligence")).toBeInTheDocument();
+    expect(screen.getByText("CISA Known Exploited Vulnerability")).toBeInTheDocument();
+    expect(screen.getByText("NVD Status")).toBeInTheDocument();
+    expect(screen.getByText("Name")).toBeInTheDocument();
+    expect(screen.getByText("Added to KEV")).toBeInTheDocument();
+    expect(screen.getByText("Action Due")).toBeInTheDocument();
+    expect(screen.getByText("Analyzed")).toBeInTheDocument();
+    expect(screen.getByText("Atlassian Questions For Confluence Hardcoded Credentials Vulnerability")).toBeInTheDocument();
+    expect(screen.getByText("Published")).toBeInTheDocument();
+    expect(screen.getByText("Last Modified")).toBeInTheDocument();
+    expect(screen.getByText("CVSS Version")).toBeInTheDocument();
+    expect(screen.getByText("3.1")).toBeInTheDocument();
+    expect(screen.queryByText("CVSS Vector")).not.toBeInTheDocument();
+    expect(screen.queryByText("CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:H/I:H/A:H")).not.toBeInTheDocument();
+    expect(screen.queryByText("Primary Description")).not.toBeInTheDocument();
+    expect(screen.queryByText("CVE Description")).not.toBeInTheDocument();
+    expect(screen.getByText("Vulnerability Type")).toBeInTheDocument();
+    expect(screen.getByText("CWE-416")).toBeInTheDocument();
+    expect(screen.getByText("Use After Free")).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Attack Vector" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Attack Complexity" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Privileges Required" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "User Interaction" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Confidentiality Impact" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Integrity Impact" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Availability Impact" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Scope" })).toBeInTheDocument();
+    expect(screen.getAllByText("Required").length).toBeGreaterThan(0);
+    expect(screen.getByText("Changed")).toBeInTheDocument();
     expect(screen.getByText("Identifiers")).toBeInTheDocument();
     expect(screen.getByText("Internal finding row ID")).toBeInTheDocument();
     expect(screen.queryByText("Source finding ID")).not.toBeInTheDocument();
@@ -160,13 +236,10 @@ describe("FindingDetailPage", () => {
       />
     );
 
-    expect(screen.getByText("Known Exploited Vulnerability")).toBeInTheDocument();
     expect(screen.getAllByText("Patch immediately.").length).toBeGreaterThan(0);
-    expect(screen.getByText("KEV Details")).toBeInTheDocument();
-    expect(screen.getByText("KEV date added")).toBeInTheDocument();
-    expect(screen.getByText("Business context")).toBeInTheDocument();
-    expect(screen.getByText("Online Store / Digital Storefront / Identity Verify")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Asset & Business Context" })).toBeInTheDocument();
     expect(screen.getAllByText("identity-verify-01").length).toBeGreaterThan(0);
+    expect(screen.getByText("KEV")).toBeInTheDocument();
   });
 
   it("does not show large empty remediation callouts when no remediation narrative exists", () => {
@@ -197,10 +270,8 @@ describe("FindingDetailPage", () => {
       />
     );
 
-    expect(screen.queryByText("Action Snapshot")).not.toBeInTheDocument();
     expect(screen.getByText("Finding Overview")).toBeInTheDocument();
-    expect(screen.getByText("Remediation")).toBeInTheDocument();
-    expect(screen.queryByText("Recommendation text is not yet available from the backend detail route.")).not.toBeInTheDocument();
-    expect(screen.queryByText("KEV Details")).not.toBeInTheDocument();
+    expect(screen.getByText("Supporting Details")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Asset & Business Context" })).toBeInTheDocument();
   });
 });

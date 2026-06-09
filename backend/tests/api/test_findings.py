@@ -106,3 +106,114 @@ def test_findings_detail_returns_nvd_description_for_cve(client, db_session):
     assert payload["cveDescription"] == "NVD remediation context for this CVE."
     assert payload["cvss_score"] == 8.1
     assert payload["cvss_severity"] == "High"
+
+
+def test_findings_detail_returns_nvd_and_kev_context_for_cve(client, db_session):
+    _, finding = seed_asset_and_finding(db_session, idx=7, risk=7.2)
+    db_session.add(
+        models.NvdRecord(
+            cve=finding.cve_id,
+            vuln_status="Analyzed",
+            description="NVD technical description.",
+            cvss_score=9.8,
+            cvss_severity="CRITICAL",
+            cvss_version="3.1",
+            cvss_vector="CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+            cvss_exploitability_score=3.9,
+            cvss_impact_score=5.9,
+            attack_vector="NETWORK",
+            attack_complexity="LOW",
+            privileges_required="NONE",
+            user_interaction="NONE",
+            scope="UNCHANGED",
+            confidentiality_impact="HIGH",
+            integrity_impact="HIGH",
+            availability_impact="HIGH",
+            primary_cwe_id="CWE-502",
+            primary_cwe_description="CWE-502",
+            weaknesses=[
+                {
+                    "cwe_id": "CWE-502",
+                    "description": "CWE-502",
+                    "source": "nvd@nist.gov",
+                    "type": "Primary",
+                    "primary": True,
+                }
+            ],
+            affected_products=[
+                {
+                    "criteria": "cpe:2.3:a:example:widget:1.0:*:*:*:*:*:*:*",
+                    "vendor": "example",
+                    "product": "widget",
+                    "version": "1.0",
+                }
+            ],
+            references=[
+                {
+                    "url": "https://vendor.example/advisory",
+                    "source": "Example Vendor",
+                    "tags": ["Vendor Advisory"],
+                    "group": "Vendor Advisory",
+                }
+            ],
+            reference_groups={
+                "Vendor Advisory": [
+                    {
+                        "url": "https://vendor.example/advisory",
+                        "source": "Example Vendor",
+                        "tags": ["Vendor Advisory"],
+                        "group": "Vendor Advisory",
+                    }
+                ]
+            },
+            cisa_required_action="NVD fallback required action.",
+        )
+    )
+    db_session.add(
+        models.KevRecord(
+            cve=finding.cve_id,
+            date_added="2024-01-08",
+            due_date="2024-01-29",
+            vendor_project="Example Vendor",
+            product="Widget",
+            vulnerability_name="Example Widget Vulnerability",
+            short_description="Example KEV short description.",
+        )
+    )
+    db_session.commit()
+
+    response = client.get(f"/findings/{finding.finding_id}")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["isKev"] is True
+    assert payload["cveDescription"] == "NVD technical description."
+    assert payload["nvd_vuln_status"] == "Analyzed"
+    assert payload["cvss_score"] == 9.8
+    assert payload["cvss_version"] == "3.1"
+    assert payload["cvss_vector"] == "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+    assert payload["cvss_exploitability_score"] == 3.9
+    assert payload["cvss_impact_score"] == 5.9
+    assert payload["attack_vector"] == "NETWORK"
+    assert payload["attack_complexity"] == "LOW"
+    assert payload["privileges_required"] == "NONE"
+    assert payload["user_interaction"] == "NONE"
+    assert payload["scope"] == "UNCHANGED"
+    assert payload["confidentiality_impact"] == "HIGH"
+    assert payload["integrity_impact"] == "HIGH"
+    assert payload["availability_impact"] == "HIGH"
+    assert payload["primary_cwe_id"] == "CWE-502"
+    assert payload["weaknesses"][0]["primary"] is True
+    assert payload["affected_products"][0]["product"] == "widget"
+    assert payload["references"][0]["group"] == "Vendor Advisory"
+    assert (
+        payload["reference_groups"]["Vendor Advisory"][0]["url"]
+        == "https://vendor.example/advisory"
+    )
+    assert payload["kevDateAdded"].startswith("2024-01-08")
+    assert payload["kevDueDate"].startswith("2024-01-29")
+    assert payload["kevVendorProject"] == "Example Vendor"
+    assert payload["kevProduct"] == "Widget"
+    assert payload["kevVulnerabilityName"] == "Example Widget Vulnerability"
+    assert payload["kevShortDescription"] == "Example KEV short description."
+    assert payload["kevRequiredAction"] == "NVD fallback required action."

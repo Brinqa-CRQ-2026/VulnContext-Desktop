@@ -2,6 +2,34 @@ import type { AssetScoreDistribution, AssetTypeDistributionItem } from "./charts
 import type { RiskBandSummary } from "./risk";
 import type { AssetSummary } from "./topology";
 
+export interface NvdWeakness {
+  cwe_id?: string | null;
+  description?: string | null;
+  source?: string | null;
+  type?: string | null;
+  primary?: boolean | null;
+}
+
+export interface NvdAffectedProduct {
+  criteria?: string | null;
+  vendor?: string | null;
+  product?: string | null;
+  version?: string | null;
+  version_start_including?: string | null;
+  version_start_excluding?: string | null;
+  version_end_including?: string | null;
+  version_end_excluding?: string | null;
+}
+
+export interface NvdReference {
+  url: string;
+  source?: string | null;
+  tags?: string[] | null;
+  group?: string | null;
+}
+
+export type NvdReferenceGroups = Record<string, NvdReference[]>;
+
 export interface ScoredFinding {
   id: string;
   source: string;
@@ -35,8 +63,16 @@ export interface ScoredFinding {
   cvss_version?: string | null;
   cvss_severity?: string | null;
   cvss_vector?: string | null;
+  cvss_exploitability_score?: number | null;
+  cvss_impact_score?: number | null;
   attack_vector?: string | null;
   attack_complexity?: string | null;
+  privileges_required?: string | null;
+  user_interaction?: string | null;
+  scope?: string | null;
+  confidentiality_impact?: string | null;
+  integrity_impact?: string | null;
+  availability_impact?: string | null;
   epss_score?: number | null;
   epss_percentile?: number | null;
 
@@ -76,6 +112,19 @@ export interface ScoredFinding {
   summary?: string | null;
   description?: string | null;
   cveDescription?: string | null;
+  nvd_vuln_status?: string | null;
+  nvd_published?: string | null;
+  nvd_last_modified?: string | null;
+  cisa_exploit_add?: string | null;
+  cisa_action_due?: string | null;
+  cisa_required_action?: string | null;
+  cisa_vulnerability_name?: string | null;
+  primary_cwe_id?: string | null;
+  primary_cwe_description?: string | null;
+  weaknesses?: NvdWeakness[] | null;
+  affected_products?: NvdAffectedProduct[] | null;
+  references?: NvdReference[] | null;
+  reference_groups?: NvdReferenceGroups | null;
   attack_pattern_names?: string | null;
   attack_technique_names?: string | null;
   attack_tactic_names?: string | null;

@@ -1,4 +1,5 @@
-import { useCallback, type ReactNode } from "react";
+import { useCallback } from "react";
+import { Info } from "lucide-react";
 
 import { predictFindingFairLoss } from "../../api/findings";
 import type { FindingRouteOrigin, ScoredFinding } from "../../types";
@@ -8,15 +9,13 @@ import { FairFrequencyPanel } from "../fair/FairFrequencyPanel";
 import { EntityHero } from "../business-services/shared/EntityHero";
 import { MetricCard, MetricGrid } from "../business-services/shared/MetricCard";
 import { StatusBadge } from "../business-services/shared/TopologyBadges";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "../ui/hover-card";
 import {
-  FindingAffectedContextSection,
   FindingOverviewSection,
-  FindingRemediationSection,
   FindingSupportingDetailsSection,
   formatAge,
   formatNumber,
   isPopulated,
-  joinText,
 } from "./FindingDetailSections";
 
 interface FindingDetailPageProps {
@@ -27,10 +26,6 @@ interface FindingDetailPageProps {
   backLabel: string;
   onBack: () => void;
   onDataChanged?: () => void;
-}
-
-function formatStatus(finding: ScoredFinding) {
-  return [finding.status, finding.lifecycle_status].filter(Boolean).join(" / ") || null;
 }
 
 function getFindingTitle(finding: ScoredFinding) {
@@ -62,6 +57,19 @@ function getAssetLabel(finding: ScoredFinding, origin?: FindingRouteOrigin | nul
   if (origin?.assetLabel) return origin.assetLabel;
   if (isPopulated(finding.target_names)) return finding.target_names ?? "-";
   return "-";
+}
+
+function isActiveFinding(finding: ScoredFinding) {
+  const statusText = [finding.status, finding.lifecycle_status]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  if (/\b(closed|complete|completed|fixed|inactive|resolved|remediated)\b/.test(statusText)) {
+    return false;
+  }
+
+  return true;
 }
 
 function LoadingState({
@@ -108,39 +116,14 @@ function ErrorState({
 }
 
 function HeroTags({ finding }: { finding: ScoredFinding }) {
-  const displayedStatus = formatStatus(finding);
-  const tags: ReactNode[] = [
-    <StatusBadge key="source" tone="neutral">
-      Source: {finding.source || "Unknown source"}
-    </StatusBadge>,
-    <StatusBadge key="risk" tone={finding.risk_band || "neutral"}>
-      {finding.risk_band || "Unrated"} / {formatNumber(finding.risk_score)}
-    </StatusBadge>,
-  ];
+  const active = isActiveFinding(finding);
 
-  if (finding.cve_id) {
-    tags.push(
-      <StatusBadge key="cve" tone="neutral">
-        CVE: {finding.cve_id}
-      </StatusBadge>
-    );
-  }
-  if (displayedStatus) {
-    tags.push(
-      <StatusBadge key="status" tone="neutral">
-        Status: {displayedStatus}
-      </StatusBadge>
-    );
-  }
-  if (finding.isKev) {
-    tags.push(
-      <StatusBadge key="kev" tone="warn">
-        KEV
-      </StatusBadge>
-    );
-  }
-
-  return <div className="flex flex-wrap items-center justify-end gap-2">{tags}</div>;
+  return (
+    <div className="flex flex-wrap items-center justify-end gap-2">
+      <StatusBadge tone={active ? "low" : "neutral"}>{active ? "Active" : "Inactive"}</StatusBadge>
+      {finding.isKev ? <StatusBadge tone="dark">KEV</StatusBadge> : null}
+    </div>
+  );
 }
 
 export function FindingDetailPage({
@@ -188,23 +171,7 @@ export function FindingDetailPage({
   ]
     .filter(Boolean)
     .join(" / ");
-  const subtitle = joinText(
-    [assetLabel !== "-" ? assetLabel : null, businessContext || null, finding.source || null],
-    finding.source || "Finding detail"
-  );
   const recommendationText = finding.kevRequiredAction || null;
-  const hasDistinctCveDescription =
-    isPopulated(finding.cveDescription) &&
-    finding.cveDescription?.trim() !== finding.description?.trim();
-  const dueDateValue = finding.due_date || finding.kevDueDate;
-  const hasRemediationSnapshot = Boolean(
-    recommendationText
-      || isPopulated(finding.kevRequiredAction)
-      || isPopulated(finding.remediation_owner_name)
-      || isPopulated(finding.remediation_status)
-      || finding.due_date
-      || finding.kevDueDate
-  );
   const hasAttackContext = Boolean(
     isPopulated(finding.attack_pattern_names)
       || isPopulated(finding.attack_technique_names)
@@ -217,27 +184,22 @@ export function FindingDetailPage({
         breadcrumbs={breadcrumbs}
         label="Finding"
         title={title}
-        metadata={subtitle}
         tags={<HeroTags finding={finding} />}
         backLabel={backLabel}
         onBack={onBack}
+        showBackButton={false}
       />
 
-      <MetricGrid className="sm:grid-cols-2 xl:grid-cols-5">
+      <MetricGrid className="sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
-          label="Display Risk"
+          label={<RiskScoreLabel />}
           value={formatNumber(finding.risk_score)}
-          hint={finding.risk_band || "Unrated"}
-        />
-        <MetricCard
-          label="Vendor Risk"
-          value={formatNumber(finding.source_risk_score)}
-          hint={joinText([finding.source_risk_rating, finding.source_risk_band], "Unspecified")}
+          hint={formatHintLabel(finding.risk_band) || "Unrated"}
         />
         <MetricCard
           label="CVSS"
           value={formatNumber(finding.cvss_score)}
-          hint={finding.cvss_severity || "Unspecified"}
+          hint={formatHintLabel(finding.cvss_severity) || "Unspecified"}
         />
         <MetricCard
           label="EPSS"
@@ -251,38 +213,63 @@ export function FindingDetailPage({
         />
       </MetricGrid>
 
-      <FairFrequencyPanel
-        title="Finding FAIR Event Frequency"
-        description="Shows likelihood indicators for this finding without assigning dollar loss at the finding level."
-        scopeLabel="finding"
-        onPredict={predictFairFrequency}
-      />
-
       <FindingOverviewSection
         finding={finding}
         recommendationText={recommendationText}
-        hasDistinctCveDescription={hasDistinctCveDescription}
       />
 
-      <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
-        <FindingRemediationSection
-          finding={finding}
-          recommendationText={recommendationText}
-          hasRemediationSnapshot={hasRemediationSnapshot}
-          dueDateValue={dueDateValue}
-        />
-        <FindingAffectedContextSection
-          finding={finding}
-          origin={origin}
-          assetLabel={assetLabel}
-          businessContext={businessContext}
-        />
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_544px] xl:items-stretch">
+        <div className="h-full">
+          <FairFrequencyPanel
+            title="Finding FAIR Event Frequency"
+            description="Shows likelihood indicators for this finding without assigning dollar loss at the finding level."
+            scopeLabel="finding"
+            onPredict={predictFairFrequency}
+          />
+        </div>
+        <div className="h-full">
+          <FindingSupportingDetailsSection
+            finding={finding}
+            hasAttackContext={hasAttackContext}
+            origin={origin}
+            assetLabel={assetLabel}
+            businessContext={businessContext}
+          />
+        </div>
       </div>
-
-      <FindingSupportingDetailsSection
-        finding={finding}
-        hasAttackContext={hasAttackContext}
-      />
     </div>
   );
+}
+
+function RiskScoreLabel() {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      Risk Score
+      <HoverCard openDelay={150} closeDelay={100}>
+        <HoverCardTrigger asChild>
+          <button
+            type="button"
+            className="inline-flex h-4 w-4 items-center justify-center rounded-full text-slate-400 transition-colors hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2"
+            aria-label="About risk score"
+          >
+            <Info className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+        </HoverCardTrigger>
+        <HoverCardContent align="start" className="w-72 text-sm leading-5">
+          <div className="font-semibold text-slate-950">Risk Score</div>
+          <p className="mt-1 text-sm font-normal leading-5 text-slate-500 normal-case">
+            This is the finding-level risk score produced by our{" "}
+            <span className="font-semibold text-slate-700">CRQ scoring system</span>
+            {""}. It is derived from CVSS, EPSS, KEV, age, and related technical context for the finding.
+          </p>
+        </HoverCardContent>
+      </HoverCard>
+    </span>
+  );
+}
+
+function formatHintLabel(value?: string | null) {
+  const normalized = (value ?? "").trim().toLowerCase();
+  if (!normalized) return "";
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
 }

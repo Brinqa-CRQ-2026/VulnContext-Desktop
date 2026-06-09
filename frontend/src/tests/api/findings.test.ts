@@ -60,6 +60,78 @@ describe("api/findings", () => {
     expect(getFetchMock()).toHaveBeenCalledWith("https://api.example.com/findings/finding-42");
   });
 
+  it("preserves enriched finding detail contract fields", async () => {
+    const enrichedFinding = {
+      id: "finding-42",
+      source: "Brinqa",
+      asset_id: "asset-42",
+      cve_id: "CVE-2026-12345",
+      cveDescription: "NVD technical context.",
+      nvd_vuln_status: "Analyzed",
+      nvd_published: "2026-01-02T03:04:05Z",
+      nvd_last_modified: "2026-02-03T04:05:06Z",
+      cvss_score: 9.8,
+      cvss_version: "3.1",
+      cvss_severity: "CRITICAL",
+      cvss_vector: "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+      cvss_exploitability_score: 3.9,
+      cvss_impact_score: 5.9,
+      attack_vector: "NETWORK",
+      attack_complexity: "LOW",
+      privileges_required: "NONE",
+      user_interaction: "NONE",
+      scope: "UNCHANGED",
+      confidentiality_impact: "HIGH",
+      integrity_impact: "HIGH",
+      availability_impact: "HIGH",
+      isKev: true,
+      kevDateAdded: "2026-03-01T00:00:00Z",
+      kevDueDate: "2026-03-22T00:00:00Z",
+      kevVendorProject: "Example Vendor",
+      kevProduct: "Widget",
+      kevVulnerabilityName: "Example Widget Vulnerability",
+      kevShortDescription: "Example KEV context.",
+      primary_cwe_id: "CWE-502",
+      primary_cwe_description: "CWE-502",
+      weaknesses: [{ cwe_id: "CWE-502", description: "CWE-502", primary: true }],
+      affected_products: [
+        {
+          criteria: "cpe:2.3:a:example:widget:1.0:*:*:*:*:*:*:*",
+          vendor: "example",
+          product: "widget",
+          version: "1.0",
+        },
+      ],
+      references: [
+        {
+          url: "https://vendor.example/advisory",
+          source: "Example Vendor",
+          tags: ["Vendor Advisory"],
+          group: "Vendor Advisory",
+        },
+      ],
+      reference_groups: {
+        "Vendor Advisory": [
+          {
+            url: "https://vendor.example/advisory",
+            source: "Example Vendor",
+            tags: ["Vendor Advisory"],
+            group: "Vendor Advisory",
+          },
+        ],
+      },
+    };
+    getFetchMock().mockResolvedValueOnce(new Response(JSON.stringify(enrichedFinding)));
+
+    const { getFindingById } = await loadFindingsApi();
+    const finding = await getFindingById("finding-42");
+
+    expect(finding).toEqual(enrichedFinding);
+    expect(finding.reference_groups?.["Vendor Advisory"]?.[0]?.url).toBe(
+      "https://vendor.example/advisory"
+    );
+  });
+
   it("surfaces backend errors", async () => {
     const { getTopScores } = await loadFindingsApi();
     getFetchMock().mockResolvedValueOnce(

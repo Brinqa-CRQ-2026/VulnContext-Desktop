@@ -1,5 +1,6 @@
 import React from "react";
 import { Button } from "../ui/button";
+import BrinqaLogo from "../../assets/Brinqa.png";
 
 type AppPage = "findings" | "integrations" | "business-services" | "controls";
 
@@ -16,57 +17,26 @@ export function Header({
   onShutdown,
   shutdownPending = false,
 }: HeaderProps) {
-  const pageLabel =
-    page === "findings"
-      ? "Findings"
-      : page === "integrations"
-        ? "Sources"
-        : page === "controls"
-          ? "Security Score"
-          : "Companies";
-
   return (
-    <header className="border-b border-slate-800 bg-slate-950 text-slate-100">
+    <header className="border-b border-black bg-black text-slate-100">
       <div className="flex h-14 w-full items-center justify-between px-4 md:px-6">
         <a
           href="/business-services"
-          className="text-xs font-semibold tracking-[0.2em] text-slate-200"
+          className="flex items-center gap-3 text-sm font-semibold tracking-[0.08em] text-slate-100"
         >
-          VULNCONTEXT
+          <img src={BrinqaLogo} alt="Brinqa" className="h-8 w-20 rounded-sm object-contain" />
+          <span className="uppercase">Cyber Risk Quantification</span>
         </a>
-
-        <div className="hidden items-center gap-2 md:flex">
-          <span className="rounded-md border border-slate-700 bg-slate-900 px-2.5 py-1 text-xs text-slate-300">
-            {pageLabel}
-          </span>
-          <span className="text-xs text-slate-400">Local</span>
-        </div>
 
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
             size="sm"
             className="border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800 hover:text-white"
-            onClick={() => onNavigate("business-services")}
-          >
-            Companies
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800 hover:text-white"
-            onClick={() => onNavigate("controls")}
-          >
-            Security Score
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="border-rose-700 bg-rose-950 text-rose-100 hover:bg-rose-900 hover:text-white"
             disabled={shutdownPending}
             onClick={onShutdown}
           >
-            {shutdownPending ? "Shutting down..." : "Shut Down"}
+            {shutdownPending ? "Exiting..." : "Exit"}
           </Button>
         </div>
       </div>

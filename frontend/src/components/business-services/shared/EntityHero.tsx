@@ -18,6 +18,7 @@ export function EntityHero({
   actions,
   tags,
   backLabel = "Back",
+  showBackButton = true,
   onBack,
 }: {
   breadcrumbs: BreadcrumbEntry[];
@@ -31,6 +32,7 @@ export function EntityHero({
   actions?: ReactNode;
   tags?: ReactNode;
   backLabel?: string;
+  showBackButton?: boolean;
   onBack: () => void;
 }) {
   const displayDescription = description?.trim() || fallbackDescription;
@@ -73,10 +75,12 @@ export function EntityHero({
         <div className="flex flex-wrap items-center justify-end gap-2">
           {tags}
           {actions}
-          <Button variant="outline" size="sm" onClick={onBack}>
-            <ArrowLeft className="h-4 w-4" />
-            {backLabel}
-          </Button>
+          {showBackButton ? (
+            <Button variant="outline" size="sm" onClick={onBack}>
+              <ArrowLeft className="h-4 w-4" />
+              {backLabel}
+            </Button>
+          ) : null}
         </div>
       </div>
     </section>

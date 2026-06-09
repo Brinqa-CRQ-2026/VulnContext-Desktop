@@ -323,10 +323,14 @@ describe("App", () => {
     fireEvent.click(screen.getByText("open-finding"));
     await screen.findByText("detail:finding-42:0");
     expect(screen.getByRole("heading", { name: "Finding Details" })).toBeInTheDocument();
+    expect(
+      screen.getByText("Detailed view for finding context, vulnerability details, and remediation guidance.")
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Back to Findings" })).toBeInTheDocument();
     expect(screen.getByText("detail-breadcrumbs:Findings > Finding")).toBeInTheDocument();
     expect(screen.getByText("detail-back-label:Back to Findings")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByText("detail-back"));
+    fireEvent.click(screen.getByRole("button", { name: "Back to Findings" }));
     await screen.findByText("dashboard:0");
   });
 

@@ -1,11 +1,21 @@
 import type { ReactNode } from "react";
 
-import type { FindingRouteOrigin, ScoredFinding } from "../../types";
+import type { FindingRouteOrigin, NvdReference, ScoredFinding } from "../../types";
 import { formatAgeDays, formatDate } from "../../lib/formatting/dates";
 import { formatNumber } from "../../lib/formatting/numbers";
 import { isPopulatedText, joinDisplayText } from "../../lib/formatting/text";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Button } from "../ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import { openExternalUrl } from "../../lib/externalUrls";
 
 export { formatDate } from "../../lib/formatting/dates";
 export { formatNumber } from "../../lib/formatting/numbers";
@@ -21,128 +31,29 @@ export function formatAge(value?: number | null) {
 export function FindingOverviewSection({
   finding,
   recommendationText,
-  hasDistinctCveDescription,
 }: {
   finding: ScoredFinding;
   recommendationText: string | null;
-  hasDistinctCveDescription: boolean;
 }) {
   return (
     <Section title="Finding Overview">
       <div className="grid gap-4">
-        <NarrativeBlock
-          label="Primary Description"
-          value={finding.description || finding.summary}
-          placeholder="No description is available for this finding."
-          emphasized
-        />
-        {recommendationText ? (
-          <NarrativeBlock
-            label="Recommendation"
-            value={recommendationText}
-            placeholder=""
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(20rem,0.65fr)] xl:items-stretch">
+          <DescriptionRecommendationBlock
+            description={finding.cveDescription || finding.description || finding.summary}
+            recommendation={recommendationText}
+            remediationReference={getBestRemediationReference(finding)}
           />
-        ) : null}
-        {hasDistinctCveDescription ? (
-          <NarrativeBlock
-            label="CVE Description"
-            value={finding.cveDescription}
-            placeholder="No separate CVE description is available."
-          />
-        ) : null}
-        <DetailList
-          items={[
-            { label: "Severity", value: finding.severity || finding.cvss_severity || "-" },
-            { label: "Attack vector", value: finding.attack_vector || "-" },
-            { label: "Attack complexity", value: finding.attack_complexity || "-" },
-          ]}
-          className="sm:grid-cols-2 xl:grid-cols-3"
-        />
-      </div>
-    </Section>
-  );
-}
-
-export function FindingRemediationSection({
-  finding,
-  recommendationText,
-  hasRemediationSnapshot,
-  dueDateValue,
-}: {
-  finding: ScoredFinding;
-  recommendationText: string | null;
-  hasRemediationSnapshot: boolean;
-  dueDateValue?: string | null;
-}) {
-  return (
-    <Section title="Remediation" compact>
-      <div className="grid gap-4">
-        {finding.isKev ? (
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                  Known Exploited Vulnerability
-                </div>
-                <p className="mt-2 text-sm leading-6 text-slate-900">
-                  {finding.kevShortDescription
-                    || finding.kevVulnerabilityName
-                    || "This finding is present in the KEV catalog."}
-                </p>
-              </div>
-              <div className="min-w-[11rem] rounded-lg border border-slate-200 bg-slate-50/50 p-3">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-                  KEV due date
-                </div>
-                <div className="mt-1 text-sm font-semibold text-slate-900">
-                  {formatDate(finding.kevDueDate)}
-                </div>
-                <div className="mt-2 text-xs text-slate-600">
-                  {finding.kevRequiredAction || "Review KEV-required action as soon as possible."}
-                </div>
-              </div>
-            </div>
+          <div className="grid gap-4">
+            <CveIntelligenceCard finding={finding} />
+            <KevIntelligenceCard finding={finding} />
           </div>
-        ) : null}
-
-        {hasRemediationSnapshot ? (
-          <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
-            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-              Action Snapshot
-            </div>
-            <div className="mt-3 grid gap-3">
-              {recommendationText ? (
-                <InlineNarrative label="Recommendation" value={recommendationText} />
-              ) : null}
-              {finding.kevRequiredAction ? (
-                <InlineNarrative label="Required action" value={finding.kevRequiredAction} />
-              ) : null}
-              <CompactDetailList
-                items={[
-                  { label: "Due date", value: formatDate(dueDateValue) },
-                  {
-                    label: "Remediation owner",
-                    value: finding.remediation_owner_name || finding.risk_owner_name || "-",
-                  },
-                  { label: "Remediation status", value: finding.remediation_status || "-" },
-                  {
-                    label: "Urgency",
-                    value: dueDateValue ? `Due ${formatDate(dueDateValue)}` : formatAgeDays(finding.age_in_days),
-                  },
-                ]}
-              />
-            </div>
-          </div>
-        ) : null}
-
-        <CompactDetailList
-          items={[
-            { label: "Remediation owner", value: finding.remediation_owner_name || "-" },
-            { label: "Risk owner", value: finding.risk_owner_name || "-" },
-            { label: "Remediation status", value: finding.remediation_status || "-" },
-            { label: "Due date", value: formatDate(dueDateValue) },
-          ]}
+        </div>
+        <VulnerabilityType
+          cweId={finding.primary_cwe_id}
+          cweDescription={finding.primary_cwe_description}
         />
+        <CvssVectorTable finding={finding} />
       </div>
     </Section>
   );
@@ -160,18 +71,28 @@ export function FindingAffectedContextSection({
   businessContext: string;
 }) {
   return (
-    <Section title="Affected Asset & Business Context" compact>
-      <CompactDetailList
-        items={[
-          { label: "Affected asset", value: assetLabel },
-          { label: "Asset ID", value: origin?.assetId || finding.asset_id || "-" },
-          { label: "Target ID", value: finding.target_ids || finding.asset_id || "-" },
-          { label: "Target names", value: finding.target_names || "-" },
-          { label: "Business context", value: businessContext || "-" },
-          { label: "Asset criticality", value: formatNumber(finding.asset_criticality) },
-          { label: "Risk owner", value: finding.risk_owner_name || "-" },
-        ]}
-      />
+    <Section title="Details" compact>
+      <Tabs defaultValue="asset-business-context">
+        <TabsList>
+          <TabsTrigger value="asset-business-context">Asset &amp; Business Context</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="asset-business-context">
+          <div className="rounded-xl border border-slate-200 bg-slate-50/40 p-4">
+            <CompactDetailList
+              columns={1}
+              items={[
+                { label: "Affected asset", value: assetLabel },
+                { label: "Asset ID", value: origin?.assetId || finding.asset_id || "-" },
+                { label: "Target ID", value: finding.target_ids || finding.asset_id || "-" },
+                { label: "Target names", value: finding.target_names || "-" },
+                { label: "Business context", value: businessContext || "-" },
+                { label: "Asset criticality", value: formatNumber(finding.asset_criticality) },
+              ]}
+            />
+          </div>
+        </TabsContent>
+      </Tabs>
     </Section>
   );
 }
@@ -179,9 +100,15 @@ export function FindingAffectedContextSection({
 export function FindingSupportingDetailsSection({
   finding,
   hasAttackContext,
+  origin,
+  assetLabel,
+  businessContext,
 }: {
   finding: ScoredFinding;
   hasAttackContext: boolean;
+  origin?: FindingRouteOrigin | null;
+  assetLabel: string;
+  businessContext: string;
 }) {
   const identifierItems: Array<{ label: string; value: ReactNode }> = [
     { label: "Internal finding row ID", value: finding.id },
@@ -239,11 +166,12 @@ export function FindingSupportingDetailsSection({
   ];
 
   return (
-    <Section title="Supporting Details" compact>
+    <Section title="Supporting Details" compact className="h-full w-[544px] max-w-full">
       <Tabs defaultValue="identifiers">
         <TabsList>
           <TabsTrigger value="identifiers">Identifiers</TabsTrigger>
           <TabsTrigger value="scoring">Scoring</TabsTrigger>
+          <TabsTrigger value="asset-business-context">Asset &amp; Business Context</TabsTrigger>
           {hasAttackContext ? <TabsTrigger value="attack">Attack</TabsTrigger> : null}
         </TabsList>
 
@@ -256,6 +184,22 @@ export function FindingSupportingDetailsSection({
         <TabsContent value="scoring">
           <div className="rounded-xl border border-slate-200 bg-slate-50/40 p-4">
             <CompactDetailList items={scoringItems} columns={1} />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="asset-business-context">
+          <div className="rounded-xl border border-slate-200 bg-slate-50/40 p-4">
+            <CompactDetailList
+              columns={1}
+              items={[
+                { label: "Affected asset", value: assetLabel },
+                { label: "Asset ID", value: origin?.assetId || finding.asset_id || "-" },
+                { label: "Target ID", value: finding.target_ids || finding.asset_id || "-" },
+                { label: "Target names", value: finding.target_names || "-" },
+                { label: "Business context", value: businessContext || "-" },
+                { label: "Asset criticality", value: formatNumber(finding.asset_criticality) },
+              ]}
+            />
           </div>
         </TabsContent>
 
@@ -275,23 +219,6 @@ export function FindingSupportingDetailsSection({
         ) : null}
       </Tabs>
 
-      {finding.isKev ? (
-        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50/40 p-4">
-          <div className="mb-3 text-sm font-semibold text-slate-950">KEV Details</div>
-          <CompactDetailList
-            columns={1}
-            items={[
-              { label: "KEV date added", value: formatDate(finding.kevDateAdded) },
-              { label: "KEV due date", value: formatDate(finding.kevDueDate) },
-              { label: "Ransomware use", value: finding.kevRansomwareUse || "-" },
-              {
-                label: "KEV vendor / project",
-                value: joinDisplayText([finding.kevVendorProject, finding.kevProduct], "-"),
-              },
-            ]}
-          />
-        </div>
-      ) : null}
     </Section>
   );
 }
@@ -300,13 +227,15 @@ function Section({
   title,
   children,
   compact = false,
+  className,
 }: {
   title: string;
   children: ReactNode;
   compact?: boolean;
+  className?: string;
 }) {
   return (
-    <Card>
+    <Card className={className}>
       <CardHeader className={compact ? "pb-2" : "pb-3"}>
         <CardTitle className="text-sm">{title}</CardTitle>
       </CardHeader>
@@ -359,46 +288,260 @@ function CompactDetailList({
   );
 }
 
-function NarrativeBlock({
-  label,
-  value,
-  placeholder,
-  emphasized = false,
+function VulnerabilityType({
+  cweId,
+  cweDescription,
 }: {
-  label: string;
-  value?: string | null;
-  placeholder: string;
-  emphasized?: boolean;
+  cweId?: string | null;
+  cweDescription?: string | null;
 }) {
+  const hasCweId = isPopulatedText(cweId);
+  const hasCweDescription = isPopulatedText(cweDescription);
+
   return (
-    <div
-      className={`rounded-lg border p-4 ${
-        emphasized ? "border-slate-300 bg-white" : "border-slate-200 bg-slate-50/70"
-      }`}
-    >
-      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</div>
-      <div className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-800">
-        {isPopulatedText(value) ? value : placeholder}
+    <div className="mt-1">
+      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+        Vulnerability Type
+      </div>
+      <div className="mt-1 text-sm text-slate-900">
+        {hasCweId || hasCweDescription ? (
+          <>
+            <div className="font-semibold">{hasCweId ? cweId : "-"}</div>
+            <div className="mt-0.5 text-slate-700">{hasCweDescription ? cweDescription : "-"}</div>
+          </>
+        ) : (
+          "-"
+        )}
       </div>
     </div>
   );
 }
 
-function InlineNarrative({
-  label,
-  value,
-}: {
-  label: string;
-  value?: string | null;
-}) {
-  if (!isPopulatedText(value)) return null;
+function CvssVectorTable({ finding }: { finding: ScoredFinding }) {
+  const items = [
+    { label: "Attack Vector", value: formatCvssMetric(finding.attack_vector) },
+    { label: "Attack Complexity", value: formatCvssMetric(finding.attack_complexity) },
+    { label: "Privileges Required", value: formatCvssMetric(finding.privileges_required) },
+    { label: "User Interaction", value: formatCvssMetric(finding.user_interaction) },
+    { label: "Confidentiality Impact", value: formatCvssMetric(finding.confidentiality_impact) },
+    { label: "Integrity Impact", value: formatCvssMetric(finding.integrity_impact) },
+    { label: "Availability Impact", value: formatCvssMetric(finding.availability_impact) },
+    { label: "Scope", value: formatCvssMetric(finding.scope) },
+  ];
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
-      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</div>
-      <div className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-800">{value}</div>
+    <div className="rounded-lg border border-slate-200">
+      <Table>
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            {items.map((item, index) => (
+              <TableHead
+                key={item.label}
+                aria-label={item.label}
+                className={`min-w-[8.25rem] border-slate-200 px-3 py-2 text-[11px] uppercase tracking-[0.14em] text-slate-500 ${
+                  index > 0 ? "border-l" : ""
+                }`}
+              >
+                <StackedHeader label={item.label} />
+              </TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow className="hover:bg-transparent">
+            {items.map((item, index) => (
+              <TableCell
+                key={item.label}
+                className={`border-slate-200 px-3 py-3 text-sm text-slate-900 ${
+                  index > 0 ? "border-l" : ""
+                }`}
+              >
+                {item.value}
+              </TableCell>
+            ))}
+          </TableRow>
+        </TableBody>
+      </Table>
     </div>
   );
+}
+
+function StackedHeader({ label }: { label: string }) {
+  const words = label.split(" ");
+
+  return (
+    <span className="flex flex-col leading-4" aria-hidden="true">
+      {words.map((word) => (
+        <span key={word}>{word}</span>
+      ))}
+    </span>
+  );
+}
+
+function DescriptionRecommendationBlock({
+  description,
+  recommendation,
+  remediationReference,
+}: {
+  description?: string | null;
+  recommendation?: string | null;
+  remediationReference?: NvdReference | null;
+}) {
+  return (
+    <div className="h-full rounded-lg border border-slate-200 bg-white">
+      <div className="p-4">
+        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Description
+        </div>
+        <div className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-800">
+          {isPopulatedText(description) ? description : "No CVE description is available for this finding."}
+        </div>
+      </div>
+      <div className="border-t border-slate-200 p-4">
+        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Recommendation
+        </div>
+        <div className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-800">
+          {isPopulatedText(recommendation)
+            ? recommendation
+            : "No recommendation is available for this finding."}
+        </div>
+        {remediationReference?.url ? (
+          <div className="mt-3">
+            <Button asChild variant="outline" size="sm">
+              <a
+                href={remediationReference.url}
+                onClick={async (event) => {
+                  event.preventDefault();
+                  await openExternalUrl(remediationReference.url);
+                }}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open remediation reference
+              </a>
+            </Button>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function getBestRemediationReference(finding: ScoredFinding): NvdReference | null {
+  const grouped = finding.reference_groups || {};
+  const orderedGroups = [
+    "Patch / Release Notes",
+    "Vendor Advisory",
+    "Technical Analysis",
+    "NVD / CVE Record",
+  ];
+
+  for (const groupName of orderedGroups) {
+    const picked = pickBestReference(grouped[groupName], groupName);
+    if (picked) return picked;
+  }
+
+  const fallback = (finding.references || []).find((reference) => isPopulatedText(reference?.url));
+  return fallback || null;
+}
+
+function pickBestReference(references?: NvdReference[] | null, groupName?: string) {
+  if (!references || references.length === 0) return null;
+
+  return [...references].sort((left, right) => remediationReferenceScore(right, groupName) - remediationReferenceScore(left, groupName))[0] || null;
+}
+
+function remediationReferenceScore(reference: NvdReference, groupName?: string) {
+  const haystack = [
+    groupName,
+    reference.group,
+    reference.source,
+    ...(reference.tags || []),
+    reference.url,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  let score = 0;
+
+  if (haystack.includes("patch")) score += 100;
+  if (haystack.includes("release note")) score += 95;
+  if (haystack.includes("vendor advisory") || haystack.includes("vendor")) score += 75;
+  if (haystack.includes("technical analysis") || haystack.includes("analysis")) score += 50;
+  if (haystack.includes("nvd") || haystack.includes("cve")) score += 25;
+  if (haystack.includes("third party")) score += 10;
+  if (haystack.includes("exploit") || haystack.includes("poc")) score -= 50;
+
+  return score;
+}
+
+function CveIntelligenceCard({ finding }: { finding: ScoredFinding }) {
+  const items = [
+    { label: "NVD Status", value: formatCvssMetric(finding.nvd_vuln_status) },
+    { label: "Published", value: formatDate(finding.nvd_published) },
+    { label: "Last Modified", value: formatDate(finding.nvd_last_modified) },
+    { label: "CVSS Version", value: finding.cvss_version || "-" },
+  ];
+
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white p-4">
+      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+        CVE Intelligence
+      </div>
+      <dl className="mt-3 divide-y divide-slate-200">
+        {items.map((item) => (
+          <div key={item.label} className="grid gap-2 py-2 first:pt-0 last:pb-0 sm:grid-cols-[8.5rem_minmax(0,1fr)]">
+            <dt className="text-sm font-medium text-slate-600">{item.label}</dt>
+            <dd className="break-words text-sm text-slate-900">{item.value}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+}
+
+function KevIntelligenceCard({ finding }: { finding: ScoredFinding }) {
+  const vulnerabilityName =
+    finding.cisa_vulnerability_name || finding.kevVulnerabilityName || finding.kevShortDescription;
+  const exploitAdd = finding.cisa_exploit_add || finding.kevDateAdded;
+  const actionDue = finding.cisa_action_due || finding.kevDueDate;
+
+  if (!vulnerabilityName && !exploitAdd && !actionDue) {
+    return null;
+  }
+
+  const items = [
+    { label: "Name", value: vulnerabilityName || "-" },
+    { label: "Added to KEV", value: formatDate(exploitAdd) },
+    { label: "Action Due", value: formatDate(actionDue) },
+  ];
+
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white p-4">
+      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+        CISA Known Exploited Vulnerability
+      </div>
+      <dl className="mt-3 divide-y divide-slate-200">
+        {items.map((item) => (
+          <div key={item.label} className="grid gap-2 py-2 first:pt-0 last:pb-0 sm:grid-cols-[8.5rem_minmax(0,1fr)]">
+            <dt className="text-sm font-medium text-slate-600">{item.label}</dt>
+            <dd className="break-words text-sm text-slate-900">{item.value}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+}
+
+function formatCvssMetric(value?: string | null) {
+  if (!isPopulatedText(value)) return "-";
+
+  return value
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function renderLink(value?: string | null) {
@@ -407,6 +550,10 @@ function renderLink(value?: string | null) {
     <a
       className="text-sky-700 underline underline-offset-2"
       href={value ?? undefined}
+      onClick={async (event) => {
+        event.preventDefault();
+        await openExternalUrl(value);
+      }}
       target="_blank"
       rel="noreferrer"
     >
