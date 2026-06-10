@@ -249,11 +249,11 @@ describe("BusinessServiceDetailPage", () => {
     expect(screen.queryByText("Service Totals")).not.toBeInTheDocument();
     expect(screen.getByText("Total Applications")).toBeInTheDocument();
     expect(screen.getByText("Total Assets")).toBeInTheDocument();
-    expect(screen.getByText("Total Findings")).toBeInTheDocument();
+    expect(screen.getAllByText("Total Findings").length).toBeGreaterThan(0);
     expect(screen.getByText("37")).toBeInTheDocument();
     expect(screen.getByText("1,132")).toBeInTheDocument();
-    expect(screen.getByText("Asset Criticality Distribution")).toBeInTheDocument();
-    expect(screen.getByText("All assets under Digital Storefront")).toBeInTheDocument();
+    expect(screen.queryByText("Asset Criticality Distribution")).not.toBeInTheDocument();
+    expect(screen.queryByText("All assets under Digital Storefront")).not.toBeInTheDocument();
     expect(screen.getByText("Asset Type Distribution")).toBeInTheDocument();
     expect(screen.getByText("Top 5 asset types under Digital Storefront")).toBeInTheDocument();
     expect(screen.getByText("Finding Risk Spread")).toBeInTheDocument();
@@ -262,17 +262,24 @@ describe("BusinessServiceDetailPage", () => {
     expect(screen.queryByText("Chart / Visual / Info")).not.toBeInTheDocument();
     expect(screen.getByText("Applications")).toBeInTheDocument();
     expect(screen.getByText("Direct Assets")).toBeInTheDocument();
+    expect(
+      screen.getByText("Assets directly associated with this business service.")
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Back$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("columnheader", { name: /Application/i })).not.toBeInTheDocument();
     expect(screen.getByText("Asset criticality spread")).toBeInTheDocument();
-    expect(screen.getByText("Finding risk spread")).toBeInTheDocument();
+    expect(screen.getByText("Aggregated Finding Risk Spread")).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: /^Asset$/i })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: /^Status$/i })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: /^Asset type$/i })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: /^Environment$/i })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: /^Compliance$/i })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: /^Category$/i })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: /^Finding risk$/i })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: /^Criticality$/i })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: /^Asset Criticality$/i })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: /^Aggregated Finding Risk$/i })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: /^Total Findings$/i })).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: /^Finding risk$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: /^Criticality$/i })).not.toBeInTheDocument();
     expect(screen.getByText("identity-verify")).toBeInTheDocument();
     expect(screen.queryByRole("columnheader", { name: /^Asset ID$/i })).not.toBeInTheDocument();
     const [assetsTable] = screen.getAllByRole("table");

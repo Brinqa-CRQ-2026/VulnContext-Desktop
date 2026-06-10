@@ -8,7 +8,7 @@ These routes power finding lists, summaries, persisted detail, and finding-scope
 
 | Route | Purpose | Output |
 | --- | --- | --- |
-| `GET /findings/top` | Returns the 10 highest-ranked findings by display score | `FindingSummary[]` |
+| `GET /findings/top` | Returns the 10 highest-ranked findings by priority score | `FindingSummary[]` |
 | `GET /findings/summary` | Returns overall risk-band totals and KEV totals | `ScoresSummary` |
 | `GET /findings` | Returns paginated findings with filters and sorting | `PaginatedFindings` |
 | `GET /findings/{finding_id}` | Returns persisted finding detail only | `FindingDetail` |
@@ -17,13 +17,14 @@ These routes power finding lists, summaries, persisted detail, and finding-scope
 ## Shared Behavior
 
 - the display score prefers `crq_finding_score` and falls back to `brinqa_risk_score`
+- the priority score uses `crq_finding_priority_score` and falls back to display score for sorting when priority is missing
 - `FindingSummary.source` is always `Brinqa`
 - the main detail route does not call external enrichment services
 - live Brinqa enrichment fetches are legacy code outside the active API surface
 
 ## `GET /findings/top`
 
-- returns the top 10 findings by the current display-score expression
+- returns the top 10 findings by the current priority-score expression
 - useful for home screens and quick triage views
 
 ## `GET /findings/summary`
@@ -46,6 +47,7 @@ Supported query parameters:
 Sorting supports:
 
 - `risk_score`
+- `priority_score`
 - `internal_risk_score`
 - `source_risk_score`
 - `cvss_score`

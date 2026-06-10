@@ -1,5 +1,6 @@
 export type FindingsSortBy =
   | "risk_score"
+  | "priority_score"
   | "internal_risk_score"
   | "source_risk_score"
   | "cvss_score"

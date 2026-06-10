@@ -1,30 +1,103 @@
-import { ArrowDown, ArrowUp, Search } from "lucide-react";
-
 import { useAssetInventoryState } from "../../hooks/topology/assets/useAssetInventoryState";
 import type { AssetListSortBy, AssetSummary } from "../../types";
+import {
+  deriveAssetStatus,
+  formatCategory,
+  formatEnvironment,
+  getAssetName,
+  getAssetType,
+  getComplianceBadges,
+} from "../../lib/assets/assetFormatters";
+import { formatNumber as formatDisplayNumber } from "../../lib/formatting/numbers";
+import { formatText as formatDisplayText } from "../../lib/formatting/text";
 import { AssetDistributionCharts } from "./AssetDistributionCharts";
-import { AssetsDrillDownTable } from "./DrillDownTables";
-import { Button } from "../ui/button";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "../ui/pagination";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from "../ui/empty";
+import { DataTable, type DataTableColumn } from "../shared/data-table/DataTable";
+import { Pill } from "../ui/pill";
+
+const formatNullable = (value?: number | null, digits = 1) =>
+  formatDisplayNumber(value, digits, "—");
+const formatText = (value?: string | null) => formatDisplayText(value, "—");
+
+const ASSET_SORT_OPTIONS: Array<{ label: string; value: AssetListSortBy }> = [
+  { label: "Findings", value: "finding_count" },
+  { label: "Asset / hostname", value: "name" },
+  { label: "Asset type", value: "asset_type" },
+  { label: "Criticality", value: "asset_criticality" },
+  { label: "Status", value: "status" },
+];
+
+const ASSET_COLUMNS: Array<DataTableColumn<AssetSummary, AssetListSortBy>> = [
+  {
+    id: "status",
+    label: "Status",
+    widthClassName: "w-[112px]",
+    render: (asset) => <AssetStatusBadge status={asset.status} />,
+  },
+  {
+    id: "compliance",
+    label: "Compliance",
+    widthClassName: "w-[150px]",
+    render: (asset) => <AssetComplianceBadges asset={asset} />,
+  },
+  {
+    id: "asset",
+    label: "Asset",
+    render: (asset) => (
+      <div className="font-medium text-slate-900">{getAssetName(asset)}</div>
+    ),
+  },
+  {
+    id: "category",
+    label: "Category",
+    widthClassName: "w-[150px]",
+    render: (asset) => formatCategory(asset.category),
+  },
+  {
+    id: "asset-type",
+    label: "Asset type",
+    widthClassName: "w-[170px]",
+    cellClassName: "text-slate-500",
+    render: (asset) => getAssetType(asset),
+  },
+  {
+    id: "environment",
+    label: "Environment",
+    widthClassName: "w-[150px]",
+    render: (asset) => formatEnvironment(asset.environment),
+  },
+  {
+    id: "asset-criticality",
+    label: "Asset Criticality",
+    widthClassName: "w-[170px]",
+    headerClassName: "text-right",
+    cellClassName: "text-right",
+    group: "score",
+    render: (asset) => formatNullable(asset.asset_context_score),
+  },
+  {
+    id: "aggregated-finding-risk",
+    label: "Aggregated Finding Risk",
+    widthClassName: "w-[210px]",
+    headerClassName: "text-right",
+    cellClassName: "text-right",
+    render: (asset) => formatNullable(asset.aggregated_finding_risk),
+  },
+  {
+    id: "total-findings",
+    label: "Total Findings",
+    widthClassName: "w-[150px]",
+    headerClassName: "text-right font-semibold text-slate-900",
+    cellClassName: "text-right font-semibold text-slate-900",
+    render: (asset) => asset.finding_count.toLocaleString(),
+  },
+];
 
 export function AssetInventoryPanel({
   businessUnit,
   businessService,
   application,
   directOnly = false,
+  wrapInventoryContentInCard = false,
   refreshToken,
   onOpenAsset,
 }: {
@@ -32,6 +105,7 @@ export function AssetInventoryPanel({
   businessService?: string | null;
   application?: string | null;
   directOnly?: boolean;
+  wrapInventoryContentInCard?: boolean;
   refreshToken: number;
   onOpenAsset: (asset: AssetSummary) => void;
 }) {
@@ -49,7 +123,6 @@ export function AssetInventoryPanel({
     setSortBy,
     sortOrder,
     toggleSortOrder,
-    sortState,
     data,
     assets,
     loading,
@@ -81,170 +154,84 @@ export function AssetInventoryPanel({
         error={analyticsError}
       />
 
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-4">
-        <form
-          className="flex flex-wrap items-center gap-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            applySearch();
-          }}
-        >
-          <label className="flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">
-            <Search className="h-4 w-4" />
-            <input
-              value={searchDraft}
-              onChange={(event) => setSearchDraft(event.target.value)}
-              placeholder="Search asset or ID"
-              className="min-w-[12rem] bg-transparent outline-none"
-            />
-          </label>
-          <Button type="submit" variant="outline" size="sm">
-            Apply
-          </Button>
-        </form>
+      <DataTable<AssetSummary, AssetListSortBy>
+        items={assets}
+        getRowId={(asset) => asset.asset_id}
+        columns={ASSET_COLUMNS}
+        loading={loading}
+        loadingMessage="Loading assets"
+        error={error}
+        emptyTitle="No assets"
+        emptyDescription="No assets matched the current filters."
+        search={{
+          value: searchDraft,
+          placeholder: "Search asset or ID",
+          onChange: setSearchDraft,
+          onSubmit: applySearch,
+        }}
+        filters={[
+          {
+            id: "status",
+            label: "Status",
+            value: status,
+            options: statusOptions.map((value) => ({ label: value, value })),
+            onChange: setStatus,
+          },
+          {
+            id: "environment",
+            label: "Environment",
+            value: environment,
+            options: environmentOptions.map((value) => ({ label: value, value })),
+            onChange: setEnvironment,
+          },
+          {
+            id: "compliance",
+            label: "Compliance",
+            value: compliance,
+            options: complianceOptions.map((value) => ({ label: value, value })),
+            onChange: setCompliance,
+          },
+        ]}
+        sort={{
+          options: ASSET_SORT_OPTIONS,
+          sortBy,
+          onSortByChange: setSortBy,
+          sortOrder,
+          onToggleSortOrder: toggleSortOrder,
+        }}
+        pagination={
+          (data?.total ?? 0) > pageSize
+            ? { page, pageSize, total: data?.total ?? 0, pageNumbers, onPageChange: goToPage }
+            : undefined
+        }
+        itemLabelSingular="asset"
+        itemLabelPlural="assets"
+        onOpenRow={onOpenAsset}
+        rowAriaLabel={(asset) => `Open ${getAssetName(asset)}`}
+        carded={wrapInventoryContentInCard}
+        tableClassName="min-w-[1280px]"
+      />
+    </div>
+  );
+}
 
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">
-            <span>Status</span>
-            <select
-              value={status}
-              onChange={(event) => setStatus(event.target.value)}
-              className="bg-transparent outline-none"
-            >
-              {statusOptions.map((value) => (
-                <option key={value} value={value}>
-                  {value}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">
-            <span>Environment</span>
-            <select
-              value={environment}
-              onChange={(event) => setEnvironment(event.target.value)}
-              className="bg-transparent outline-none"
-            >
-              {environmentOptions.map((value) => (
-                <option key={value} value={value}>
-                  {value}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">
-            <span>Compliance</span>
-            <select
-              value={compliance}
-              onChange={(event) => setCompliance(event.target.value)}
-              className="bg-transparent outline-none"
-            >
-              {complianceOptions.map((value) => (
-                <option key={value} value={value}>
-                  {value}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">
-            <span>Sort by</span>
-            <select
-              value={sortBy}
-              onChange={(event) => setSortBy(event.target.value as AssetListSortBy)}
-              className="bg-transparent outline-none"
-            >
-              <option value="finding_count">Findings</option>
-              <option value="name">Asset / hostname</option>
-              <option value="asset_type">Asset type</option>
-              <option value="asset_criticality">Criticality</option>
-              <option value="status">Status</option>
-            </select>
-          </label>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={toggleSortOrder}
-          >
-            {sortOrder === "asc" ? (
-              <>
-                <ArrowUp className="h-4 w-4" />
-                Asc
-              </>
-            ) : (
-              <>
-                <ArrowDown className="h-4 w-4" />
-                Desc
-              </>
-            )}
-          </Button>
-        </div>
-      </div>
+function AssetStatusBadge({ status }: { status?: string | null }) {
+  const normalized = deriveAssetStatus(status);
+  return <Pill tone={normalized === "Active" ? "success" : "neutral"}>{normalized}</Pill>;
+}
 
-      {loading ? (
-        <div className="rounded-xl border border-slate-200 p-6 text-sm text-slate-500">
-          Loading assets...
-        </div>
-      ) : error ? (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
-          {error}
-        </div>
-      ) : assets.length === 0 ? (
-        <Empty className="min-h-[12rem]">
-          <EmptyHeader>
-            <EmptyTitle>No assets</EmptyTitle>
-            <EmptyDescription>No assets matched the current filters.</EmptyDescription>
-          </EmptyHeader>
-        </Empty>
-      ) : (
-        <AssetsDrillDownTable
-          assets={assets}
-          sort={sortState}
-          onSortChange={() => undefined}
-          onOpenAsset={onOpenAsset}
-          enableSorting={false}
-        />
-      )}
-
-      {(data?.total ?? 0) > pageSize ? (
-        <Pagination>
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious
-                href="#"
-                onClick={(event) => {
-                  event.preventDefault();
-                  goToPage(page - 1);
-                }}
-                className={page <= 1 ? "pointer-events-none opacity-50" : ""}
-              />
-            </PaginationItem>
-            {pageNumbers.map((value) => (
-              <PaginationItem key={value}>
-                <PaginationLink
-                  href="#"
-                  isActive={page === value}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    goToPage(value);
-                  }}
-                >
-                  {value}
-                </PaginationLink>
-              </PaginationItem>
-            ))}
-            <PaginationItem>
-              <PaginationNext
-                href="#"
-                onClick={(event) => {
-                  event.preventDefault();
-                  goToPage(page + 1);
-                }}
-                className={page >= totalPages ? "pointer-events-none opacity-50" : ""}
-              />
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
-      ) : null}
+function AssetComplianceBadges({ asset }: { asset: AssetSummary }) {
+  const badges = getComplianceBadges(asset);
+  if (badges.length === 0) {
+    return <span className="text-slate-500">—</span>;
+  }
+  return (
+    <div className="flex flex-wrap gap-1">
+      {badges.map((badge) => (
+        <Pill key={badge} tone={badge === "PCI" || badge === "PII" ? "warn" : "neutral"}>
+          {badge}
+        </Pill>
+      ))}
     </div>
   );
 }

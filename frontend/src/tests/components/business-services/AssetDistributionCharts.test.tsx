@@ -30,7 +30,7 @@ describe("AssetDistributionCharts", () => {
     );
 
     expect(screen.getByText("Asset criticality spread")).toBeInTheDocument();
-    expect(screen.getByText("Finding risk spread")).toBeInTheDocument();
+    expect(screen.getByText("Aggregated Finding Risk Spread")).toBeInTheDocument();
     expect(screen.getAllByText("7 assets")).toHaveLength(2);
     expect(screen.getByText("Unscored 1")).toBeInTheDocument();
   });

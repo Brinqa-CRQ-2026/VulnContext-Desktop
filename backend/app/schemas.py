@@ -139,6 +139,7 @@ class ScoresSummary(BaseModel):
         default_factory=RiskBandSummary,
         serialization_alias="kevRiskBands",
     )
+    average_risk_score: float | None = None
 
 
 class TopologyMetrics(BaseModel):

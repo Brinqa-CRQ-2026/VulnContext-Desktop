@@ -15,6 +15,7 @@ def test_findings_summary_and_list_use_thin_runtime_models(client, db_session):
         idx=1,
         risk=9.2,
         crq_finding_score=6.5,
+        crq_finding_priority_score=8.4,
         crq_finding_risk_band="Medium",
         crq_finding_is_kev=True,
     )
@@ -30,6 +31,7 @@ def test_findings_summary_and_list_use_thin_runtime_models(client, db_session):
     assert payload["risk_bands"]["Low"] == 1
     assert payload["kevFindingsTotal"] == 1
     assert payload["kevRiskBands"]["Medium"] == 1
+    assert round(payload["average_risk_score"], 1) == 5.9
 
     versioned_summary = client.get("/api/v1/findings/summary")
     assert versioned_summary.status_code == 200
@@ -43,6 +45,7 @@ def test_findings_summary_and_list_use_thin_runtime_models(client, db_session):
     assert items[0]["application"] == "Application 2"
     assert items[0]["cvss_score"] is None
     assert items[1]["risk_band"] == "Medium"
+    assert items[1]["priority_score"] == 8.4
     assert items[1]["source_risk_band"] == "Critical"
     assert items[1]["score_source"] == "CRQ V4"
     assert items[1]["cvss_score"] == 8.8
@@ -76,6 +79,7 @@ def test_findings_detail_returns_thin_persisted_data_only(client, db_session):
     assert payload["display_name"] == "Finding 5"
     assert payload["target_names"] == "host-5"
     assert payload["risk_score"] == 9.7
+    assert payload["priority_score"] is None
     assert payload["source_risk_score"] == 8.1
     assert payload["crq_score_version"] == "v4"
     assert payload["cvss_score"] == 8.8

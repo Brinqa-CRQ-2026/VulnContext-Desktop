@@ -1,12 +1,10 @@
 import { useEffect, useState } from "react";
 
 import { getScoresSummary } from "../../api/findings";
-import { getSourcesSummary } from "../../api/sources";
-import type { ScoresSummary, SourceSummary } from "../../types";
+import type { ScoresSummary } from "../../types";
 
 export function useDashboardOverviewData(refreshToken: number) {
   const [summary, setSummary] = useState<ScoresSummary | null>(null);
-  const [sources, setSources] = useState<SourceSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -17,13 +15,9 @@ export function useDashboardOverviewData(refreshToken: number) {
       try {
         setLoading(true);
         setError(null);
-        const [summaryData, sourceData] = await Promise.all([
-          getScoresSummary(),
-          getSourcesSummary(),
-        ]);
+        const summaryData = await getScoresSummary();
         if (!isActive) return;
         setSummary(summaryData);
-        setSources(sourceData);
       } catch (err) {
         console.error(err);
         if (!isActive) return;
@@ -41,5 +35,5 @@ export function useDashboardOverviewData(refreshToken: number) {
     };
   }, [refreshToken]);
 
-  return { summary, sources, loading, error };
+  return { summary, loading, error };
 }

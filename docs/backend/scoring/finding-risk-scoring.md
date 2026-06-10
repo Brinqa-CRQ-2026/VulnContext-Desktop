@@ -2,7 +2,7 @@
 
 CRQ v4 is the current manual-run scoring model for `public.findings`.
 
-This version keeps CVSS as the primary driver, turns EPSS into a small bounded downward or upward adjustment, and keeps age as reference-only metadata until the dataset has trustworthy age values.
+This version keeps CVSS as the primary driver, turns EPSS into a small bounded downward or upward adjustment, and keeps age as reference-only metadata until the dataset has trustworthy age values. It also writes the finding-level unified remediation priority score defined in the technical scoring reference.
 
 Schema changes are managed by the tracked Supabase baseline migration in `supabase/migrations/20260609000000_setup_database.sql`. The scoring script assumes those columns already exist.
 
@@ -36,6 +36,20 @@ Age handling:
 - for `cvss_score < 4.0`, negative EPSS adjustments are softened
 - for missing or zero CVSS, negative EPSS adjustments are disabled
 
+## Unified Remediation Priority
+
+`crq_finding_priority_score = (0.60 * crq_finding_score) + (0.20 * crq_asset_context_score) + (0.20 * normalized_business_criticality)`
+
+Where:
+
+- `crq_finding_score` is the final finding risk score above
+- `crq_asset_context_score` comes from the finding asset and is already `0-10`
+- `normalized_business_criticality = (business_criticality_score / 5) * 10`
+- direct asset-to-business-service criticality is preferred
+- application-to-business-service criticality is used as a fallback
+- missing asset context defaults to `0.0`
+- missing business criticality defaults to `0.0`
+
 ## Risk Bands
 
 - `>= 9.0` => `Critical`
@@ -48,6 +62,7 @@ Age handling:
 The scorer writes these columns on `public.findings`:
 
 - `crq_finding_score`
+- `crq_finding_priority_score`
 - `crq_finding_risk_band`
 - `crq_finding_scored_at`
 - `crq_finding_score_version`

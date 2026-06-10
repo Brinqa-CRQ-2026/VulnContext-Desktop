@@ -87,6 +87,7 @@ export interface ScoredFinding {
   kevRansomwareUse?: string | null;
 
   risk_score?: number | null;
+  priority_score?: number | null;
   risk_band?: string | null;
   source_risk_score?: number | null;
   source_risk_band?: string | null;
@@ -143,6 +144,7 @@ export interface ScoresSummary {
   risk_bands: RiskBandSummary;
   kevFindingsTotal?: number;
   kevRiskBands?: RiskBandSummary;
+  average_risk_score?: number | null;
 }
 
 export interface PaginatedFindings {

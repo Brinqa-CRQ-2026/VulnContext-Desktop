@@ -21,11 +21,12 @@ export const findingsSortLabelMap: Record<FindingsSortBy, string> = {
   age_in_days: "Sort by age",
   due_date: "Sort by due date",
   source: "Sort by source",
+  priority_score: "Sort by Priority Score",
 };
 
 export function useFindingsExplorerState(refreshToken: number) {
   const [bandFilter, setBandFilter] = useState<RiskBandFilter>("All");
-  const [sortBy, setSortBy] = useState<FindingsSortBy>("risk_score");
+  const [sortBy, setSortBy] = useState<FindingsSortBy>("priority_score");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [sourceFilter, setSourceFilter] = useState<string>("All");
   const [showKevOnly, setShowKevOnly] = useState(false);

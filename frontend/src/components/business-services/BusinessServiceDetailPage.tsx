@@ -1,15 +1,8 @@
 import { Layers3 } from "lucide-react";
-import { useCallback, useMemo } from "react";
-import { Bar, BarChart, CartesianGrid, Pie, PieChart, XAxis } from "recharts";
+import { useCallback } from "react";
+import { Bar, BarChart, CartesianGrid, XAxis } from "recharts";
 
-import type {
-  AssetScoreDistribution,
-  AssetTypeDistributionItem,
-} from "../../types";
-import {
-  toAssetCriticalityLegendRows,
-  toAssetCriticalityPieRows,
-} from "../../lib/charts/assetDistribution";
+import type { AssetTypeDistributionItem } from "../../types";
 import { formatNumber } from "../../lib/formatting/numbers";
 import { isTopologyUnavailable } from "../../lib/topology/topologyStatus";
 import { useBusinessServiceDetail } from "../../hooks/topology/business-services/useBusinessServiceDetail";
@@ -27,12 +20,8 @@ import {
   EmptyIcon,
   EmptyTitle,
 } from "../ui/empty";
-import { Button } from "../ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import {
   ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
   type ChartConfig,
@@ -104,7 +93,6 @@ export function BusinessServiceDetailPage({
         description={
           error ?? "The selected business service does not exist in the live topology."
         }
-        onBack={onBack}
       />
     );
   }
@@ -127,7 +115,8 @@ export function BusinessServiceDetailPage({
         title={businessService.business_service}
         description={businessService.description}
         fallbackDescription="Description for this business service will appear here when it is available."
-        backLabel="Back"
+        showBackButton={false}
+        showIdentityBadge={false}
         onBack={onBack}
       />
 
@@ -157,13 +146,7 @@ export function BusinessServiceDetailPage({
         />
       </MetricGrid>
 
-      <div className="grid items-stretch gap-4 lg:grid-cols-3">
-        <AssetCriticalityDistributionCard
-          businessService={businessService.business_service}
-          distribution={businessServiceAnalytics?.asset_criticality_distribution ?? null}
-          loading={businessServiceAnalyticsLoading}
-          error={businessServiceAnalyticsError}
-        />
+      <div className="grid items-stretch gap-4 lg:grid-cols-2">
         <AssetTypeDistributionCard
           businessService={businessService.business_service}
           assetTypes={businessServiceAnalytics?.asset_type_distribution ?? []}
@@ -184,7 +167,7 @@ export function BusinessServiceDetailPage({
         />
       ) : null}
 
-      <section className="space-y-3">
+      <section className="mt-12 space-y-3">
         <div>
           <h2 className="text-base font-semibold text-slate-950">Applications</h2>
           <p className="mt-1 text-sm text-slate-500">
@@ -214,33 +197,25 @@ export function BusinessServiceDetailPage({
         )}
       </section>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm uppercase tracking-[0.16em] text-slate-500">
-            Direct Assets
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <AssetInventoryPanel
-            businessUnit={businessService.business_unit}
-            businessService={businessService.business_service}
-            directOnly
-            refreshToken={refreshToken}
-            onOpenAsset={onOpenAssetFindings}
-          />
-        </CardContent>
-      </Card>
+      <section className="mt-12 space-y-3">
+        <div>
+          <h2 className="text-base font-semibold text-slate-950">Direct Assets</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Assets directly associated with this business service.
+          </p>
+        </div>
+        <AssetInventoryPanel
+          businessUnit={businessService.business_unit}
+          businessService={businessService.business_service}
+          directOnly
+          wrapInventoryContentInCard
+          refreshToken={refreshToken}
+          onOpenAsset={onOpenAssetFindings}
+        />
+      </section>
     </div>
   );
 }
-
-const severityChartConfig = {
-  critical: { label: "Critical", color: "#dc2626" },
-  high: { label: "High", color: "#f97316" },
-  medium: { label: "Medium", color: "#f59e0b" },
-  low: { label: "Low", color: "#22c55e" },
-  unscored: { label: "Unscored", color: "#94a3b8" },
-} satisfies ChartConfig;
 
 const assetTypeChartConfig = {
   count: {
@@ -248,56 +223,6 @@ const assetTypeChartConfig = {
     color: "#2563eb",
   },
 } satisfies ChartConfig;
-
-function AssetCriticalityDistributionCard({
-  businessService,
-  distribution,
-  loading,
-  error,
-}: {
-  businessService: string;
-  distribution: AssetScoreDistribution | null;
-  loading: boolean;
-  error: string | null;
-}) {
-  const chartData = useMemo(() => toAssetCriticalityPieRows(distribution), [distribution]);
-  const legendData = useMemo(() => toAssetCriticalityLegendRows(distribution), [distribution]);
-
-  return (
-    <ChartPanel
-      title="Asset Criticality Distribution"
-      description={`All assets under ${businessService}`}
-      loading={loading}
-      error={error}
-      empty={chartData.length === 0}
-      emptyMessage="No assets available."
-      loadingMessage="Loading distribution…"
-      headerClassName="pb-3"
-      titleClassName="text-sm text-slate-700"
-      contentClassName="min-h-[220px]"
-      placeholderClassName="h-[180px] min-h-0 rounded-lg border-slate-200 bg-slate-50/60 text-slate-500"
-      errorPlaceholderClassName="h-[180px] min-h-0 rounded-lg border-rose-200 bg-rose-50 text-rose-700"
-    >
-      <ChartContainer
-        config={severityChartConfig}
-        className="mx-auto h-[180px] w-full"
-      >
-        <PieChart>
-          <Pie data={chartData} dataKey="count" nameKey="key" outerRadius={58} />
-          <ChartTooltip
-            cursor={false}
-            content={<ChartTooltipContent nameKey="key" hideLabel />}
-          />
-          <ChartLegend
-            payload={legendData}
-            content={<ChartLegendContent nameKey="key" />}
-            className="flex-nowrap justify-center gap-4 pt-4 text-xs"
-          />
-        </PieChart>
-      </ChartContainer>
-    </ChartPanel>
-  );
-}
 
 function AssetTypeDistributionCard({
   businessService,
@@ -376,11 +301,9 @@ function FindingRiskSpreadPlaceholder({
 function DetailEmptyState({
   title,
   description,
-  onBack,
 }: {
   title: string;
   description: string;
-  onBack: () => void;
 }) {
   return (
     <Empty>
@@ -391,9 +314,6 @@ function DetailEmptyState({
         <EmptyTitle>{title}</EmptyTitle>
         <EmptyDescription>{description}</EmptyDescription>
       </EmptyHeader>
-      <Button variant="outline" onClick={onBack}>
-        Back to Business Unit
-      </Button>
     </Empty>
   );
 }

@@ -24,8 +24,13 @@ def get_findings_summary(db) -> schemas.ScoresSummary:
     band_counts = {"Critical": 0, "High": 0, "Medium": 0, "Low": 0}
     kev_band_counts = {"Critical": 0, "High": 0, "Medium": 0, "Low": 0}
     kev_total = 0
+    score_total = 0.0
+    scored_count = 0
     for _, crq_finding_score, brinqa_risk_score, crq_finding_is_kev in findings:
         score = crq_finding_score if crq_finding_score is not None else brinqa_risk_score
+        if score is not None:
+            score_total += score
+            scored_count += 1
         band = derive_risk_band(score)
         if band in band_counts:
             band_counts[band] += 1
@@ -39,6 +44,7 @@ def get_findings_summary(db) -> schemas.ScoresSummary:
         risk_bands=schemas.RiskBandSummary(**band_counts),
         kev_findings_total=kev_total,
         kev_risk_bands=schemas.RiskBandSummary(**kev_band_counts),
+        average_risk_score=(score_total / scored_count if scored_count else None),
     )
 
 

@@ -48,7 +48,7 @@ describe("useFindingsExplorerState", () => {
 
     expect(result.current.visibleFindings).toHaveLength(2);
     expect(result.current.pageNumbers).toEqual([1, 2, 3, 4, 5]);
-    expect(result.current.sortLabel).toBe("Sort by Risk Score");
+    expect(result.current.sortLabel).toBe("Sort by Priority Score");
 
     act(() => result.current.setShowKevOnly(true));
 

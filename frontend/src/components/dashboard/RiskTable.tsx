@@ -1,37 +1,15 @@
-import { ArrowDown, ArrowUp, ChevronDown } from "lucide-react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "../ui/table";
-import type { RiskBandFilter, ScoredFinding } from "../../types";
-import { Card, CardContent, CardHeader } from "../ui/card";
+import { useMemo, useState } from "react";
+import { Info } from "lucide-react";
+
 import { Button } from "../ui/button";
+import { FindingsTable, type FindingsTableColumn } from "../findings/FindingsTable";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "../ui/hover-card";
 import { useFindingsExplorerState } from "../../hooks/findings/useFindingsExplorerState";
 import { formatNumber as formatDisplayNumber } from "../../lib/formatting/numbers";
 import { getNormalizedFindingTitle } from "../../lib/findings";
 import { riskBandPillClass } from "../../lib/findings/findingRisk";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationNext,
-  PaginationPrevious,
-  PaginationLink,
-} from "../ui/pagination";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "../ui/dropdown-menu";
-import { LoadingSpinnerState } from "../shared/LoadingSpinnerState";
 import { normalizeFindingStatus } from "../../lib/findings/findingStatus";
+import type { FindingsSortBy, RiskBandFilter, ScoredFinding } from "../../types";
 import { StatusBadge } from "../business-services/shared/TopologyBadges";
 
 interface RiskTableProps {
@@ -40,8 +18,164 @@ interface RiskTableProps {
   onOpenFinding?: (finding: ScoredFinding) => void;
 }
 
+const RISK_BAND_OPTIONS: RiskBandFilter[] = ["All", "Critical", "High", "Medium", "Low"];
+
+const SORT_OPTIONS: Array<{ label: string; value: FindingsSortBy }> = [
+  { label: "Priority Score", value: "priority_score" },
+  { label: "Risk Score", value: "risk_score" },
+  { label: "Age", value: "age_in_days" },
+];
+
 const formatNumber = (value?: number | null, digits = 1) =>
   formatDisplayNumber(value, digits, "—");
+
+function deriveRiskBand(score?: number | null) {
+  if (score === null || score === undefined) return null;
+  if (score >= 9) return "Critical";
+  if (score >= 7) return "High";
+  if (score >= 4) return "Medium";
+  return "Low";
+}
+
+function PriorityScoreLabel() {
+  return (
+    <span className="inline-flex w-full items-center justify-end gap-1.5">
+      Priority Score
+      <HoverCard openDelay={150} closeDelay={100}>
+        <HoverCardTrigger asChild>
+          <button
+            type="button"
+            className="inline-flex h-4 w-4 items-center justify-center rounded-full text-slate-400 transition-colors hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2"
+            aria-label="About priority score"
+          >
+            <Info className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+        </HoverCardTrigger>
+        <HoverCardContent
+          side="bottom"
+          align="end"
+          className="w-80 max-w-[calc(100vw-2rem)] whitespace-normal text-left text-sm leading-5"
+        >
+          <div className="font-semibold text-slate-950">Priority Score</div>
+          <p className="mt-1 whitespace-normal break-words text-sm font-normal leading-5 text-slate-500 normal-case">
+            This is the remediation ranking score. It combines finding risk, asset
+            context, and business importance to show what should be fixed first.
+          </p>
+        </HoverCardContent>
+      </HoverCard>
+    </span>
+  );
+}
+
+const MAIN_FINDINGS_COLUMNS: Array<FindingsTableColumn<FindingsSortBy>> = [
+  {
+    id: "row-number",
+    label: "#",
+    widthClassName: "w-[72px]",
+    headerClassName: "pr-4",
+    cellClassName: "pr-4",
+    render: (_finding, { absoluteIndex }) => absoluteIndex + 1,
+  },
+  {
+    id: "status",
+    label: "Status",
+    widthClassName: "w-[132px]",
+    sortField: "status",
+    render: (finding) => {
+      const normalizedStatus = normalizeFindingStatus(finding);
+      return (
+        <div className="flex items-center gap-2">
+          <StatusBadge tone={normalizedStatus === "Fixed" ? "fixed" : "active"}>
+            {normalizedStatus}
+          </StatusBadge>
+          {finding.isKev ? <StatusBadge tone="dark">KEV</StatusBadge> : null}
+        </div>
+      );
+    },
+  },
+  {
+    id: "finding",
+    label: "Finding",
+    cellClassName: "pl-5",
+    headerClassName: "pl-5",
+    render: (finding) => (
+      <div className="font-medium text-slate-900">
+        {finding.cve_id ?? getNormalizedFindingTitle(finding)}
+      </div>
+    ),
+  },
+  {
+    id: "business-service",
+    label: "Business Service",
+    widthClassName: "w-[240px]",
+    render: (finding) => finding.business_service || "—",
+  },
+  {
+    id: "asset",
+    label: "Asset",
+    widthClassName: "w-[240px]",
+    render: (finding) => finding.asset_name || finding.target_names || "—",
+  },
+  {
+    id: "risk-score",
+    label: "Risk Score",
+    widthClassName: "w-[150px]",
+    headerClassName: "border-l border-slate-200 pl-5 text-right",
+    cellClassName: "border-l border-slate-200 pl-5 text-right",
+    sortField: "risk_score",
+    render: (finding) => (
+      <span className="font-semibold text-slate-900">
+        {formatNumber(finding.risk_score)}
+      </span>
+    ),
+  },
+  {
+    id: "priority-score",
+    label: <PriorityScoreLabel />,
+    widthClassName: "w-[190px]",
+    headerClassName: "text-right",
+    cellClassName: "text-right",
+    sortField: "priority_score",
+    render: (finding) => {
+      const priorityScore = finding.priority_score ?? finding.risk_score ?? null;
+      const priorityBand = deriveRiskBand(priorityScore) ?? finding.risk_band;
+      return (
+        <div className="flex items-center justify-end gap-3">
+          <span className="font-semibold text-slate-900">
+            {formatNumber(priorityScore)}
+          </span>
+          {priorityBand ? (
+            <span
+              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${riskBandPillClass(
+                priorityBand
+              )}`}
+            >
+              {priorityBand}
+            </span>
+          ) : null}
+        </div>
+      );
+    },
+  },
+  {
+    id: "age",
+    label: "Age",
+    widthClassName: "w-[120px]",
+    headerClassName: "text-right",
+    cellClassName: "text-right",
+    sortField: "age_in_days",
+    render: (finding) => {
+      if (finding.age_in_days === null || finding.age_in_days === undefined) {
+        return <span className="text-slate-400">—</span>;
+      }
+      return (
+        <span className="font-medium text-slate-700">
+          {Math.round(finding.age_in_days).toLocaleString()}d
+        </span>
+      );
+    },
+  },
+];
 
 export function RiskTable({
   refreshToken,
@@ -54,13 +188,9 @@ export function RiskTable({
     sortBy,
     setSortBy,
     sortOrder,
-    setSortOrder,
     toggleSortOrder,
-    sourceFilter,
-    setSourceFilter,
     showKevOnly,
     setShowKevOnly,
-    sources,
     page,
     pageSize,
     loading,
@@ -69,319 +199,82 @@ export function RiskTable({
     total,
     pageNumbers,
     goToPage,
-    sortLabel,
   } = useFindingsExplorerState(refreshToken);
+  const [searchDraft, setSearchDraft] = useState("");
+  const [search, setSearch] = useState("");
+
+  const findings = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return visibleFindings;
+
+    return visibleFindings.filter((finding) => {
+      const values = [
+        finding.cve_id,
+        finding.id,
+        finding.record_id,
+        finding.uid,
+        finding.display_name,
+        finding.asset_name,
+        finding.asset_id,
+        finding.target_names,
+        finding.business_service,
+        finding.application,
+        finding.status,
+        finding.lifecycle_status,
+        finding.source,
+      ];
+      return values.some((value) => value?.toLowerCase().includes(term));
+    });
+  }, [search, visibleFindings]);
+
+  const emptyDescription =
+    bandFilter === "All" && total === 0
+      ? "No findings are available yet. Populate the backend tables through the documented data scripts, then return here to review the results."
+      : showKevOnly
+        ? "No KEV findings on this page/filter."
+        : "No findings available for this filter.";
 
   return (
-    <Card className="flex-1 overflow-hidden">
-      <CardHeader>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-2 md:justify-end">
-            <DropdownMenu>
-              <DropdownMenuTrigger className="inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50">
-                Source: {sourceFilter}
-                <ChevronDown className="h-4 w-4" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuLabel>Filter by source</DropdownMenuLabel>
-                <DropdownMenuItem onClick={() => setSourceFilter("All")}>
-                  All sources
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                {sources.length === 0 ? (
-                  <DropdownMenuItem disabled>No sources yet</DropdownMenuItem>
-                ) : (
-                  sources.map((source) => (
-                    <DropdownMenuItem
-                      key={source.source}
-                      onClick={() => setSourceFilter(source.source)}
-                    >
-                      {source.source} ({source.total_findings.toLocaleString()})
-                    </DropdownMenuItem>
-                  ))
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger className="inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50">
-                {sortLabel}
-                <ChevronDown className="h-4 w-4" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuLabel>Sort Field</DropdownMenuLabel>
-                <DropdownMenuItem onClick={() => setSortBy("risk_score")}>
-                  Sort by Risk Score
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSortBy("internal_risk_score")}>
-                  Sort by internal risk
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSortBy("source_risk_score")}>
-                  Sort by vendor risk
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSortBy("cvss_score")}>
-                  Sort by CVSS
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSortBy("epss_score")}>
-                  Sort by EPSS
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSortBy("age_in_days")}>
-                  Sort by age
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSortBy("due_date")}>
-                  Sort by due date
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSortBy("source")}>
-                  Sort by source
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuLabel>Direction</DropdownMenuLabel>
-                <DropdownMenuItem onClick={() => setSortOrder("asc")}>
-                  Ascending
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSortOrder("desc")}>
-                  Descending
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={toggleSortOrder}
-            >
-              {sortOrder === "asc" ? (
-                <>
-                  <ArrowUp className="h-4 w-4" /> Asc
-                </>
-              ) : (
-                <>
-                  <ArrowDown className="h-4 w-4" /> Desc
-                </>
-              )}
-            </Button>
-
-            <div className="flex items-center gap-1 rounded-full bg-slate-100 px-1 py-0.5 text-xs">
-              {(["All", "Critical", "High", "Medium", "Low"] as RiskBandFilter[]).map(
-                (band) => {
-                  const active = bandFilter === band;
-                  return (
-                    <button
-                      key={band}
-                      onClick={() => setBandFilter(band)}
-                      className={`rounded-full px-2 py-0.5 transition ${
-                        active
-                          ? "bg-slate-900 text-slate-50"
-                          : "text-slate-600 hover:bg-slate-200"
-                      }`}
-                    >
-                      {band}
-                    </button>
-                  );
-                }
-              )}
-            </div>
-
-            <label className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700">
-              <input
-                type="checkbox"
-                checked={showKevOnly}
-                onChange={(e) => setShowKevOnly(e.target.checked)}
-                className="h-3.5 w-3.5 rounded border-slate-300"
-              />
-              Show only KEV
-            </label>
-          </div>
-        </div>
-      </CardHeader>
-
-      <CardContent className="flex flex-col gap-3 overflow-auto">
-        <div className="min-h-0 flex-1">
-          {loading ? (
-            <LoadingSpinnerState message="Loading findings" className="min-h-[16rem]" />
-          ) : null}
-          {!loading && !error && bandFilter === "All" && total === 0 ? (
-            <div className="flex h-full min-h-[16rem] flex-col items-center justify-center gap-3 rounded-md border border-dashed border-slate-300 bg-slate-50/70 p-6 text-center">
-              <p className="text-sm text-slate-600">
-                No findings are available yet. Populate the backend tables through the
-                documented data scripts, then return here to review the results.
-              </p>
-              <Button onClick={onOpenIntegrations}>View Sources</Button>
-            </div>
-          ) : (
-            <Table className="table-fixed min-w-[1360px]">
-              <colgroup>
-                <col className="w-[84px]" />
-                <col className="w-[132px]" />
-                <col />
-                <col className="w-[210px]" />
-                <col className="w-[200px]" />
-                <col className="w-[150px]" />
-                <col className="w-[150px]" />
-                <col className="w-[150px]" />
-                <col className="w-[150px]" />
-              </colgroup>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-10 pr-4">#</TableHead>
-                  <TableHead className="whitespace-nowrap px-4">Status</TableHead>
-                  <TableHead className="pl-4">Finding</TableHead>
-                  <TableHead>Business Service</TableHead>
-                  <TableHead>Asset</TableHead>
-                  <TableHead className="whitespace-nowrap border-l border-slate-200 pl-4 text-left">
-                    Business Importance
-                  </TableHead>
-                  <TableHead className="text-right">Asset Criticality</TableHead>
-                  <TableHead className="text-right">Risk Score</TableHead>
-                  <TableHead className="text-right">Priority Score</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading && (
-                  <TableRow>
-                    <TableCell colSpan={8} className="py-6 text-center">
-                      Loading findings...
-                    </TableCell>
-                  </TableRow>
-                )}
-
-                {!loading && error && (
-                  <TableRow>
-                    <TableCell colSpan={8} className="py-6 text-center text-red-500">
-                      {error}
-                    </TableCell>
-                  </TableRow>
-                )}
-
-                {!loading && !error && visibleFindings.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={8} className="py-6 text-center">
-                      {showKevOnly
-                        ? "No KEV findings on this page/filter."
-                        : "No findings available for this filter."}
-                    </TableCell>
-                  </TableRow>
-                )}
-
-                {!loading &&
-                  !error &&
-                  visibleFindings.map((f, idx) => (
-                    <TableRow
-                      key={f.id}
-                      className="h-[4.25rem] cursor-pointer hover:bg-slate-50"
-                      onClick={() => onOpenFinding?.(f)}
-                    >
-                      <TableCell className="pr-4">{(page - 1) * pageSize + idx + 1}</TableCell>
-                      <TableCell className="px-4">
-                        <div className="flex items-center gap-1">
-                          {(() => {
-                            const normalizedStatus = normalizeFindingStatus(f);
-                            return (
-                              <>
-                                <StatusBadge
-                                  tone={normalizedStatus === "Fixed" ? "fixed" : "active"}
-                                >
-                                  {normalizedStatus}
-                                </StatusBadge>
-                                {f.isKev ? <StatusBadge tone="dark">KEV</StatusBadge> : null}
-                              </>
-                            );
-                          })()}
-                        </div>
-                      </TableCell>
-                      <TableCell className="pl-4">
-                        <div className="font-medium text-slate-900">
-                          {f.cve_id ?? getNormalizedFindingTitle(f)}
-                        </div>
-                      </TableCell>
-                      <TableCell>{f.business_service || "—"}</TableCell>
-                      <TableCell>{f.asset_name || f.target_names || "—"}</TableCell>
-                      <TableCell className="border-l border-slate-200 pl-4 text-left text-slate-500">
-                        -
-                      </TableCell>
-                      <TableCell className="text-right">
-                        -
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <span className="font-semibold text-slate-900">
-                            {formatNumber(f.risk_score)}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {f.risk_band ? (
-                          <span
-                            className={`inline-flex items-center text-[11px] font-semibold ${riskBandPillClass(
-                              f.risk_band
-                            )}`}
-                          >
-                            {f.risk_band}
-                          </span>
-                        ) : (
-                          "-"
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-              </TableBody>
-            </Table>
-          )}
-        </div>
-
-        {total > 0 && (
-          <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
-            <div>
-              Showing{" "}
-              {total === 0
-                ? "0"
-                : `${(page - 1) * pageSize + 1}-${Math.min(page * pageSize, total)}`}{" "}
-              of {total.toLocaleString()} findings
-            </div>
-            <Pagination>
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious
-                    href="#"
-                    size="default"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      goToPage(page - 1);
-                    }}
-                  />
-                </PaginationItem>
-
-                {pageNumbers.map((p) => (
-                  <PaginationItem key={p}>
-                    <PaginationLink
-                      href="#"
-                      size="default"
-                      isActive={p === page}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        goToPage(p);
-                      }}
-                    >
-                      {p}
-                    </PaginationLink>
-                  </PaginationItem>
-                ))}
-
-                <PaginationItem>
-                  <PaginationNext
-                    href="#"
-                    size="default"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      goToPage(page + 1);
-                    }}
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+    <FindingsTable
+      findings={findings}
+      columns={MAIN_FINDINGS_COLUMNS}
+      loading={loading}
+      error={error}
+      emptyTitle="No findings"
+      emptyDescription={emptyDescription}
+      searchValue={searchDraft}
+      searchPlaceholder="Search finding, CVE, asset, service, status, or source"
+      onSearchChange={setSearchDraft}
+      onSearchSubmit={() => setSearch(searchDraft.trim())}
+      filters={[
+        {
+          id: "risk-band",
+          label: "Risk band",
+          value: bandFilter,
+          options: RISK_BAND_OPTIONS.map((band) => ({ label: band, value: band })),
+          onChange: (value) => setBandFilter(value as RiskBandFilter),
+        },
+        {
+          id: "kev-only",
+          label: "KEV",
+          checked: showKevOnly,
+          onChange: setShowKevOnly,
+        },
+      ]}
+      sortOptions={SORT_OPTIONS}
+      sortBy={sortBy}
+      onSortByChange={setSortBy}
+      sortOrder={sortOrder}
+      onToggleSortOrder={toggleSortOrder}
+      pagination={{ page, pageSize, total, pageNumbers, onPageChange: goToPage }}
+      onOpenFinding={onOpenFinding}
+      rowAriaLabel={(finding) => `Open ${getNormalizedFindingTitle(finding)}`}
+      tableClassName="min-w-[1300px]"
+      noDataAction={
+        bandFilter === "All" && total === 0 ? (
+          <Button onClick={onOpenIntegrations}>View Sources</Button>
+        ) : null
+      }
+    />
   );
 }

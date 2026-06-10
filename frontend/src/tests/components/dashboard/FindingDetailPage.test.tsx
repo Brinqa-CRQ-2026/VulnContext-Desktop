@@ -239,7 +239,8 @@ describe("FindingDetailPage", () => {
     expect(screen.getAllByText("Patch immediately.").length).toBeGreaterThan(0);
     expect(screen.getByRole("tab", { name: "Asset & Business Context" })).toBeInTheDocument();
     expect(screen.getAllByText("identity-verify-01").length).toBeGreaterThan(0);
-    expect(screen.getByText("KEV")).toBeInTheDocument();
+    expect(screen.getByText("Added to KEV")).toBeInTheDocument();
+    expect(screen.queryByText("KEV")).not.toBeInTheDocument();
   });
 
   it("does not show large empty remediation callouts when no remediation narrative exists", () => {

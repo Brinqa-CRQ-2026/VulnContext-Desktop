@@ -12,9 +12,7 @@ import type {
   ScoredFinding,
   SortOrder,
 } from "../../types";
-import {
-  formatSlugLabel,
-} from "./TopologyChrome";
+import { formatSlugLabel } from "./TopologyChrome";
 import { AssetDistributionChartCard } from "./AssetDistributionCharts";
 import { EntityHero } from "./shared/EntityHero";
 import { MetricCard, MetricGrid } from "./shared/MetricCard";
@@ -25,7 +23,6 @@ import {
   EmptyIcon,
   EmptyTitle,
 } from "../ui/empty";
-import { Button } from "../ui/button";
 import { FindingsExplorerPanel } from "./shared/FindingsExplorerPanel";
 import { StatusBadge } from "./shared/TopologyBadges";
 import { FairFrequencyPanel } from "../fair/FairFrequencyPanel";
@@ -130,7 +127,6 @@ export function AssetFindingsPage({
       <DetailEmptyState
         title="Asset findings not found"
         description={error ?? "The selected asset findings view could not be loaded."}
-        onBack={onBack}
       />
     );
   }
@@ -170,19 +166,11 @@ export function AssetFindingsPage({
     summaryAsset?.business_service ??
     assetFindings.asset.business_service ??
     formatSlugLabel(businessServiceSlug, "Business Service");
-  const displayDeviceType =
-    assetDetail?.device_type ??
-    assetFindings.asset.device_type ??
-    "Device type unavailable";
-  const heroTags = [
-    assetDetail?.status ?? assetFindings.asset.status,
-    assetDetail?.environment ?? assetFindings.asset.environment,
-    assetDetail?.category ?? assetFindings.asset.category,
-    assetDetail?.internal_or_external,
-  ].flatMap((value) => {
-    const trimmed = value?.trim();
-    return trimmed ? [trimmed] : [];
-  });
+  const statusText = assetDetail?.status ?? assetFindings.asset.status;
+  const statusLabel = statusText?.trim() || "Active";
+  const statusTone = /\b(inactive|retired|decommissioned|archived)\b/i.test(statusLabel)
+    ? "neutral"
+    : "active";
 
   return (
     <div className="space-y-6">
@@ -195,19 +183,13 @@ export function AssetFindingsPage({
         ]}
         label={displayBusinessService}
         title={assetTitle}
-        metadata={displayDeviceType}
         tags={
-          heroTags.length > 0 ? (
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              {heroTags.map((tag, index) => (
-                <StatusBadge key={`${tag}-${index}`} tone="neutral">
-                  {tag}
-                </StatusBadge>
-              ))}
-            </div>
-          ) : null
+          <StatusBadge tone={statusTone}>
+            {statusLabel}
+          </StatusBadge>
         }
-        backLabel="Back to Asset List"
+        showBackButton={false}
+        showIdentityBadge={false}
         onBack={onBack}
       />
 
@@ -293,11 +275,9 @@ export function AssetFindingsPage({
 function DetailEmptyState({
   title,
   description,
-  onBack,
 }: {
   title: string;
   description: string;
-  onBack: () => void;
 }) {
   return (
     <Empty>
@@ -308,9 +288,6 @@ function DetailEmptyState({
         <EmptyTitle>{title}</EmptyTitle>
         <EmptyDescription>{description}</EmptyDescription>
       </EmptyHeader>
-      <Button variant="outline" onClick={onBack}>
-        Back to Asset List
-      </Button>
     </Empty>
   );
 }

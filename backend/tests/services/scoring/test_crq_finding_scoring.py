@@ -7,7 +7,24 @@ from app.services.scoring.crq_finding import CRQ_VERSION, preview_scores, score_
 
 
 def seed_finding(db_session, *, idx: int, age_in_days: float | None, cve_id: str):
-    asset = models.Asset(asset_id=f"asset-{idx}", hostname=f"host-{idx}")
+    business_unit = models.BusinessUnit(
+        id=f"business-unit-{idx}",
+        name=f"Business Unit {idx}",
+        slug=f"business-unit-{idx}",
+    )
+    business_service = models.BusinessService(
+        id=f"business-service-{idx}",
+        business_unit_id=business_unit.id,
+        name=f"Business Service {idx}",
+        slug=f"business-service-{idx}",
+        business_criticality_score=5,
+    )
+    asset = models.Asset(
+        asset_id=f"asset-{idx}",
+        hostname=f"host-{idx}",
+        business_service_id=business_service.id,
+        crq_asset_context_score=8.5,
+    )
     finding = models.Finding(
         id=idx,
         asset_id=asset.asset_id,
@@ -21,7 +38,7 @@ def seed_finding(db_session, *, idx: int, age_in_days: float | None, cve_id: str
         date_created=datetime(2024, 1, 1, tzinfo=timezone.utc),
         last_updated=datetime(2024, 1, 20, tzinfo=timezone.utc),
     )
-    db_session.add(asset)
+    db_session.add_all([business_unit, business_service, asset])
     db_session.add(finding)
     db_session.commit()
     return finding
@@ -62,6 +79,7 @@ def test_crq_scoring_persists_expected_values_and_boundaries(db_session):
     assert preview_by_id["finding-3"]["crq_finding_epss_multiplier"] == 0.75
     assert preview_by_id["finding-5"]["crq_finding_epss_multiplier"] == 0.75
     assert preview_by_id["finding-4"]["crq_finding_epss_multiplier"] == 0.0
+    assert preview_by_id["finding-1"]["crq_finding_priority_score"] == pytest.approx(7.936)
 
     updated = score_findings(
         db_session,
@@ -113,6 +131,8 @@ def test_crq_scoring_persists_expected_values_and_boundaries(db_session):
         assert finding.crq_finding_scored_at == datetime(2024, 2, 1, tzinfo=timezone.utc)
         assert finding.crq_finding_score >= 0.0
         assert finding.crq_finding_score <= 10.0
+        assert finding.crq_finding_priority_score >= 0.0
+        assert finding.crq_finding_priority_score <= 10.0
         assert finding.crq_finding_cvss_score >= 0.0
         assert finding.crq_finding_cvss_score <= 10.0
         if finding.crq_finding_epss_score is not None:
@@ -121,3 +141,20 @@ def test_crq_scoring_persists_expected_values_and_boundaries(db_session):
             assert 0.0 <= finding.crq_finding_epss_percentile <= 1.0
         assert -1.0 <= finding.crq_finding_epss_multiplier <= 1.0
         assert 0.0 <= finding.crq_finding_kev_bonus <= 1.0
+
+
+def test_crq_priority_scoring_uses_missing_context_defaults(db_session):
+    finding = seed_finding(db_session, idx=7, age_in_days=10, cve_id="CVE-2024-0007")
+    finding_asset = db_session.get(models.Asset, finding.asset_id)
+    finding_asset.business_service_id = None
+    finding_asset.crq_asset_context_score = None
+    db_session.add(models.NvdRecord(cve="CVE-2024-0007", cvss_score=10.0))
+    db_session.commit()
+
+    score_findings(db_session)
+    refreshed = db_session.get(models.Finding, finding.id)
+
+    assert refreshed.crq_finding_score == pytest.approx(8.8)
+    assert refreshed.crq_finding_priority_score == pytest.approx(5.28)
+    assert "Missing asset context" in refreshed.crq_finding_notes
+    assert "Missing business criticality" in refreshed.crq_finding_notes

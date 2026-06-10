@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { BusinessUnitDetailPage } from "../../../components/business-services/BusinessUnitDetailPage";
@@ -53,16 +53,31 @@ describe("BusinessUnitDetailPage", () => {
     });
     mockedUseBusinessUnitTopFindings.mockReturnValue({
       data: {
-        items: [],
-        total: 0,
+        items: [
+          {
+            id: "finding-1",
+            source: "Brinqa",
+            asset_id: "asset-1",
+            cve_id: "CVE-2026-0001",
+            target_names: "storefront-app",
+            application: "Identity Verify",
+            risk_score: 8.6,
+            priority_score: 9.1,
+            risk_band: "High",
+            age_in_days: 42,
+            lifecycle_status: "Active",
+            isKev: true,
+          },
+        ],
+        total: 1,
         page: 1,
-        page_size: 5,
+        page_size: 20,
       },
       loading: false,
       error: null,
       page: 1,
       setPage: vi.fn(),
-      pageSize: 5,
+      pageSize: 20,
     });
   });
 
@@ -121,21 +136,47 @@ describe("BusinessUnitDetailPage", () => {
     expect(screen.getByText("Business Units")).toBeInTheDocument();
     expect(screen.getAllByText("Online Store").length).toBeGreaterThan(0);
     expect(screen.getByText("Online commerce systems.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Back to Business Units/i })).not.toBeInTheDocument();
+    expect(screen.getAllByText("Risk Score").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("8.4").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Risk score 8.4/i)).not.toBeInTheDocument();
     expect(screen.getAllByText("Risk over time").length).toBeGreaterThan(0);
     expect(screen.queryByText("Asset Criticality Distribution")).not.toBeInTheDocument();
     expect(screen.getByText("Finding risk spread")).toBeInTheDocument();
-    expect(screen.getByText("Top Findings in this Business Unit")).toBeInTheDocument();
+    expect(screen.getByText("Findings in this Business Unit")).toBeInTheDocument();
+    expect(screen.queryByText("Top Findings in this Business Unit")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "View all findings" })).not.toBeInTheDocument();
     expect(screen.getAllByText("Applications").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Assets").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Findings").length).toBeGreaterThan(0);
     expect(screen.getByText("Digital Storefront")).toBeInTheDocument();
     expect(screen.getByText("Shipping and Tracking")).toBeInTheDocument();
     expect(screen.getAllByText("No risk data").length).toBeGreaterThan(0);
-    expect(screen.getByText("No finding data")).toBeInTheDocument();
+    expect(screen.getByText("CVE-2026-0001")).toBeInTheDocument();
+    expect(screen.getAllByText("Identity Verify").length).toBeGreaterThan(0);
+    expect(screen.getByText("storefront-app")).toBeInTheDocument();
+    expect(screen.getByText("9.1")).toBeInTheDocument();
+    expect(screen.getByText("42d")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Risk band: All/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Sort by: Priority Score/i })).toBeInTheDocument();
+    expect(screen.getByLabelText("KEV")).toBeInTheDocument();
+    const table = screen.getByRole("table");
+    expect(within(table).getByRole("columnheader", { name: "Application" })).toBeInTheDocument();
+    expect(within(table).getByRole("columnheader", { name: "Asset" })).toBeInTheDocument();
+    expect(within(table).getByRole("columnheader", { name: "Risk Score" })).toBeInTheDocument();
+    expect(within(table).getByRole("columnheader", { name: /Priority Score/ })).toBeInTheDocument();
+    expect(within(table).getByRole("columnheader", { name: "Age" })).toBeInTheDocument();
+    expect(within(table).queryByRole("columnheader", { name: "CVSS" })).not.toBeInTheDocument();
+    expect(within(table).queryByRole("columnheader", { name: "EPSS" })).not.toBeInTheDocument();
     expect(screen.queryByText("Mock 6-month trend")).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: /Back/i }));
-    expect(onOpenOverview).toHaveBeenCalled();
+    expect(mockedUseBusinessUnitTopFindings).toHaveBeenCalledWith("online-store", {
+      pageSize: 20,
+      sortBy: "priority_score",
+      sortOrder: "desc",
+      riskBand: null,
+      search: null,
+      refreshToken: 0,
+    });
 
     fireEvent.click(screen.getByRole("button", { name: /Digital Storefront/i }));
     expect(onOpenBusinessService).toHaveBeenCalledWith(

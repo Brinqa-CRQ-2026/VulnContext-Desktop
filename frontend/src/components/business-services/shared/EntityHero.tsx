@@ -19,6 +19,7 @@ export function EntityHero({
   tags,
   backLabel = "Back",
   showBackButton = true,
+  showIdentityBadge = true,
   onBack,
 }: {
   breadcrumbs: BreadcrumbEntry[];
@@ -33,6 +34,7 @@ export function EntityHero({
   tags?: ReactNode;
   backLabel?: string;
   showBackButton?: boolean;
+  showIdentityBadge?: boolean;
   onBack: () => void;
 }) {
   const displayDescription = description?.trim() || fallbackDescription;
@@ -42,7 +44,7 @@ export function EntityHero({
       <TopologyBreadcrumbs items={breadcrumbs} />
       <div className="mt-5 flex flex-wrap items-start justify-between gap-4">
         <div className="flex min-w-0 gap-4">
-          <InitialsBadge value={title} />
+          {showIdentityBadge ? <InitialsBadge value={title} /> : null}
           <div className="min-w-0">
             <p className="text-[0.68rem] font-semibold uppercase tracking-[0.34em] text-slate-500">
               {label}

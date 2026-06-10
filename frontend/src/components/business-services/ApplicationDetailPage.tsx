@@ -7,18 +7,14 @@ import type { AssetSummary } from "../../types";
 import { isTopologyUnavailable } from "../../lib/topology/topologyStatus";
 import { AssetInventoryPanel } from "./AssetInventoryPanel";
 import {
-  formatSlugLabel,
-  TopologyBreadcrumbs,
-} from "./TopologyChrome";
-import {
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyIcon,
   EmptyTitle,
 } from "../ui/empty";
-import { Button } from "../ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Card, CardContent } from "../ui/card";
+import { EntityHero } from "./shared/EntityHero";
 import { FairFrequencyPanel } from "../fair/FairFrequencyPanel";
 import { LoadingSpinnerState } from "../shared/LoadingSpinnerState";
 
@@ -79,62 +75,56 @@ export function ApplicationDetailPage({
             : "Application not found"
         }
         description={error ?? "The selected application could not be loaded."}
-        onBack={onBack}
       />
     );
   }
 
   return (
-    <Card>
-      <CardHeader className="gap-4">
-        <TopologyBreadcrumbs
-          items={[
-            { label: "Business Units", onClick: onOpenOverview },
-            { label: application.business_unit, onClick: onOpenBusinessUnit },
-            { label: application.business_service, onClick: onOpenBusinessService },
-            { label: application.application },
-          ]}
-        />
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-              {application.business_unit} / {application.business_service}
-            </p>
-            <CardTitle className="mt-1 text-base">{application.application}</CardTitle>
-          </div>
-          <Button variant="outline" onClick={onBack}>
-            Back to Business Service
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <dl className="grid gap-4 md:grid-cols-2">
-          <DetailStat label="Assets" value={application.metrics.total_assets} icon={Network} />
-          <DetailStat
-            label="Findings"
-            value={application.metrics.total_findings}
-            icon={ShieldAlert}
-          />
-        </dl>
+    <div className="space-y-6">
+      <EntityHero
+        breadcrumbs={[
+          { label: "Business Units", onClick: onOpenOverview },
+          { label: application.business_unit, onClick: onOpenBusinessUnit },
+          { label: application.business_service, onClick: onOpenBusinessService },
+          { label: application.application },
+        ]}
+        label={`${application.business_unit} / ${application.business_service}`}
+        title={application.application}
+        showBackButton={false}
+        showIdentityBadge={false}
+        onBack={onBack}
+      />
 
-        {businessUnitSlug && businessServiceSlug && applicationSlug ? (
-          <FairFrequencyPanel
-            title="Application FAIR Event Frequency"
-            description="Aggregates TEF, LEF, vulnerability, and Security Score for this application. Monetary loss is modeled at the business service level."
-            scopeLabel="application"
-            onPredict={predictFairLoss}
-          />
-        ) : null}
+      <Card>
+        <CardContent className="space-y-6 pt-6">
+          <dl className="grid gap-4 md:grid-cols-2">
+            <DetailStat label="Assets" value={application.metrics.total_assets} icon={Network} />
+            <DetailStat
+              label="Findings"
+              value={application.metrics.total_findings}
+              icon={ShieldAlert}
+            />
+          </dl>
 
-        <AssetInventoryPanel
-          businessUnit={application.business_unit}
-          businessService={application.business_service}
-          application={application.application}
-          refreshToken={refreshToken}
-          onOpenAsset={onOpenAssetFindings}
-        />
-      </CardContent>
-    </Card>
+          {businessUnitSlug && businessServiceSlug && applicationSlug ? (
+            <FairFrequencyPanel
+              title="Application FAIR Event Frequency"
+              description="Aggregates TEF, LEF, vulnerability, and Security Score for this application. Monetary loss is modeled at the business service level."
+              scopeLabel="application"
+              onPredict={predictFairLoss}
+            />
+          ) : null}
+
+          <AssetInventoryPanel
+            businessUnit={application.business_unit}
+            businessService={application.business_service}
+            application={application.application}
+            refreshToken={refreshToken}
+            onOpenAsset={onOpenAssetFindings}
+          />
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
@@ -160,7 +150,7 @@ function DetailStat({
   );
 }
 
-function DetailEmptyState({ title, description, onBack }: { title: string; description: string; onBack: () => void }) {
+function DetailEmptyState({ title, description }: { title: string; description: string }) {
   return (
     <Empty>
       <EmptyIcon>
@@ -170,9 +160,6 @@ function DetailEmptyState({ title, description, onBack }: { title: string; descr
         <EmptyTitle>{title}</EmptyTitle>
         <EmptyDescription>{description}</EmptyDescription>
       </EmptyHeader>
-      <Button variant="outline" onClick={onBack}>
-        Back to Business Service
-      </Button>
     </Empty>
   );
 }

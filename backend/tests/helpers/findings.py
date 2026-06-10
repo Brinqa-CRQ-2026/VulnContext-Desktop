@@ -10,6 +10,7 @@ def seed_asset_and_finding(
     risk: float,
     status: str = "Confirmed active",
     crq_finding_score: float | None = None,
+    crq_finding_priority_score: float | None = None,
     crq_finding_risk_band: str | None = None,
     crq_finding_is_kev: bool | None = None,
 ):
@@ -36,6 +37,7 @@ def seed_asset_and_finding(
         date_created=datetime(2024, 1, 1, tzinfo=timezone.utc),
         last_updated=datetime(2024, 1, 20, tzinfo=timezone.utc),
         crq_finding_score=crq_finding_score,
+        crq_finding_priority_score=crq_finding_priority_score,
         crq_finding_risk_band=crq_finding_risk_band,
         crq_finding_score_version="v4" if crq_finding_score is not None else None,
         crq_finding_scored_at=datetime(2024, 1, 21, tzinfo=timezone.utc) if crq_finding_score is not None else None,

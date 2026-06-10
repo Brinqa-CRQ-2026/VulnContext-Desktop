@@ -87,6 +87,8 @@ function LoadingState({
       label="Finding"
       title="Loading finding"
       backLabel={backLabel}
+      showBackButton={false}
+      showIdentityBadge={false}
       onBack={onBack}
     />
   );
@@ -110,6 +112,8 @@ function ErrorState({
       title="Finding not available"
       metadata={<span className="text-rose-600">{message}</span>}
       backLabel={backLabel}
+      showBackButton={false}
+      showIdentityBadge={false}
       onBack={onBack}
     />
   );
@@ -120,8 +124,9 @@ function HeroTags({ finding }: { finding: ScoredFinding }) {
 
   return (
     <div className="flex flex-wrap items-center justify-end gap-2">
-      <StatusBadge tone={active ? "low" : "neutral"}>{active ? "Active" : "Inactive"}</StatusBadge>
-      {finding.isKev ? <StatusBadge tone="dark">KEV</StatusBadge> : null}
+      <StatusBadge tone={active ? "active" : "neutral"}>
+        {active ? "Active" : "Inactive"}
+      </StatusBadge>
     </div>
   );
 }
@@ -188,6 +193,7 @@ export function FindingDetailPage({
         backLabel={backLabel}
         onBack={onBack}
         showBackButton={false}
+        showIdentityBadge={false}
       />
 
       <MetricGrid className="sm:grid-cols-2 xl:grid-cols-4">

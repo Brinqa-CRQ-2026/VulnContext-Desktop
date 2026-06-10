@@ -261,7 +261,7 @@ describe("App", () => {
 
     expect(screen.getByText("business-services-overview")).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "Company Overview" })
+      screen.getByRole("heading", { name: "Company" })
     ).toBeInTheDocument();
   });
 
@@ -283,26 +283,36 @@ describe("App", () => {
     fireEvent.click(screen.getByText("header-business-services"));
     await screen.findByText("business-services-overview");
     expect(
-      screen.getByRole("heading", { name: "Company Overview" })
+      screen.getByRole("heading", { name: "Company" })
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByText("open-business-unit"));
     await screen.findByText("business-unit-detail:online-store");
-    expect(screen.getByRole("heading", { name: "Business Unit Detail" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Business Unit" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Back to Company/i })).toBeInTheDocument();
 
     fireEvent.click(screen.getByText("open-business-service"));
     await screen.findByText("business-service-detail:digital-storefront");
     expect(
-      screen.getByRole("heading", { name: "Business Service Detail" })
+      screen.getByRole("heading", { name: "Business Service" })
     ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Back to Business Unit/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Back to Business Unit/i }));
+    await screen.findByText("business-unit-detail:online-store");
+
+    fireEvent.click(screen.getByText("open-business-service"));
+    await screen.findByText("business-service-detail:digital-storefront");
 
     fireEvent.click(screen.getByText("open-application"));
     await screen.findByText("application-detail:identity-verify");
-    expect(screen.getByRole("heading", { name: "Application Detail" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Application" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Back to Business Service/i })).toBeInTheDocument();
 
     fireEvent.click(screen.getByText("application-open-asset-findings"));
     await screen.findByText("asset-findings:asset-10");
-    expect(screen.getByRole("heading", { name: "Asset Findings" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Asset" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Back to Application/i })).toBeInTheDocument();
 
     fireEvent.click(screen.getByText("asset-findings-back"));
     await screen.findByText("application-detail:identity-verify");
@@ -322,9 +332,9 @@ describe("App", () => {
 
     fireEvent.click(screen.getByText("open-finding"));
     await screen.findByText("detail:finding-42:0");
-    expect(screen.getByRole("heading", { name: "Finding Details" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Finding" })).toBeInTheDocument();
     expect(
-      screen.getByText("Detailed view for finding context, vulnerability details, and remediation guidance.")
+      screen.getByText("Finding risk scope showing vulnerability context, severity, exploit signals, affected assets, and remediation guidance.")
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Back to Findings" })).toBeInTheDocument();
     expect(screen.getByText("detail-breadcrumbs:Findings > Finding")).toBeInTheDocument();

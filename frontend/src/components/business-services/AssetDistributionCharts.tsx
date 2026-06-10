@@ -45,7 +45,7 @@ export function AssetDistributionCharts({
         error={error}
       />
       <AssetDistributionChartCard
-        title="Finding risk spread"
+        title="Aggregated Finding Risk Spread"
         description="Aggregated finding risk distribution for the full filtered asset set"
         distribution={analytics?.finding_risk_distribution ?? null}
         totalCount={analytics?.total_assets ?? 0}

@@ -17,6 +17,7 @@ CRQ_VERSION = "v4"
 
 CRQ_COLUMNS: tuple[str, ...] = (
     "crq_finding_score",
+    "crq_finding_priority_score",
     "crq_finding_risk_band",
     "crq_finding_scored_at",
     "crq_finding_score_version",
@@ -61,6 +62,8 @@ WITH base AS (
     SELECT
         f.id,
         f.finding_id,
+        COALESCE(a.crq_asset_context_score, 0.0) AS crq_asset_context_score,
+        COALESCE(direct_bs.business_criticality_score, app_bs.business_criticality_score) AS business_criticality_score,
         COALESCE(n.cvss_score, 0.0) AS crq_finding_cvss_score,
         e.epss AS crq_finding_epss_score,
         e.percentile AS crq_finding_epss_percentile,
@@ -89,9 +92,15 @@ WITH base AS (
             COALESCE(CASE WHEN n.cvss_score IS NULL THEN 'Missing NVD CVSS; defaulted CRQ CVSS input to 0. ' END, '') ||
             COALESCE(CASE WHEN e.percentile IS NULL THEN 'Missing EPSS percentile; defaulted EPSS adjustment to 0.0. ' END, '') ||
             COALESCE(CASE WHEN n.cvss_score IS NOT NULL AND n.cvss_score < 4.0 AND e.percentile IS NOT NULL AND e.percentile < 0.50 THEN 'Low CVSS finding; softened negative EPSS adjustment. ' END, '') ||
-            COALESCE(CASE WHEN f.age_in_days IS NULL THEN 'Missing age_in_days; age reference defaults to 0.0 and is excluded from CRQ v4 scoring. ' END, '')
+            COALESCE(CASE WHEN f.age_in_days IS NULL THEN 'Missing age_in_days; age reference defaults to 0.0 and is excluded from CRQ v4 scoring. ' END, '') ||
+            COALESCE(CASE WHEN a.crq_asset_context_score IS NULL THEN 'Missing asset context; defaulted priority asset context input to 0.0. ' END, '') ||
+            COALESCE(CASE WHEN COALESCE(direct_bs.business_criticality_score, app_bs.business_criticality_score) IS NULL THEN 'Missing business criticality; defaulted priority business criticality input to 0.0. ' END, '')
         ), '') AS crq_finding_notes
     FROM findings f
+    LEFT JOIN assets a ON a.asset_id = f.asset_id
+    LEFT JOIN business_services direct_bs ON direct_bs.id = a.business_service_id
+    LEFT JOIN applications app ON app.id = a.application_id
+    LEFT JOIN business_services app_bs ON app_bs.id = app.business_service_id
     LEFT JOIN nvd n ON n.cve = f.cve_id
     LEFT JOIN epss_scores e ON e.cve = f.cve_id
     LEFT JOIN kev k ON k.cve = f.cve_id
@@ -100,6 +109,8 @@ WITH base AS (
     SELECT
         id,
         finding_id,
+        crq_asset_context_score,
+        business_criticality_score,
         crq_finding_cvss_score,
         crq_finding_epss_score,
         crq_finding_epss_percentile,
@@ -167,6 +178,52 @@ WITH base AS (
         END AS crq_finding_risk_band,
         crq_finding_notes
     FROM base
+), final_scoring AS (
+    SELECT
+        id,
+        finding_id,
+        crq_finding_score,
+        CASE
+            WHEN (
+                (0.60 * crq_finding_score) +
+                (0.20 * CASE
+                    WHEN crq_asset_context_score < 0.0 THEN 0.0
+                    WHEN crq_asset_context_score > 10.0 THEN 10.0
+                    ELSE crq_asset_context_score
+                END) +
+                (0.20 * CASE
+                    WHEN business_criticality_score IS NULL THEN 0.0
+                    WHEN business_criticality_score < 0 THEN 0.0
+                    WHEN business_criticality_score > 5 THEN 10.0
+                    ELSE (business_criticality_score / 5.0) * 10.0
+                END)
+            ) > 10.0 THEN 10.0
+            ELSE (
+                (0.60 * crq_finding_score) +
+                (0.20 * CASE
+                    WHEN crq_asset_context_score < 0.0 THEN 0.0
+                    WHEN crq_asset_context_score > 10.0 THEN 10.0
+                    ELSE crq_asset_context_score
+                END) +
+                (0.20 * CASE
+                    WHEN business_criticality_score IS NULL THEN 0.0
+                    WHEN business_criticality_score < 0 THEN 0.0
+                    WHEN business_criticality_score > 5 THEN 10.0
+                    ELSE (business_criticality_score / 5.0) * 10.0
+                END)
+            )
+        END AS crq_finding_priority_score,
+        crq_finding_risk_band,
+        crq_finding_cvss_score,
+        crq_finding_epss_score,
+        crq_finding_epss_percentile,
+        crq_finding_epss_multiplier,
+        crq_finding_is_kev,
+        crq_finding_kev_bonus,
+        crq_finding_age_days,
+        crq_finding_age_bonus,
+        crq_finding_notes
+    FROM scoring
 )
 """
 
@@ -183,6 +240,7 @@ def preview_scores(db: Session, finding_ids: Sequence[str] | None = None) -> lis
 SELECT
     finding_id,
     crq_finding_score,
+    crq_finding_priority_score,
     crq_finding_risk_band,
     crq_finding_cvss_score,
     crq_finding_epss_score,
@@ -193,7 +251,7 @@ SELECT
     crq_finding_age_days,
     crq_finding_age_bonus,
     crq_finding_notes
-FROM scoring
+FROM final_scoring
 ORDER BY id
 """
     )
@@ -216,6 +274,7 @@ def score_findings(
 UPDATE findings AS f
 SET
     crq_finding_score = scoring.crq_finding_score,
+    crq_finding_priority_score = scoring.crq_finding_priority_score,
     crq_finding_risk_band = scoring.crq_finding_risk_band,
     crq_finding_scored_at = :scored_at,
     crq_finding_score_version = :crq_finding_score_version,
@@ -228,7 +287,7 @@ SET
     crq_finding_age_days = scoring.crq_finding_age_days,
     crq_finding_age_bonus = scoring.crq_finding_age_bonus,
     crq_finding_notes = scoring.crq_finding_notes
-FROM scoring
+FROM final_scoring AS scoring
 WHERE f.id = scoring.id
 """
     )

@@ -357,7 +357,7 @@ function App() {
             label:
               route.findingOrigin.assetLabel
               ?? route.findingOrigin.assetId
-              ?? "Asset Findings",
+              ?? "Asset",
             onClick: () =>
               updateRoute({
                 ...getEmptyRoute("business-services"),
@@ -394,13 +394,37 @@ function App() {
     page === "business-services" &&
     route.businessUnitSlug !== null &&
     route.businessServiceSlug === null;
+  const handleBusinessUnitBack = () => navigateTo("business-services");
+  const handleBusinessServiceBack = () => {
+    updateRoute({
+      ...getEmptyRoute("business-services"),
+      businessUnitSlug: route.businessUnitSlug,
+    });
+  };
+  const handleApplicationBack = () => {
+    updateRoute({
+      ...getEmptyRoute("business-services"),
+      businessUnitSlug: route.businessUnitSlug,
+      businessServiceSlug: route.businessServiceSlug,
+      applicationSlug: null,
+    });
+  };
+  const handleAssetBack = () => {
+    updateRoute({
+      ...getEmptyRoute("business-services"),
+      businessUnitSlug: route.businessUnitSlug,
+      businessServiceSlug: route.businessServiceSlug,
+      applicationSlug: route.applicationSlug,
+      assetId: null,
+    });
+  };
 
   const pageMeta = {
     findings: {
-      title: inFindingDetail ? "Finding Details" : "Findings",
+      title: inFindingDetail ? "Finding" : "Organization Findings",
       description: inFindingDetail
-        ? "Detailed view for finding context, vulnerability details, and remediation guidance."
-        : "Review and filter vulnerability findings using the current backend scoring outputs.",
+        ? "Finding risk scope showing vulnerability context, severity, exploit signals, affected assets, and remediation guidance."
+        : "A centralized view of all vulnerability findings across business services, applications, and assets to support remediation prioritization.",
     },
     integrations: {
       title: "Sources",
@@ -413,23 +437,23 @@ function App() {
     },
     "business-services": {
       title: inAssetFindings
-        ? "Asset Findings"
+        ? "Asset"
         : inApplicationDetail
-          ? "Application Detail"
+          ? "Application"
           : inBusinessServiceDetail
-            ? "Business Service Detail"
+            ? "Business Service"
             : inBusinessUnitDetail
-              ? "Business Unit Detail"
-              : "Company Overview",
+              ? "Business Unit"
+              : "Company",
       description: inAssetFindings
-        ? "Read-only drill-down for all findings attached to the selected asset."
+        ? "Asset risk scope showing asset criticality, FAIR frequency context, and all findings attached to the selected asset."
         : inApplicationDetail
-          ? "Assets directly attached to the selected application."
+          ? "Application risk scope showing attached assets, asset criticality, finding risk spread, and related risk drivers."
           : inBusinessServiceDetail
-            ? "Applications and direct assets under the selected business service."
+            ? "Business service risk scope showing applications, direct assets, FAIR loss exposure, and finding-driven risk."
             : inBusinessUnitDetail
-              ? "Business services and current counts for the selected business unit."
-              : "Company-first landing page using live business units as the source data.",
+              ? "Business-unit risk scope showing service inventory, finding distribution, and quantified risk across this part of the topology."
+              : "Company-level topology overview showing business units, services, applications, assets, findings, and risk distribution across the organization.",
     },
   } as const;
 
@@ -489,6 +513,34 @@ function App() {
                     <ArrowLeft className="h-4 w-4" />
                     {findingBackLabel}
                   </Button>
+                ) : inAssetFindings ? (
+                  <Button variant="outline" size="sm" onClick={handleAssetBack}>
+                    <ArrowLeft className="h-4 w-4" />
+                    {route.applicationSlug ? "Back to Application" : "Back to Business Service"}
+                  </Button>
+                ) : inApplicationDetail ? (
+                  <Button variant="outline" size="sm" onClick={handleApplicationBack}>
+                    <ArrowLeft className="h-4 w-4" />
+                    Back to Business Service
+                  </Button>
+                ) : inBusinessServiceDetail ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleBusinessServiceBack}
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    Back to Business Unit
+                  </Button>
+                ) : inBusinessUnitDetail ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleBusinessUnitBack}
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    Back to Company
+                  </Button>
                 ) : null
               }
             />
@@ -522,15 +574,7 @@ function App() {
                   applicationSlug={route.applicationSlug}
                   assetId={route.assetId}
                   refreshToken={refreshToken}
-                  onBack={() => {
-                    updateRoute({
-                      ...getEmptyRoute("business-services"),
-                      businessUnitSlug: route.businessUnitSlug,
-                      businessServiceSlug: route.businessServiceSlug,
-                      applicationSlug: route.applicationSlug,
-                      assetId: null,
-                    });
-                  }}
+                  onBack={handleAssetBack}
                   onOpenOverview={() => navigateTo("business-services")}
                   onOpenBusinessUnit={() => {
                     updateRoute({
@@ -565,14 +609,7 @@ function App() {
                   businessServiceSlug={route.businessServiceSlug}
                   applicationSlug={route.applicationSlug}
                   refreshToken={refreshToken}
-                  onBack={() => {
-                    updateRoute({
-                      ...getEmptyRoute("business-services"),
-                      businessUnitSlug: route.businessUnitSlug,
-                      businessServiceSlug: route.businessServiceSlug,
-                      applicationSlug: null,
-                    });
-                  }}
+                  onBack={handleApplicationBack}
                   onOpenOverview={() => navigateTo("business-services")}
                   onOpenBusinessUnit={() => {
                     updateRoute({
@@ -594,12 +631,7 @@ function App() {
                   businessUnitSlug={route.businessUnitSlug}
                   businessServiceSlug={route.businessServiceSlug}
                   refreshToken={refreshToken}
-                  onBack={() => {
-                    updateRoute({
-                      ...getEmptyRoute("business-services"),
-                      businessUnitSlug: route.businessUnitSlug,
-                    });
-                  }}
+                  onBack={handleBusinessServiceBack}
                   onOpenOverview={() => navigateTo("business-services")}
                   onOpenBusinessUnit={() => {
                     updateRoute({
@@ -614,7 +646,7 @@ function App() {
                 <BusinessUnitDetailPage
                   businessUnitSlug={route.businessUnitSlug}
                   refreshToken={refreshToken}
-                  onBack={() => navigateTo("business-services")}
+                  onBack={handleBusinessUnitBack}
                   onOpenOverview={() => navigateTo("business-services")}
                   onOpenBusinessService={openBusinessService}
                 />

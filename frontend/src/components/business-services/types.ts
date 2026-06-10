@@ -15,6 +15,7 @@ export type AssetSortKey =
   | "business_service"
   | "application"
   | "asset_criticality"
+  | "aggregated_finding_risk"
   | "status"
   | "finding_count";
 

@@ -124,15 +124,18 @@ describe("ApplicationDetailPage", () => {
 
     expect(screen.getByText("Business Units")).toBeInTheDocument();
     expect(screen.getByText("Asset criticality spread")).toBeInTheDocument();
-    expect(screen.getByText("Finding risk spread")).toBeInTheDocument();
+    expect(screen.getByText("Aggregated Finding Risk Spread")).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: /^Asset$/i })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: /^Status$/i })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: /^Asset type$/i })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: /^Environment$/i })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: /^Compliance$/i })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: /^Category$/i })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: /^Finding risk$/i })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: /^Criticality$/i })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: /^Asset Criticality$/i })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: /^Aggregated Finding Risk$/i })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: /^Total Findings$/i })).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: /^Finding risk$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: /^Criticality$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("columnheader", { name: /^Asset ID$/i })).not.toBeInTheDocument();
     const [assetsTable] = screen.getAllByRole("table");
     expect(within(assetsTable).getByText("Server")).toBeInTheDocument();

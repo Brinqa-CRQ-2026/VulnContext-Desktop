@@ -211,6 +211,15 @@ def test_business_unit_risk_overview_and_findings_routes_scope_and_aggregate_dat
         application="Identity Verify",
         finding_risks=[3.0],
     )
+    db_session.query(models.Finding).filter(
+        models.Finding.finding_id == "asset-risk-1-finding-1"
+    ).update({"crq_finding_priority_score": 8.0, "age_in_days": 14.0})
+    db_session.query(models.Finding).filter(
+        models.Finding.finding_id == "asset-risk-1-finding-2"
+    ).update({"crq_finding_priority_score": 9.5, "age_in_days": 21.0})
+    db_session.query(models.Finding).filter(
+        models.Finding.finding_id == "asset-risk-2-finding-1"
+    ).update({"crq_finding_priority_score": 4.0, "age_in_days": 30.0})
     backfill_asset_topology_foreign_keys(db_session)
     db_session.commit()
 
@@ -250,6 +259,27 @@ def test_business_unit_risk_overview_and_findings_routes_scope_and_aggregate_dat
         "asset-risk-1-finding-2",
     ]
     assert findings_payload["items"][0]["target_names"] == "asset-risk-1-host"
+    assert findings_payload["items"][0]["application"] == "Identity Verify"
+
+    priority_sorted = client.get(
+        "/topology/business-units/online-store/findings?sort_by=priority_score&sort_order=desc"
+    )
+    assert priority_sorted.status_code == 200
+    assert [item["id"] for item in priority_sorted.json()["items"]] == [
+        "asset-risk-1-finding-2",
+        "asset-risk-1-finding-1",
+        "asset-risk-2-finding-1",
+    ]
+
+    age_sorted = client.get(
+        "/topology/business-units/online-store/findings?sort_by=age_in_days&sort_order=desc"
+    )
+    assert age_sorted.status_code == 200
+    assert [item["id"] for item in age_sorted.json()["items"]] == [
+        "asset-risk-2-finding-1",
+        "asset-risk-1-finding-2",
+        "asset-risk-1-finding-1",
+    ]
 
     filtered = client.get("/topology/business-units/online-store/findings?risk_band=High")
     assert filtered.status_code == 200

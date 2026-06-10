@@ -45,7 +45,7 @@ Current implementation status:
 | Level | Status | Main persisted output |
 | --- | --- | --- |
 | Finding | Implemented | `crq_finding_score`, `crq_finding_risk_band` |
-| Finding Priority | Defined at finding level | `crq_finding_priority_score` |
+| Finding Priority | Implemented at finding level | `crq_finding_priority_score` |
 | Asset | Implemented | `crq_asset_aggregated_finding_risk`, `crq_asset_context_score`, `crq_asset_risk_score` |
 | Application | Implemented | `crq_application_aggregated_asset_risk`, `crq_application_compliance_score`, `crq_application_risk_score` |
 | Business Service | Implemented | `crq_business_service_risk_score` |
