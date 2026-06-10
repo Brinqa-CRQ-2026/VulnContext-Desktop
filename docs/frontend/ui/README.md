@@ -25,7 +25,7 @@ Finding detail UI should only render fields returned by the backend finding sche
 - asset inventory and asset findings drill-down
 - breadcrumb helpers and shared topology chrome
 
-Reusable topology pieces live under `frontend/src/components/business-services/shared/`. Use this folder for repeated cards, panels, entity headers, badges, summary tables, and findings explorer UI.
+Reusable topology pieces live under `frontend/src/components/business-services/shared/`. Use this folder for repeated cards, panels, entity headers, badges, and findings explorer UI.
 
 Feature-level business-services view types live in `frontend/src/components/business-services/types.ts`.
 
@@ -54,4 +54,5 @@ The risk-weight editor and CSV empty-state importer are not part of the active c
 
 - [Frontend Style Guide](style-guide.md)
 - [Frontend Architecture](../architecture/README.md)
-- [Frontend State And Hooks](../state/README.md)
+- [Components](../components/README.md)
+- [Frontend Hooks](../hooks/README.md)

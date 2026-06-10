@@ -45,4 +45,5 @@ The frontend no longer exports helpers for:
 
 - [Data Contracts](data-contracts.md)
 - [Frontend Architecture](../architecture/README.md)
+- [Frontend Types](../types/README.md)
 - [Backend API Reference](../../backend/api/README.md)

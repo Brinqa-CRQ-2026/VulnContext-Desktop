@@ -4,6 +4,8 @@
 
 Hooks own async loading state and small UI state machines. They should keep fetch behavior predictable and leave rendering to components.
 
+The active hook index is now [Frontend Hooks](../hooks/README.md). This page remains as a compatibility overview for older docs links.
+
 ## Active Hook Areas
 
 - `frontend/src/hooks/dashboard/useDashboardOverviewData.ts`
@@ -46,6 +48,7 @@ Risk-weight hooks are no longer part of the active runtime.
 
 ## Related Docs
 
+- [Frontend Hooks](../hooks/README.md)
 - [Frontend Architecture](../architecture/README.md)
 - [Frontend API Client](../api/README.md)
 - [UI Patterns](../ui/README.md)

@@ -24,10 +24,35 @@ These routes power finding lists, summaries, persisted detail, and finding-scope
 
 ## `GET /findings/top`
 
+Inputs:
+
+- no query parameters
+
+Outputs:
+
+- up to 10 `FindingSummary` rows
+- ranking uses priority score when available
+- each row includes identity, CVE/title, display risk score, priority score, band, source, status, asset/business context, and KEV flags when present
+
+Behavior notes:
+
 - returns the top 10 findings by the current priority-score expression
 - useful for home screens and quick triage views
 
 ## `GET /findings/summary`
+
+Inputs:
+
+- no query parameters
+
+Outputs:
+
+- total finding count
+- risk-band counts
+- KEV total and KEV risk-band counts
+- average risk score when scored findings exist
+
+Behavior notes:
 
 - returns total finding count
 - returns risk-band totals for `Critical`, `High`, `Medium`, and `Low`
@@ -35,7 +60,7 @@ These routes power finding lists, summaries, persisted detail, and finding-scope
 
 ## `GET /findings`
 
-Supported query parameters:
+Inputs:
 
 - `page` default `1`
 - `page_size` default `50`, valid range `1-200`
@@ -43,6 +68,7 @@ Supported query parameters:
 - `sort_order` default `desc`
 - `source` optional
 - `risk_band` optional
+- `search` optional
 
 Sorting supports:
 
@@ -59,6 +85,13 @@ Sorting supports:
 - `risk_band`
 - `status`
 
+Outputs:
+
+- `items`: page of `FindingSummary` rows
+- `total`: filtered total count
+- `page`: current page
+- `page_size`: page size used
+
 Behavior notes:
 
 - any non-empty `source` value other than `Brinqa` returns an empty result set
@@ -68,11 +101,34 @@ Behavior notes:
 
 ## `GET /findings/{finding_id}`
 
+Inputs:
+
+- `finding_id` path parameter
+
+Outputs:
+
+- one `FindingDetail` row with persisted vulnerability, scoring, KEV, remediation, asset, and business context fields
+
+Behavior notes:
+
 - returns a single persisted finding row
 - joins asset context for summary shaping, but does not call external enrichment services
 - returns `404` when the finding does not exist
 
 ## `POST /findings/{finding_id}/fair-loss`
+
+Inputs:
+
+- `finding_id` path parameter
+- FAIR request body with control context, iteration count, and optional loss magnitude fields
+
+Outputs:
+
+- `FairLossPredictionResponse`
+- frequency fields such as TEF, LEF, vulnerability, and control score
+- loss fields when the scope supports monetary loss modeling
+
+Behavior notes:
 
 - predicts FAIR loss for the selected finding
 - uses persisted finding and asset context as the model input

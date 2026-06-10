@@ -8,7 +8,7 @@ and backend test coverage.
 
 ## Start Here
 
-- [Overview](overview/README.md)
+- [Overview](Overview.md)
 - [API Reference](api/README.md)
 - [Architecture Map](architecture/README.md)
 - [Detailed Backend Architecture](architecture/backend-architecture.md)
@@ -19,7 +19,7 @@ and backend test coverage.
 
 | Area | Path | Purpose |
 | --- | --- | --- |
-| Overview | [overview/](overview/README.md) | Runtime summary and request flow |
+| Overview | [Overview.md](Overview.md) | Runtime summary and request flow |
 | API | [api/](api/README.md) | Active HTTP routes and response behavior |
 | Architecture | [architecture/](architecture/README.md) | Backend layers, service layout, request flow, and database reference |
 | Scoring | [scoring/](scoring/README.md) | Code-specific CRQ scoring implementation references |

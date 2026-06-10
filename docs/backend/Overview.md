@@ -19,8 +19,7 @@ Legacy Brinqa live-fetch enrichment code lives under `backend/legacy/` and is no
 4. `backend/app/models.py` defines SQLAlchemy ORM models for Supabase-backed tables.
 5. `backend/app/schemas.py` defines Pydantic request and response contracts.
 
-Supabase is used as the Postgres database provider. The FastAPI backend talks to
-that database through SQLAlchemy sessions from `backend/app/core/db.py`.
+Supabase is used as the Postgres database provider. The FastAPI backend talks to that database through SQLAlchemy sessions from `backend/app/core/db.py`.
 
 ## Service Layout
 
@@ -32,12 +31,12 @@ that database through SQLAlchemy sessions from `backend/app/core/db.py`.
 
 ## What To Read Next
 
-- [API Reference](../api/README.md)
-- [Architecture Map](../architecture/README.md)
-- [Detailed Backend Architecture](../architecture/backend-architecture.md)
-- [Database Reference](../architecture/database.md)
-- [Scoring Overview](../scoring/README.md)
-- [FAIR Overview](../fair/README.md)
-- [Manual Workflows](../workflows/manual.md)
-- [Automation Workflows](../workflows/automation.md)
-- [Test Matrix](../testing/README.md)
+- [API Reference](api/README.md)
+- [Architecture Map](architecture/README.md)
+- [Detailed Backend Architecture](architecture/backend-architecture.md)
+- [Database Reference](architecture/database.md)
+- [Scoring Overview](scoring/README.md)
+- [FAIR Overview](fair/README.md)
+- [Manual Workflows](workflows/manual.md)
+- [Automation Workflows](workflows/automation.md)
+- [Test Matrix](testing/README.md)

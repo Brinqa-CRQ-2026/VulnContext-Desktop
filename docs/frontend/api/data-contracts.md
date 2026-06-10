@@ -1,40 +1,84 @@
 # Frontend Data Contracts
 
-The frontend contract follows backend schemas, not raw database tables or historical Brinqa payloads.
+## Summary
 
-## Backend Routes Used By The Frontend
+The frontend contract follows backend schemas, not raw database tables or historical Brinqa payloads. Backend route docs and `backend/app/schemas.py` are the source of truth.
 
-- `/findings`
-- `/findings/summary`
-- `/findings/top`
-- `/findings/{finding_id}`
-- `/findings/{finding_id}/fair-loss`
-- `/controls/current`
-- `/controls/security-score`
-- `/topology/business-units`
-- `/topology/business-units/{business_unit_slug}`
-- `/topology/business-units/{business_unit_slug}/risk-overview`
-- `/topology/business-units/{business_unit_slug}/findings`
-- `/topology/business-units/{business_unit_slug}/business-services/{business_service_slug}`
-- `/topology/business-units/{business_unit_slug}/business-services/{business_service_slug}/analytics`
-- `/topology/business-units/{business_unit_slug}/business-services/{business_service_slug}/fair-loss`
-- `/topology/business-units/{business_unit_slug}/business-services/{business_service_slug}/applications/{application_slug}`
-- `/topology/business-units/{business_unit_slug}/business-services/{business_service_slug}/applications/{application_slug}/fair-loss`
-- `/assets`
-- `/assets/analytics`
-- `/assets/{asset_id}`
-- `/assets/{asset_id}/fair-loss`
-- `/assets/{asset_id}/findings`
-- `/assets/{asset_id}/findings/analytics`
-- `/sources`
+## Contract Owners
+
+| Frontend module | Backend docs | Primary consumers |
+| --- | --- | --- |
+| `frontend/src/api/findings.ts` | [Findings API](../../backend/api/findings.md) | dashboard, risk table, finding detail |
+| `frontend/src/api/topology.ts` | [Topology And Assets API](../../backend/api/topology-and-assets.md) | topology pages, asset inventory, asset findings |
+| `frontend/src/api/sources.ts` | [Sources API](../../backend/api/sources.md) | sources page, dashboard summary |
+| `frontend/src/api/controls.ts` | [FAIR Frontend Backend Contract](../../backend/fair/frontend-backend-contract.md) | security-score page, FAIR panels |
+| `frontend/src/api/client.ts` | [Backend API Reference](../../backend/api/README.md) | all API modules |
+
+## Findings Contracts
+
+| Function | Route | Inputs | Output |
+| --- | --- | --- | --- |
+| `getTopFindings()` | `GET /findings/top` | none | `ScoredFinding[]` |
+| `getScoresSummary()` | `GET /findings/summary` | none | `ScoresSummary` |
+| `getFindingsPage()` | `GET /findings` | page, page size, sort, source, risk band, search | `PaginatedFindings` |
+| `getFindingDetails()` | `GET /findings/{finding_id}` | finding ID | `ScoredFinding` detail shape |
+| `predictFindingFairLoss()` | `POST /findings/{finding_id}/fair-loss` | finding ID and FAIR request body | `FairLossPredictionResponse` |
+
+Frontend finding types:
+
+- `ScoredFinding`
+- `PaginatedFindings`
+- `ScoresSummary`
+- `FindingsSortBy`
+- `RiskBandFilter`
+
+## Topology And Asset Contracts
+
+| Function group | Routes | Inputs | Output |
+| --- | --- | --- | --- |
+| business units | `/topology/business-units*` | slugs, page/sort/filter for scoped findings | business-unit summaries, detail, risk overview, scoped findings |
+| business services | `/topology/business-units/{bu}/business-services/{bs}*` | business-unit and service slugs | service detail, analytics, FAIR loss |
+| applications | `/topology/business-units/{bu}/business-services/{bs}/applications/{app}*` | business-unit, service, and application slugs | application detail, FAIR frequency |
+| assets | `/assets*` | topology filters, search, status, environment, compliance, direct-only, sort, page | asset pages, analytics, asset detail, asset findings |
+
+Frontend topology types:
+
+- `BusinessUnitSummary`
+- `BusinessUnitDetail`
+- `BusinessServiceSummary`
+- `BusinessServiceDetail`
+- `ApplicationSummary`
+- `ApplicationDetail`
+- `AssetSummary`
+- `AssetDetail`
+- `AssetFindingsPageResponse`
+- `AssetAnalyticsResponse`
+
+## Sources Contract
+
+| Function | Route | Inputs | Output |
+| --- | --- | --- | --- |
+| `getSourcesSummary()` | `GET /sources` | none | `SourceSummary[]` |
+
+The sources surface is read-only. Source create, rename, import, or delete helpers are not part of the active frontend contract.
+
+## Controls And FAIR Contracts
+
+| Function group | Routes | Inputs | Output |
+| --- | --- | --- | --- |
+| controls | `/controls/current`, `/controls/security-score`, `/controls/save`, `/controls/saved/latest` | control answers/security score body | `ControlAssessment` and security-score results |
+| FAIR loss | finding, asset, application, and business-service FAIR routes | control context, iterations, and optional loss magnitude fields | `FairLossPredictionResponse` |
+
+Business-service FAIR panels render monetary loss estimates. Application, asset, and finding panels render frequency/context metrics without monetary loss controls.
 
 ## Contract Rules
 
-- `backend/app/schemas.py` is the source of truth for frontend response DTO fields.
+- `backend/app/schemas.py` is the source of truth for response DTO fields.
 - `ScoredFinding` represents the shared frontend view of `FindingSummary` plus optional `FindingDetail` fields.
 - Do not keep stale finding fields in frontend types unless the backend schema returns them.
 - Date/time values arrive as serialized strings in the renderer.
 - `AssetFindingsPageResponse` is the preferred frontend name for the asset findings page response. `AssetFindingsPage` remains a compatibility alias.
+- When a backend response changes, update frontend types, API tests, hook tests, and affected component tests together.
 
 ## Current Notes
 

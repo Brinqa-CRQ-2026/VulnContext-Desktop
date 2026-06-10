@@ -1,21 +1,27 @@
 # Architecture Tests
 
-## Files
+These tests protect high-level backend structure rules.
 
-- `backend/tests/architecture/test_api_layering.py`
+## backend/tests/architecture/test_api_layering.py
 
-## Backend Coverage
+### Files Tested
 
 - route-layer files under `backend/app/api/`
+- topology route modules under `backend/app/api/topology/`
 
-## Cases Covered
+### Cases Covered
 
-- Active API route modules are checked for obvious direct database-query leakage.
-- The check guards against route files directly using `db.query(`, `joinedload(`, or `func.count(`.
-- The topology API package is included in this check after the route split.
+- Confirms active API route modules stay thin wrappers.
+- Guards against direct route-layer database query leakage.
+- Checks for direct `db.query(`, `joinedload(`, and `func.count(` usage in route files.
+- Includes the split topology API package in the layering check.
 
-## Limitations
+### Edge Cases Covered
 
-- This is a lightweight regression check, not a full static analyzer.
-- It does not prove every route is thin; it only catches common violations.
-- Controls routes use Supabase persistence directly and are covered by focused mocked-Supabase API tests.
+- Allows controls routes to use mocked Supabase persistence patterns covered by focused controls tests.
+
+### Not Covered Here
+
+- Full static analysis of every dependency.
+- Proof that every route is perfectly thin.
+- Service-layer architecture rules.

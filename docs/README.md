@@ -11,8 +11,10 @@ React/Electron renderer.
 
 - [Sponsor Scoring Overview](business/sponsor-scoring-overview.md)
 - [Technical Scoring Reference](scoring/technical-scoring-reference.md)
-- [Backend Docs](backend/README.md)
-- [Frontend Docs](frontend/README.md)
+- [Backend Overview](backend/Overview.md)
+- [Frontend Overview](frontend/Overview.md)
+- [Backend Docs Index](backend/README.md)
+- [Frontend Docs Index](frontend/README.md)
 
 ## Documents
 

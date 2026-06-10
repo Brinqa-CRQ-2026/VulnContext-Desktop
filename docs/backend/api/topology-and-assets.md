@@ -32,12 +32,30 @@ These routes power the topology drill-down experience and the asset browsing sur
 
 ### `GET /topology/business-units`
 
+Inputs:
+
+- no query parameters
+
+Outputs:
+
+- `BusinessUnitSummary[]`
+- company metadata, business-unit descriptions, aggregate counts, risk score, risk band, and priority score
+
 - returns a list of business units ordered by name
 - includes company data, business-unit description, and aggregate counts for services, assets, and findings
 - includes persisted `risk_score`, derived `risk_band`, persisted `priority_score`, and `risk_trend = null`
 - returns `503` when the normalized topology tables are missing
 
 ### `GET /topology/business-units/{business_unit_slug}`
+
+Inputs:
+
+- `business_unit_slug` path parameter
+
+Outputs:
+
+- `BusinessUnitDetail`
+- business-unit metadata, child business services, metrics, risk score, priority score, and risk band
 
 - returns one business unit with metadata and child business-service summaries
 - includes per-child metrics for applications, assets, and findings
@@ -47,12 +65,31 @@ These routes power the topology drill-down experience and the asset browsing sur
 
 ### `GET /topology/business-units/{business_unit_slug}/business-services/{business_service_slug}`
 
+Inputs:
+
+- `business_unit_slug` path parameter
+- `business_service_slug` path parameter
+
+Outputs:
+
+- `BusinessServiceDetail`
+- service metadata, applications, direct assets, metrics, risk/priority context, and scoring timestamps
+
 - returns one business service with its applications and direct assets
 - direct assets are assets attached to the service without an application
 - includes service risk, priority, parsed criticality, aggregated application risk, aggregated direct asset risk, and scoring timestamp when present
 - returns `404` when the slug pair does not resolve
 
 ### `GET /topology/business-units/{business_unit_slug}/business-services/{business_service_slug}/analytics`
+
+Inputs:
+
+- `business_unit_slug` path parameter
+- `business_service_slug` path parameter
+
+Outputs:
+
+- service totals, asset criticality distribution, asset type distribution, service risk score, service risk label, service priority score, and business criticality context
 
 - returns service-level totals
 - returns asset criticality distribution from persisted asset context scores
@@ -61,6 +98,15 @@ These routes power the topology drill-down experience and the asset browsing sur
 
 ### `POST /topology/business-units/{business_unit_slug}/business-services/{business_service_slug}/fair-loss`
 
+Inputs:
+
+- business-unit and business-service slugs
+- FAIR request body with control context, iterations, and business-service loss magnitude assumptions
+
+Outputs:
+
+- `FairLossPredictionResponse` with annualized loss, percentile loss, TEF, LEF, vulnerability, control score, histogram, and magnitude details
+
 - predicts FAIR loss for the selected business service
 - aggregates ranked findings across assets in scope
 - returns an empty prediction when the scope has no eligible findings
@@ -68,12 +114,30 @@ These routes power the topology drill-down experience and the asset browsing sur
 
 ### `GET /topology/business-units/{business_unit_slug}/business-services/{business_service_slug}/applications/{application_slug}`
 
+Inputs:
+
+- business-unit, business-service, and application slugs
+
+Outputs:
+
+- `ApplicationDetail`
+- application metadata, metrics, child assets, aggregated asset risk, compliance score, application risk score, and scoring timestamp
+
 - returns one application with its child assets
 - includes aggregate finding counts for the application and its assets
 - includes aggregated asset risk, compliance score, application risk score, and scoring timestamp when present
 - returns `404` when the slug trio does not resolve
 
 ### `POST /topology/business-units/{business_unit_slug}/business-services/{business_service_slug}/applications/{application_slug}/fair-loss`
+
+Inputs:
+
+- business-unit, business-service, and application slugs
+- FAIR request body with control context and iterations
+
+Outputs:
+
+- `FairLossPredictionResponse` with event-frequency fields for the application scope
 
 - predicts FAIR loss for the selected application
 - uses normalized asset foreign keys when topology links have been backfilled
@@ -84,7 +148,7 @@ These routes power the topology drill-down experience and the asset browsing sur
 
 ### `GET /assets`
 
-Supported query parameters:
+Inputs:
 
 - `page` default `1`
 - `page_size` default `50`, valid range `1-200`
@@ -118,6 +182,12 @@ Sorting supports:
 - `status`
 - `finding_count`
 
+Outputs:
+
+- `PaginatedAssets`
+- `items`: page of `AssetSummary` rows
+- `total`, `page`, and `page_size`
+
 Behavior notes:
 
 - sorting is applied in Python after the filtered asset set is loaded
@@ -126,6 +196,15 @@ Behavior notes:
 - `GET /assets?business_unit=...` returns `503` when topology tables are not present
 
 ### `GET /assets/analytics`
+
+Inputs:
+
+- same filters as `/assets`, excluding pagination and sorting
+
+Outputs:
+
+- `AssetAnalyticsResponse`
+- total asset count, asset criticality distribution, and finding risk distribution
 
 - uses the same filters as `/assets`, but not pagination or sorting
 - returns total asset count
@@ -136,12 +215,30 @@ Behavior notes:
 
 ### `GET /assets/{asset_id}`
 
+Inputs:
+
+- `asset_id` path parameter
+
+Outputs:
+
+- `AssetDetail`
+- persisted asset metadata, normalized topology labels when available, status/environment/category/compliance fields, and risk context
+
 - returns the persisted asset row only
 - adds normalized topology labels when available
 - does not call Brinqa enrichment
 - returns `404` when the asset does not exist
 
 ### `POST /assets/{asset_id}/fair-loss`
+
+Inputs:
+
+- `asset_id` path parameter
+- FAIR request body with control context and iterations
+
+Outputs:
+
+- `FairLossPredictionResponse` with event-frequency fields for the asset scope
 
 - predicts FAIR loss for the selected asset
 - uses persisted asset metadata and related findings
@@ -150,7 +247,7 @@ Behavior notes:
 
 ### `GET /assets/{asset_id}/findings`
 
-Supported query parameters:
+Inputs:
 
 - `page` default `1`
 - `page_size` default `20`, valid range `1-200`
@@ -161,6 +258,11 @@ Supported query parameters:
 - `source` optional
 - `search` optional
 
+Outputs:
+
+- `AssetFindingsPage`
+- selected asset summary plus paginated `FindingSummary` rows
+
 Behavior notes:
 
 - `source` behaves like the findings list route: any non-empty value other than `Brinqa` returns an empty result set
@@ -170,6 +272,14 @@ Behavior notes:
 - the route returns findings ordered by the same display-score rules as the main findings list
 
 ### `GET /assets/{asset_id}/findings/analytics`
+
+Inputs:
+
+- same finding filters as `/assets/{asset_id}/findings`, excluding pagination
+
+Outputs:
+
+- asset finding totals, KEV count, critical/high counts, highest risk band, average and max risk score, oldest priority age, and risk-band counts
 
 - summarizes the full filtered finding set for the asset
 - returns total findings, KEV findings, critical/high findings, highest risk band, average and max risk scores, oldest priority age, and risk-band counts

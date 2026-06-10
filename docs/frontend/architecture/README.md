@@ -53,10 +53,20 @@ Component props should stay local when used once. Feature-only business-services
 - sources summary page
 - desktop launcher -> backend -> renderer -> Electron dashboard -> shutdown cleanup
 
+## Page Structure
+
+Each major page has a short behavior map in [Page Architecture](pages.md).
+
+Use that page when changing route-level copy, drill-down navigation, page headers, or deciding where a new risk panel belongs.
+
 ## Related Docs
 
 - [API Client](../api/README.md)
 - [Data Contracts](../api/data-contracts.md)
+- [Page Architecture](pages.md)
+- [Components](../components/README.md)
+- [Hooks](../hooks/README.md)
+- [Types](../types/README.md)
 - [State And Hooks](../state/README.md)
 - [UI Patterns](../ui/README.md)
 - [Frontend Style Guide](../ui/style-guide.md)

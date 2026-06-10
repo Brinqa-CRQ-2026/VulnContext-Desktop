@@ -43,4 +43,4 @@ Historical context for the removed auth flow is kept in
 
 - [Frontend Architecture](../architecture/README.md)
 - [Frontend API Client](../api/README.md)
-- [Frontend Test Matrix](../testing/README.md)
+- [Frontend Testing](../testing/README.md)
