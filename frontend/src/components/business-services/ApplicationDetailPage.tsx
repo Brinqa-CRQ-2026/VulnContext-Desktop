@@ -132,21 +132,22 @@ export function ApplicationDetailPage({
           />
         </dl>
 
-        {businessUnitSlug && businessServiceSlug && applicationSlug ? (
-          <FairFrequencyPanel
-            title="Application FAIR Event Frequency"
-            description="Aggregates TEF, LEF, vulnerability, and Security Score for this application. Monetary loss is modeled at the business service level."
-            scopeLabel="application"
-            onPredict={predictFairLoss}
-          />
-        ) : null}
-
         <AssetInventoryPanel
           businessUnit={application.business_unit}
           businessService={application.business_service}
           application={application.application}
           refreshToken={refreshToken}
           onOpenAsset={onOpenAssetFindings}
+          afterCharts={
+            businessUnitSlug && businessServiceSlug && applicationSlug ? (
+              <FairFrequencyPanel
+                title="Application FAIR Event Frequency"
+                description="Aggregates TEF, LEF, vulnerability, and Security Score for this application. Monetary loss is modeled at the business service level."
+                scopeLabel="application"
+                onPredict={predictFairLoss}
+              />
+            ) : null
+          }
         />
       </CardContent>
     </Card>

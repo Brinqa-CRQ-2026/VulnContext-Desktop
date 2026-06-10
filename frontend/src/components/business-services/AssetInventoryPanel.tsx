@@ -1,4 +1,5 @@
 import { ArrowDown, ArrowUp, Search } from "lucide-react";
+import type { ReactNode } from "react";
 
 import { useAssetInventoryState } from "../../hooks/topology/assets/useAssetInventoryState";
 import type { AssetListSortBy, AssetSummary } from "../../types";
@@ -27,6 +28,7 @@ export function AssetInventoryPanel({
   directOnly = false,
   refreshToken,
   onOpenAsset,
+  afterCharts,
 }: {
   businessUnit?: string | null;
   businessService?: string | null;
@@ -34,6 +36,7 @@ export function AssetInventoryPanel({
   directOnly?: boolean;
   refreshToken: number;
   onOpenAsset: (asset: AssetSummary) => void;
+  afterCharts?: ReactNode;
 }) {
   const {
     searchDraft,
@@ -80,6 +83,8 @@ export function AssetInventoryPanel({
         loading={analyticsLoading}
         error={analyticsError}
       />
+
+      {afterCharts}
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-4">
         <form

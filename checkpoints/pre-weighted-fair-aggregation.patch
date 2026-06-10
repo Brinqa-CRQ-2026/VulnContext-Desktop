@@ -1,0 +1,2211 @@
+﻿diff --git a/backend/app/api/controls.py b/backend/app/api/controls.py
+index a5919d0..7a1c858 100644
+--- a/backend/app/api/controls.py
++++ b/backend/app/api/controls.py
+@@ -6,9 +6,9 @@ from fastapi import APIRouter, HTTPException
+ from supabase import create_client
+ 
+ from app import schemas
+-from app.services.control_questionnaire import (
++from app.services.security_score import (
+     DEFAULT_CONTROL_ANSWERS,
+-    compute_control_questionnaire,
++    compute_security_score,
+ )
+ 
+ router = APIRouter(tags=["controls"])
+@@ -29,16 +29,16 @@ def get_supabase_client():
+ 
+ 
+ @router.post(
+-    "/controls/questionnaire-score",
+-    response_model=schemas.ControlQuestionnaireResponse,
++    "/controls/security-score",
++    response_model=schemas.SecurityScoreResponse,
+ )
+-def score_control_questionnaire(payload: schemas.ControlQuestionnaireRequest):
+-    return compute_control_questionnaire(payload.answers)
++def score_security_score(payload: schemas.SecurityScoreRequest):
++    return compute_security_score(payload.answers)
+ 
+ 
+ @router.put("/controls/current", response_model=schemas.ControlAssessmentResponse)
+ def save_current_control_assessment(payload: schemas.ControlAssessmentRequest):
+-    result = compute_control_questionnaire(payload.answers)
++    result = compute_security_score(payload.answers)
+     now = datetime.now(timezone.utc).isoformat()
+ 
+     data = {
+@@ -76,7 +76,7 @@ def save_current_control_assessment(payload: schemas.ControlAssessmentRequest):
+     except Exception as exc:
+         raise HTTPException(
+             status_code=502,
+-            detail="Failed to save control assessment to Supabase.",
++            detail="Failed to save security score to Supabase.",
+         ) from exc
+ 
+     return _coerce_control_assessment_response(response.data, fallback=data)
+@@ -97,11 +97,11 @@ def get_current_control_assessment():
+     except Exception as exc:
+         raise HTTPException(
+             status_code=502,
+-            detail="Failed to retrieve control assessment from Supabase.",
++            detail="Failed to retrieve security score from Supabase.",
+         ) from exc
+ 
+     if not response.data:
+-        default_result = compute_control_questionnaire(DEFAULT_CONTROL_ANSWERS)
++        default_result = compute_security_score(DEFAULT_CONTROL_ANSWERS)
+         return schemas.ControlAssessmentResponse(
+             id=None,
+             created_at=None,
+@@ -132,7 +132,7 @@ def get_latest_control_assessment():
+     except Exception as exc:
+         raise HTTPException(
+             status_code=502,
+-            detail="Failed to retrieve latest control assessment from Supabase.",
++            detail="Failed to retrieve latest security score from Supabase.",
+         ) from exc
+ 
+     return _coerce_control_assessment_response(response.data) if response.data else None
+@@ -145,7 +145,7 @@ def _coerce_control_assessment_response(
+ ) -> schemas.ControlAssessmentResponse:
+     row = rows[0] if rows else fallback
+     if not row:
+-        raise HTTPException(status_code=502, detail="Supabase returned no control assessment data.")
++        raise HTTPException(status_code=502, detail="Supabase returned no security score data.")
+ 
+     return schemas.ControlAssessmentResponse(
+         id=row.get("id"),
+diff --git a/backend/app/api/topology.py b/backend/app/api/topology.py
+index c85a50b..d898fae 100644
+--- a/backend/app/api/topology.py
++++ b/backend/app/api/topology.py
+@@ -23,8 +23,11 @@ from app.services.topology_view import (
+     get_business_unit_risk_overview as _get_business_unit_risk_overview,
+     get_business_units as _get_business_units,
+ )
++from app.services.fair.loss_prediction import LossPredictionInputs
++from app.services.fair.scope_loss_prediction import FairScopeLossPredictionService
+ 
+ router = APIRouter(tags=["topology"])
++fair_scope_loss_prediction_service = FairScopeLossPredictionService()
+ 
+ 
+ def _has_topology_schema(db):
+@@ -155,6 +158,38 @@ def get_business_service_analytics(
+     return _get_business_service_analytics(business_unit_slug, business_service_slug, db)
+ 
+ 
++@router.post(
++    "/topology/business-units/{business_unit_slug}/business-services/{business_service_slug}/fair-loss",
++    response_model=schemas.FairLossPredictionResponse,
++)
++def predict_business_service_fair_loss(
++    business_unit_slug: str,
++    business_service_slug: str,
++    payload: schemas.FairLossPredictionRequest,
++    db=Depends(get_db),
++):
++    if not _has_topology_schema(db):
++        raise HTTPException(
++            status_code=503,
++            detail=(
++                "Normalized topology tables are not initialized. "
++                "Apply docs/backend/topology-seed/topology-expansion.sql before using "
++                "business service FAIR routes."
++            ),
++        )
++    return fair_scope_loss_prediction_service.simulate_business_service(
++        db,
++        business_unit_slug,
++        business_service_slug,
++        LossPredictionInputs(
++            control_context=payload.control_context,
++            primary_loss_mean=payload.primary_loss_mean,
++            secondary_loss_mean=payload.secondary_loss_mean,
++            iterations=payload.iterations,
++        ),
++    )
++
++
+ @router.get(
+     "/topology/business-units/{business_unit_slug}/business-services/{business_service_slug}/applications/{application_slug}",
+     response_model=schemas.ApplicationDetail,
+@@ -177,6 +212,40 @@ def get_application_detail(
+     return _get_application_detail(business_unit_slug, business_service_slug, application_slug, db)
+ 
+ 
++@router.post(
++    "/topology/business-units/{business_unit_slug}/business-services/{business_service_slug}/applications/{application_slug}/fair-loss",
++    response_model=schemas.FairLossPredictionResponse,
++)
++def predict_application_fair_loss(
++    business_unit_slug: str,
++    business_service_slug: str,
++    application_slug: str,
++    payload: schemas.FairLossPredictionRequest,
++    db=Depends(get_db),
++):
++    if not _has_topology_schema(db):
++        raise HTTPException(
++            status_code=503,
++            detail=(
++                "Normalized topology tables are not initialized. "
++                "Apply docs/backend/topology-seed/topology-expansion.sql before using "
++                "application FAIR routes."
++            ),
++        )
++    return fair_scope_loss_prediction_service.simulate_application(
++        db,
++        business_unit_slug,
++        business_service_slug,
++        application_slug,
++        LossPredictionInputs(
++            control_context=payload.control_context,
++            primary_loss_mean=payload.primary_loss_mean,
++            secondary_loss_mean=payload.secondary_loss_mean,
++            iterations=payload.iterations,
++        ),
++    )
++
++
+ @router.get("/assets", response_model=schemas.PaginatedAssets)
+ def get_assets(
+     page: int = Query(1, ge=1),
+@@ -256,6 +325,24 @@ def get_asset_detail(asset_id: str, db=Depends(get_db)):
+     return _get_asset_detail(asset_id, db)
+ 
+ 
++@router.post("/assets/{asset_id}/fair-loss", response_model=schemas.FairLossPredictionResponse)
++def predict_asset_fair_loss(
++    asset_id: str,
++    payload: schemas.FairLossPredictionRequest,
++    db=Depends(get_db),
++):
++    return fair_scope_loss_prediction_service.simulate_asset(
++        db,
++        asset_id,
++        LossPredictionInputs(
++            control_context=payload.control_context,
++            primary_loss_mean=payload.primary_loss_mean,
++            secondary_loss_mean=payload.secondary_loss_mean,
++            iterations=payload.iterations,
++        ),
++    )
++
++
+ @router.get("/assets/{asset_id}/enrichment", response_model=schemas.AssetEnrichment)
+ def get_asset_enrichment(
+     asset_id: str,
+diff --git a/backend/app/schemas.py b/backend/app/schemas.py
+index 73d60a4..0430d2a 100644
+--- a/backend/app/schemas.py
++++ b/backend/app/schemas.py
+@@ -387,15 +387,15 @@ class FairLossPredictionResponse(BaseModel):
+     histogram: list[FairLossHistogramPoint]
+ 
+ 
+-class ControlQuestionnaireRequest(BaseModel):
++class SecurityScoreRequest(BaseModel):
+     answers: dict[str, Any] = Field(default_factory=dict)
+ 
+ 
+-class ControlAssessmentRequest(ControlQuestionnaireRequest):
++class ControlAssessmentRequest(SecurityScoreRequest):
+     pass
+ 
+ 
+-class ControlQuestionnaireResponse(BaseModel):
++class SecurityScoreResponse(BaseModel):
+     control_score: float
+     confidence: float
+     prevent_score: float
+diff --git a/backend/app/services/control_questionnaire.py b/backend/app/services/control_questionnaire.py
+deleted file mode 100644
+index 9cd60d7..0000000
+--- a/backend/app/services/control_questionnaire.py
++++ /dev/null
+@@ -1,104 +0,0 @@
+-from __future__ import annotations
+-
+-from typing import Any
+-
+-from app.services.fair.controls.control_scoring import ControlScoring
+-
+-
+-DEFAULT_CONTROL_ANSWERS: dict[str, dict[str, int]] = {
+-    "prevent": {
+-        "patch_maturity": 4,
+-        "mfa_maturity": 5,
+-        "segmentation_maturity": 3,
+-        "hardening_maturity": 4,
+-    },
+-    "detect": {
+-        "logging_maturity": 3,
+-        "siem_maturity": 4,
+-        "speed_maturity": 3,
+-    },
+-    "respond": {
+-        "plan_maturity": 4,
+-        "speed_maturity": 3,
+-        "automation_maturity": 2,
+-    },
+-    "contain": {
+-        "edr_maturity": 4,
+-        "privilege_maturity": 3,
+-        "data_maturity": 5,
+-    },
+-}
+-
+-
+-def compute_control_questionnaire(answers: dict[str, Any]) -> dict[str, Any]:
+-    normalized = normalize_control_answers(answers)
+-    flat_context = flatten_control_answers(normalized)
+-    domain_scores = compute_domain_scores(normalized)
+-
+-    return {
+-        "control_score": ControlScoring().compute(flat_context),
+-        "confidence": compute_confidence(answers),
+-        "prevent_score": domain_scores["prevent"],
+-        "detect_score": domain_scores["detect"],
+-        "respond_score": domain_scores["respond"],
+-        "contain_score": domain_scores["contain"],
+-        "answers": normalized,
+-        "flat_context": flat_context,
+-    }
+-
+-
+-def normalize_control_answers(answers: dict[str, Any]) -> dict[str, dict[str, int]]:
+-    normalized: dict[str, dict[str, int]] = {}
+-
+-    for domain, defaults in DEFAULT_CONTROL_ANSWERS.items():
+-        raw_domain = answers.get(domain, {})
+-        if not isinstance(raw_domain, dict):
+-            raw_domain = {}
+-
+-        normalized[domain] = {}
+-        for key, fallback in defaults.items():
+-            raw_value = raw_domain.get(key, answers.get(f"{domain}_{key}", fallback))
+-            normalized[domain][key] = bounded_maturity(raw_value, fallback)
+-
+-    return normalized
+-
+-
+-def flatten_control_answers(answers: dict[str, dict[str, int]]) -> dict[str, int]:
+-    return {
+-        f"{domain}_{key}": value
+-        for domain, domain_answers in answers.items()
+-        for key, value in domain_answers.items()
+-    }
+-
+-
+-def compute_domain_scores(answers: dict[str, dict[str, int]]) -> dict[str, float]:
+-    return {
+-        domain: sum(domain_answers.values()) / (len(domain_answers) * 5.0)
+-        for domain, domain_answers in answers.items()
+-        if domain_answers
+-    }
+-
+-
+-def compute_confidence(raw_answers: dict[str, Any]) -> float:
+-    answered = 0
+-    expected = sum(len(domain_answers) for domain_answers in DEFAULT_CONTROL_ANSWERS.values())
+-
+-    for domain, defaults in DEFAULT_CONTROL_ANSWERS.items():
+-        raw_domain = raw_answers.get(domain, {})
+-        if not isinstance(raw_domain, dict):
+-            raw_domain = {}
+-
+-        for key in defaults:
+-            if key in raw_domain or f"{domain}_{key}" in raw_answers:
+-                answered += 1
+-
+-    return min(answered / expected, 1.0) if expected else 0.0
+-
+-
+-def bounded_maturity(value: Any, fallback: int) -> int:
+-    try:
+-        numeric = int(value)
+-    except (TypeError, ValueError):
+-        numeric = fallback
+-
+-    return min(max(numeric, 0), 5)
+diff --git a/backend/app/services/fair/controls/control_engine.py b/backend/app/services/fair/controls/control_engine.py
+index 512d5b8..dcf4834 100644
+--- a/backend/app/services/fair/controls/control_engine.py
++++ b/backend/app/services/fair/controls/control_engine.py
+@@ -32,6 +32,6 @@ class ControlEngine:
+             1 for k in context if k.endswith("_maturity")
+         )
+ 
+-        total_expected = 8  # adjust based on questionnaire size
++        total_expected = 8  # adjust based on security score input size
+ 
+-        return min(answered / total_expected, 1.0)
+\ No newline at end of file
++        return min(answered / total_expected, 1.0)
+diff --git a/backend/app/services/fair/loss_prediction.py b/backend/app/services/fair/loss_prediction.py
+index cea61a8..3e6d860 100644
+--- a/backend/app/services/fair/loss_prediction.py
++++ b/backend/app/services/fair/loss_prediction.py
+@@ -24,6 +24,15 @@ class FairLossPredictionService:
+         self,
+         finding: models.Finding,
+         inputs: LossPredictionInputs,
++    ) -> dict[str, Any]:
++        result = self.simulate_with_distribution(finding, inputs)
++        result.pop("risk_distribution", None)
++        return result
++
++    def simulate_with_distribution(
++        self,
++        finding: models.Finding,
++        inputs: LossPredictionInputs,
+     ) -> dict[str, Any]:
+         context = self._build_context(finding, inputs)
+ 
+@@ -54,6 +63,7 @@ class FairLossPredictionService:
+             "primary_mean": float(magnitude["primary_mean"]),
+             "secondary_mean": float(magnitude["secondary_mean"]),
+             "histogram": self._histogram(risk_distribution),
++            "risk_distribution": risk_distribution,
+         }
+ 
+     def _build_context(
+diff --git a/docs/backend/current/fair/README.md b/docs/backend/current/fair/README.md
+index 71f7dca..287366f 100644
+--- a/docs/backend/current/fair/README.md
++++ b/docs/backend/current/fair/README.md
+@@ -4,15 +4,15 @@ This folder documents the current FAIR-style loss prediction pipeline and how th
+ 
+ The pipeline is used in two UI areas:
+ 
+-- the Controls questionnaire, which captures control maturity and stores/retrieves the current assessment
++- the Security Score, which captures control maturity and stores/retrieves the current assessment
+ - the Finding detail page, which can generate a predicted annualized loss distribution for an individual finding
+ 
+ ## Documents
+ 
+ - [pipeline-overview.md](pipeline-overview.md)
+   End-to-end flow from frontend controls and finding detail UI through backend FAIR simulation.
+-- [control-questionnaire.md](control-questionnaire.md)
+-  Questionnaire format, scoring, Supabase upload/retrieve endpoints, and frontend storage.
++- [security-score.md](security-score.md)
++  Security Score format, scoring, Supabase upload/retrieve endpoints, and frontend storage.
+ - [frequency-engine.md](frequency-engine.md)
+   TEF, vulnerability, escalation, and LEF pipeline.
+ - [magnitude-engine.md](magnitude-engine.md)
+@@ -26,7 +26,7 @@ The pipeline is used in two UI areas:
+ 
+ Controls:
+ 
+-- `POST /controls/questionnaire-score`
++- `POST /controls/security-score`
+ - `PUT /controls/current`
+ - `GET /controls/current`
+ - `POST /controls/save`
+@@ -38,8 +38,8 @@ Finding-level FAIR loss:
+ 
+ ## Current Frontend Entry Points
+ 
+-- `frontend/src/components/controls/SecurityQuestionnairePage.tsx`
++- `frontend/src/components/controls/SecurityScorePage.tsx`
+ - `frontend/src/components/dashboard/FindingDetailPage.tsx`
+ - `frontend/src/api/controls.ts`
+ - `frontend/src/api/findings.ts`
+-- `frontend/src/lib/controlQuestionnaire.ts`
++- `frontend/src/lib/securityScore.ts`
+diff --git a/docs/backend/current/fair/control-questionnaire.md b/docs/backend/current/fair/control-questionnaire.md
+deleted file mode 100644
+index d2481ee..0000000
+--- a/docs/backend/current/fair/control-questionnaire.md
++++ /dev/null
+@@ -1,199 +0,0 @@
+-# Control Questionnaire
+-
+-The control questionnaire captures security control maturity in four FAIR-aligned domains:
+-
+-- Prevent
+-- Detect
+-- Respond
+-- Contain
+-
+-Each answer is a maturity score from `0` to `5`. The UI presents contextual answer choices, while the backend stores and scores the numeric maturity values.
+-
+-## Frontend Files
+-
+-- `frontend/src/components/controls/SecurityQuestionnairePage.tsx`
+-- `frontend/src/lib/controlQuestionnaire.ts`
+-- `frontend/src/api/controls.ts`
+-
+-## Backend Files
+-
+-- `backend/app/api/controls.py`
+-- `backend/app/services/control_questionnaire.py`
+-- `backend/app/schemas.py`
+-
+-## Questionnaire JSON Shape
+-
+-The visible/copyable payload uses nested domains:
+-
+-```json
+-{
+-  "prevent": {
+-    "patch_maturity": 4,
+-    "mfa_maturity": 5,
+-    "segmentation_maturity": 3,
+-    "hardening_maturity": 4
+-  },
+-  "detect": {
+-    "logging_maturity": 3,
+-    "siem_maturity": 4,
+-    "speed_maturity": 3
+-  },
+-  "respond": {
+-    "plan_maturity": 4,
+-    "speed_maturity": 3,
+-    "automation_maturity": 2
+-  },
+-  "contain": {
+-    "edr_maturity": 4,
+-    "privilege_maturity": 3,
+-    "data_maturity": 5
+-  }
+-}
+-```
+-
+-## Local Frontend Storage
+-
+-The frontend stores answers in `localStorage` under:
+-
+-```text
+-vulncontext.controlQuestionnaire
+-```
+-
+-The local format is flat because the FAIR control scorer expects flat keys:
+-
+-```json
+-{
+-  "prevent_patch_maturity": 4,
+-  "prevent_mfa_maturity": 5,
+-  "detect_siem_maturity": 4
+-}
+-```
+-
+-`controlQuestionnaire.ts` contains helpers for:
+-
+-- default values
+-- reading from local storage
+-- writing to local storage
+-- converting flat context to nested context
+-- converting nested context back to flat context for UI state
+-
+-## Backend Scoring
+-
+-File:
+-
+-- `backend/app/services/control_questionnaire.py`
+-
+-The service:
+-
+-1. normalizes nested or flat answers
+-2. bounds each value between `0` and `5`
+-3. computes domain scores on a `0-1` scale
+-4. computes confidence
+-5. flattens the context for `ControlScoring`
+-6. returns both nested answers and flat context
+-
+-Domain score formula:
+-
+-```text
+-domain_score = average(domain_answers) / 5
+-```
+-
+-Control score formula:
+-
+-```text
+-control_score =
+-  0.35 * prevent_score +
+-  0.25 * detect_score +
+-  0.25 * respond_score +
+-  0.15 * contain_score
+-```
+-
+-The service delegates the final weighted control score to:
+-
+-- `backend/app/services/fair/controls/control_scoring.py`
+-
+-## Controls API
+-
+-File:
+-
+-- `backend/app/api/controls.py`
+-
+-### Score Only
+-
+-```http
+-POST /controls/questionnaire-score
+-```
+-
+-Scores a submitted questionnaire but does not save it.
+-
+-### Save Current Assessment
+-
+-```http
+-PUT /controls/current
+-```
+-
+-Computes scores and saves the current assessment to Supabase.
+-
+-Expected Supabase table:
+-
+-```text
+-control_assessments
+-```
+-
+-Expected columns:
+-
+-```text
+-id
+-created_at
+-updated_at
+-control_score
+-confidence
+-prevent_score
+-detect_score
+-respond_score
+-contain_score
+-answers
+-```
+-
+-The endpoint uses:
+-
+-- `SUPABASE_URL`
+-- `SUPABASE_SERVICE_KEY`
+-
+-The Supabase client is created lazily when the endpoint runs. Missing Supabase environment variables return a `503` for this endpoint instead of breaking backend startup.
+-
+-### Retrieve Current Assessment
+-
+-```http
+-GET /controls/current
+-```
+-
+-Returns the most recently updated assessment. If no row exists, it returns a default computed assessment without inserting a row.
+-
+-### Legacy Save Alias
+-
+-```http
+-POST /controls/save
+-```
+-
+-Alias for saving the current assessment.
+-
+-### Latest Saved Row
+-
+-```http
+-GET /controls/saved/latest
+-```
+-
+-Returns the latest saved control assessment row, or `null` if none exists.
+-
+-## Frontend Save Behavior
+-
+-The Controls page:
+-
+-- loads the current saved assessment when the page opens
+-- writes changes to local storage immediately
+-- auto-saves to Supabase when an answer changes
+-- provides a `Save Changes` button for manual save
+-- saves reset values when reset is clicked
+-
+-This means the UI can work locally, but real persistence depends on Supabase environment variables and the `control_assessments` table.
+diff --git a/docs/backend/current/fair/frequency-engine.md b/docs/backend/current/fair/frequency-engine.md
+index 7d1aa97..9580f76 100644
+--- a/docs/backend/current/fair/frequency-engine.md
++++ b/docs/backend/current/fair/frequency-engine.md
+@@ -109,12 +109,12 @@ Files:
+ 
+ `ControlEngine` blends:
+ 
+-- user questionnaire score
++- user security score
+ - inferred controls from context
+ 
+ If maturity answers are present, the user score is blended with inferred score. If not, the inferred score is used.
+ 
+-The questionnaire answers enter the FAIR loss prediction through `control_context`.
++The security score answers enter the FAIR loss prediction through `control_context`.
+ 
+ ## LEF
+ 
+diff --git a/docs/backend/current/fair/frontend-backend-contract.md b/docs/backend/current/fair/frontend-backend-contract.md
+index b36f80b..a86c9ee 100644
+--- a/docs/backend/current/fair/frontend-backend-contract.md
++++ b/docs/backend/current/fair/frontend-backend-contract.md
+@@ -2,18 +2,18 @@
+ 
+ This document describes how the React frontend connects to the backend FAIR endpoints.
+ 
+-## Controls Questionnaire Flow
++## Security Score Flow
+ 
+ Frontend files:
+ 
+-- `frontend/src/components/controls/SecurityQuestionnairePage.tsx`
++- `frontend/src/components/controls/SecurityScorePage.tsx`
+ - `frontend/src/api/controls.ts`
+-- `frontend/src/lib/controlQuestionnaire.ts`
++- `frontend/src/lib/securityScore.ts`
+ 
+ Backend files:
+ 
+ - `backend/app/api/controls.py`
+-- `backend/app/services/control_questionnaire.py`
++- `backend/app/services/security_score.py`
+ 
+ ### Load Current Assessment
+ 
+@@ -70,7 +70,7 @@ The backend:
+ 
+ The UI saves when:
+ 
+-- a questionnaire answer changes
++- a security score answer changes
+ - `Save Changes` is clicked
+ - reset is clicked
+ 
+@@ -163,7 +163,7 @@ The frontend renders:
+ 
+ ## TypeScript API Files
+ 
+-`frontend/src/api/controls.ts` owns controls assessment requests.
++`frontend/src/api/controls.ts` owns security score assessment requests.
+ 
+ `frontend/src/api/findings.ts` owns finding loss prediction requests.
+ 
+@@ -177,8 +177,8 @@ The frontend renders:
+ 
+ `backend/app/schemas.py` contains:
+ 
+-- `ControlQuestionnaireRequest`
+-- `ControlQuestionnaireResponse`
++- `SecurityScoreRequest`
++- `SecurityScoreResponse`
+ - `ControlAssessmentRequest`
+ - `ControlAssessmentResponse`
+ - `FairLossPredictionRequest`
+diff --git a/docs/backend/current/fair/pipeline-overview.md b/docs/backend/current/fair/pipeline-overview.md
+index 4354a7e..8286c62 100644
+--- a/docs/backend/current/fair/pipeline-overview.md
++++ b/docs/backend/current/fair/pipeline-overview.md
+@@ -12,7 +12,7 @@ The FAIR pipeline estimates annualized loss for a finding by combining:
+ At a high level:
+ 
+ ```text
+-Controls questionnaire
++Security Score
+         |
+         v
+ Nested control answers
+@@ -50,7 +50,7 @@ Primary method:
+ This service connects the lower-level FAIR modules together. It:
+ 
+ - builds the FAIR context from the selected finding and related asset
+-- injects questionnaire control maturity answers
++- injects security score maturity answers
+ - applies primary and secondary loss assumptions from the UI sliders
+ - runs `FrequencyEngine`
+ - runs `LM`
+@@ -89,7 +89,7 @@ Component:
+ The panel:
+ 
+ - shows a `Generate Predicted Loss` action
+-- reads the saved local questionnaire context
++- reads the saved local security score context
+ - converts it to nested domain JSON
+ - sends primary and secondary loss mean slider values
+ - renders the returned histogram with Recharts
+diff --git a/frontend/src/api/controls.ts b/frontend/src/api/controls.ts
+index 8a877ea..028bc71 100644
+--- a/frontend/src/api/controls.ts
++++ b/frontend/src/api/controls.ts
+@@ -5,7 +5,7 @@ export async function getCurrentControlAssessment(): Promise<ControlAssessment>
+   const res = await fetch(buildApiUrl("/controls/current"));
+   return parseJsonOrThrow(
+     res,
+-    `Failed to fetch control assessment: ${res.status} ${res.statusText}`
++    `Failed to fetch security score: ${res.status} ${res.statusText}`
+   );
+ }
+ 
+@@ -23,6 +23,6 @@ export async function saveCurrentControlAssessment(
+   });
+   return parseJsonOrThrow(
+     res,
+-    `Failed to save control assessment: ${res.status} ${res.statusText}`
++    `Failed to save security score: ${res.status} ${res.statusText}`
+   );
+ }
+diff --git a/frontend/src/api/topology.ts b/frontend/src/api/topology.ts
+index e6c91fc..0b1c9bc 100644
+--- a/frontend/src/api/topology.ts
++++ b/frontend/src/api/topology.ts
+@@ -12,6 +12,8 @@ import type {
+   BusinessUnitDetail,
+   BusinessUnitRiskOverview,
+   BusinessUnitSummary,
++  FairLossPredictionRequest,
++  FairLossPredictionResponse,
+   FindingsSortBy,
+   PaginatedAssets,
+   PaginatedFindings,
+@@ -123,6 +125,29 @@ export async function getBusinessServiceAnalytics(
+   );
+ }
+ 
++export async function predictBusinessServiceFairLoss(
++  businessUnitSlug: string,
++  businessServiceSlug: string,
++  payload: FairLossPredictionRequest
++): Promise<FairLossPredictionResponse> {
++  const res = await apiFetch(
++    buildApiUrl(
++      `/topology/business-units/${businessUnitSlug}/business-services/${businessServiceSlug}/fair-loss`
++    ),
++    {
++      method: "POST",
++      headers: {
++        "Content-Type": "application/json",
++      },
++      body: JSON.stringify(payload),
++    }
++  );
++  return parseJsonOrThrow(
++    res,
++    `Failed to generate business service FAIR loss prediction: ${res.status} ${res.statusText}`
++  );
++}
++
+ export async function getApplicationDetail(
+   businessUnitSlug: string,
+   businessServiceSlug: string,
+@@ -139,6 +164,30 @@ export async function getApplicationDetail(
+   );
+ }
+ 
++export async function predictApplicationFairLoss(
++  businessUnitSlug: string,
++  businessServiceSlug: string,
++  applicationSlug: string,
++  payload: FairLossPredictionRequest
++): Promise<FairLossPredictionResponse> {
++  const res = await apiFetch(
++    buildApiUrl(
++      `/topology/business-units/${businessUnitSlug}/business-services/${businessServiceSlug}/applications/${applicationSlug}/fair-loss`
++    ),
++    {
++      method: "POST",
++      headers: {
++        "Content-Type": "application/json",
++      },
++      body: JSON.stringify(payload),
++    }
++  );
++  return parseJsonOrThrow(
++    res,
++    `Failed to generate application FAIR loss prediction: ${res.status} ${res.statusText}`
++  );
++}
++
+ export async function getAssetDetail(assetId: string): Promise<AssetDetail> {
+   const res = await apiFetch(buildApiUrl(`/assets/${assetId}`));
+   return parseJsonOrThrow(
+@@ -147,6 +196,23 @@ export async function getAssetDetail(assetId: string): Promise<AssetDetail> {
+   );
+ }
+ 
++export async function predictAssetFairLoss(
++  assetId: string,
++  payload: FairLossPredictionRequest
++): Promise<FairLossPredictionResponse> {
++  const res = await apiFetch(buildApiUrl(`/assets/${assetId}/fair-loss`), {
++    method: "POST",
++    headers: {
++      "Content-Type": "application/json",
++    },
++    body: JSON.stringify(payload),
++  });
++  return parseJsonOrThrow(
++    res,
++    `Failed to generate asset FAIR loss prediction: ${res.status} ${res.statusText}`
++  );
++}
++
+ export async function getAssetEnrichment(assetId: string): Promise<AssetEnrichment> {
+   const res = await apiFetch(
+     buildApiUrl(`/assets/${assetId}/enrichment`),
+diff --git a/frontend/src/app.tsx b/frontend/src/app.tsx
+index 6fbd1df..3b7828e 100644
+--- a/frontend/src/app.tsx
++++ b/frontend/src/app.tsx
+@@ -5,7 +5,7 @@ import { DashboardOverview } from "./components/dashboard/DashboardOverview";
+ import { RiskTable } from "./components/dashboard/RiskTable";
+ import { FindingDetailPage } from "./components/dashboard/FindingDetailPage";
+ import { IntegrationsPage } from "./components/integrations/IntegrationsPage";
+-import { SecurityQuestionnairePage } from "./components/controls/SecurityQuestionnairePage";
++import { SecurityScorePage } from "./components/controls/SecurityScorePage";
+ import { ApplicationDetailPage } from "./components/business-services/ApplicationDetailPage";
+ import { AssetFindingsPage } from "./components/business-services/AssetFindingsPage";
+ import { BusinessServiceDetailPage } from "./components/business-services/BusinessServiceDetailPage";
+@@ -414,9 +414,9 @@ function App() {
+       description: "Review imported sources and the number of findings stored for each.",
+     },
+     controls: {
+-      title: "Security Questionnaire",
++      title: "Security Score",
+       description:
+-        "Capture concise control maturity answers and map them into FAIR-aligned scoring context.",
++        "Capture concise security maturity answers and map them into FAIR-aligned scoring context.",
+     },
+     "business-services": {
+       title: inAssetFindings
+@@ -447,7 +447,7 @@ function App() {
+   }> = [
+     { id: "business-services", label: "Companies", icon: BriefcaseBusiness },
+     { id: "findings", label: "Findings", icon: ListFilter },
+-    { id: "controls", label: "Controls", icon: ShieldCheck },
++    { id: "controls", label: "Security Score", icon: ShieldCheck },
+     { id: "integrations", label: "Sources", icon: PlugZap },
+   ];
+ 
+@@ -641,7 +641,7 @@ function App() {
+                 />
+               )
+             ) : page === "controls" ? (
+-              <SecurityQuestionnairePage />
++              <SecurityScorePage />
+             ) : (
+               <IntegrationsPage refreshToken={refreshToken} />
+             )}
+diff --git a/frontend/src/components/business-services/ApplicationDetailPage.tsx b/frontend/src/components/business-services/ApplicationDetailPage.tsx
+index 0740a17..c40a8ef 100644
+--- a/frontend/src/components/business-services/ApplicationDetailPage.tsx
++++ b/frontend/src/components/business-services/ApplicationDetailPage.tsx
+@@ -1,5 +1,7 @@
+ import { Network, ShieldAlert } from "lucide-react";
++import { useCallback } from "react";
+ 
++import { predictApplicationFairLoss } from "../../api/topology";
+ import { useApplicationDetail } from "../../hooks/topology/applications/useApplicationDetail";
+ import type { AssetSummary } from "../../types";
+ import { isTopologyUnavailable } from "../../lib/topology/topologyStatus";
+@@ -18,6 +20,7 @@ import {
+ } from "../ui/empty";
+ import { Button } from "../ui/button";
+ import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
++import { FairFrequencyPanel } from "../fair/FairFrequencyPanel";
+ 
+ interface ApplicationDetailPageProps {
+   businessUnitSlug: string | null;
+@@ -48,6 +51,16 @@ export function ApplicationDetailPage({
+     applicationSlug,
+     refreshToken
+   );
++  const predictFairLoss = useCallback(
++    (payload: Parameters<typeof predictApplicationFairLoss>[3]) =>
++      predictApplicationFairLoss(
++        businessUnitSlug ?? "",
++        businessServiceSlug ?? "",
++        applicationSlug ?? "",
++        payload
++      ),
++    [applicationSlug, businessServiceSlug, businessUnitSlug]
++  );
+ 
+   if (loading) {
+     return (
+@@ -119,6 +132,15 @@ export function ApplicationDetailPage({
+           />
+         </dl>
+ 
++        {businessUnitSlug && businessServiceSlug && applicationSlug ? (
++          <FairFrequencyPanel
++            title="Application FAIR Event Frequency"
++            description="Aggregates TEF, LEF, vulnerability, and Security Score for this application. Monetary loss is modeled at the business service level."
++            scopeLabel="application"
++            onPredict={predictFairLoss}
++          />
++        ) : null}
++
+         <AssetInventoryPanel
+           businessUnit={application.business_unit}
+           businessService={application.business_service}
+diff --git a/frontend/src/components/business-services/AssetFindingsPage.tsx b/frontend/src/components/business-services/AssetFindingsPage.tsx
+index c4c23e6..bf98d91 100644
+--- a/frontend/src/components/business-services/AssetFindingsPage.tsx
++++ b/frontend/src/components/business-services/AssetFindingsPage.tsx
+@@ -1,5 +1,5 @@
+ import { ShieldAlert } from "lucide-react";
+-import { useEffect, useMemo, useState } from "react";
++import { useCallback, useEffect, useMemo, useState } from "react";
+ 
+ import { useAssetFindings } from "../../hooks/topology/assets/useAssetFindings";
+ import { useAssetFindingsAnalytics } from "../../hooks/topology/assets/useAssetFindingsAnalytics";
+@@ -30,6 +30,8 @@ import {
+ import { Button } from "../ui/button";
+ import { FindingsExplorerPanel } from "./shared/FindingsExplorerPanel";
+ import { StatusBadge } from "./shared/TopologyBadges";
++import { FairFrequencyPanel } from "../fair/FairFrequencyPanel";
++import { predictAssetFairLoss } from "../../api/topology";
+ 
+ interface AssetFindingsPageProps {
+   businessUnitSlug: string | null;
+@@ -116,6 +118,11 @@ export function AssetFindingsPage({
+   );
+   const analyticsSummary = analytics?.analytics;
+   const summaryAsset = analytics?.asset;
++  const predictFairLoss = useCallback(
++    (payload: Parameters<typeof predictAssetFairLoss>[1]) =>
++      predictAssetFairLoss(assetId ?? "", payload),
++    [assetId]
++  );
+ 
+   if (loading) {
+     return (
+@@ -281,6 +288,15 @@ export function AssetFindingsPage({
+         error={analyticsError}
+       />
+ 
++      {assetId ? (
++        <FairFrequencyPanel
++          title="Asset FAIR Event Frequency"
++          description="Aggregates TEF, LEF, vulnerability, and Security Score for this asset using its highest-risk findings as likelihood drivers."
++          scopeLabel="asset"
++          onPredict={predictFairLoss}
++        />
++      ) : null}
++
+       <FindingsExplorerPanel
+         searchDraft={searchDraft}
+         onSearchDraftChange={setSearchDraft}
+diff --git a/frontend/src/components/business-services/BusinessServiceDetailPage.tsx b/frontend/src/components/business-services/BusinessServiceDetailPage.tsx
+index 4ab073e..983c791 100644
+--- a/frontend/src/components/business-services/BusinessServiceDetailPage.tsx
++++ b/frontend/src/components/business-services/BusinessServiceDetailPage.tsx
+@@ -1,5 +1,5 @@
+ import { Layers3 } from "lucide-react";
+-import { useMemo } from "react";
++import { useCallback, useMemo } from "react";
+ import { Bar, BarChart, CartesianGrid, Pie, PieChart, XAxis } from "recharts";
+ 
+ import type {
+@@ -15,6 +15,7 @@ import { isTopologyUnavailable } from "../../lib/topology/topologyStatus";
+ import { useBusinessServiceDetail } from "../../hooks/topology/business-services/useBusinessServiceDetail";
+ import type { ApplicationSummary, AssetSummary } from "../../types";
+ import { useBusinessServiceAnalytics } from "../../hooks/topology/business-services/useBusinessServiceAnalytics";
++import { predictBusinessServiceFairLoss } from "../../api/topology";
+ import { AssetInventoryPanel } from "./AssetInventoryPanel";
+ import {
+   formatSlugLabel,
+@@ -41,6 +42,7 @@ import { ChartPanel } from "./shared/ChartPanel";
+ import { ApplicationEntityCard } from "./shared/EntityCard";
+ import { EntityHero } from "./shared/EntityHero";
+ import { MetricCard, MetricGrid } from "./shared/MetricCard";
++import { FairScopeLossPanel } from "../fair/FairScopeLossPanel";
+ 
+ interface BusinessServiceDetailPageProps {
+   businessUnitSlug: string | null;
+@@ -73,6 +75,15 @@ export function BusinessServiceDetailPage({
+     loading: businessServiceAnalyticsLoading,
+     error: businessServiceAnalyticsError,
+   } = useBusinessServiceAnalytics(businessUnitSlug, businessServiceSlug, refreshToken);
++  const predictFairLoss = useCallback(
++    (payload: Parameters<typeof predictBusinessServiceFairLoss>[2]) =>
++      predictBusinessServiceFairLoss(
++        businessUnitSlug ?? "",
++        businessServiceSlug ?? "",
++        payload
++      ),
++    [businessServiceSlug, businessUnitSlug]
++  );
+ 
+   if (loading) {
+     return (
+@@ -176,6 +187,14 @@ export function BusinessServiceDetailPage({
+         />
+       </div>
+ 
++      {businessUnitSlug && businessServiceSlug ? (
++        <FairScopeLossPanel
++          title="Business Service FAIR Loss Exposure"
++          description="Estimates annualized loss exposure for this business service. Applications, assets, and findings act as likelihood drivers, while the service carries the monetary business impact."
++          onPredict={predictFairLoss}
++        />
++      ) : null}
++
+       <section className="space-y-3">
+         <div>
+           <h2 className="text-base font-semibold text-slate-950">Applications</h2>
+diff --git a/frontend/src/components/controls/SecurityQuestionnairePage.tsx b/frontend/src/components/controls/SecurityQuestionnairePage.tsx
+deleted file mode 100644
+index b1490a9..0000000
+--- a/frontend/src/components/controls/SecurityQuestionnairePage.tsx
++++ /dev/null
+@@ -1,604 +0,0 @@
+-import { useEffect, useMemo, useState } from "react";
+-import { Check, Clipboard, RotateCcw, Save } from "lucide-react";
+-
+-import {
+-  getCurrentControlAssessment,
+-  saveCurrentControlAssessment,
+-} from "../../api/controls";
+-import { Button } from "../ui/button";
+-import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+-import {
+-  DEFAULT_CONTROL_CONTEXT,
+-  fromNestedControlContext,
+-  readControlContext,
+-  toNestedControlContext,
+-  writeControlContext,
+-} from "../../lib/controlQuestionnaire";
+-import { cn } from "../../lib/utils";
+-
+-type ControlDomainId = "prevent" | "detect" | "respond" | "contain";
+-
+-type ControlQuestion = {
+-  id: string;
+-  contextKey: string;
+-  label: string;
+-  prompt: string;
+-  options: Array<{
+-    score: number;
+-    label: string;
+-    detail?: string;
+-  }>;
+-  defaultScore: number;
+-};
+-
+-type ControlDomain = {
+-  id: ControlDomainId;
+-  title: string;
+-  fairMapping: string;
+-  weight: number;
+-  toneClass: string;
+-  questions: ControlQuestion[];
+-};
+-
+-const DOMAINS: ControlDomain[] = [
+-  {
+-    id: "prevent",
+-    title: "Prevent",
+-    fairMapping: "Resistance strength",
+-    weight: 0.35,
+-    toneClass: "border-cyan-200 bg-cyan-50 text-cyan-800",
+-    questions: [
+-      {
+-        id: "patch",
+-        contextKey: "prevent_patch_maturity",
+-        label: "Patch management",
+-        prompt: "How quickly are critical vulnerabilities patched?",
+-        options: [
+-          { score: 0, label: "No process" },
+-          { score: 1, label: "Ad hoc" },
+-          { score: 2, label: ">30 days" },
+-          { score: 3, label: "14-30 days" },
+-          { score: 4, label: "<14 days" },
+-          { score: 5, label: "<7 days consistently" },
+-        ],
+-        defaultScore: 4,
+-      },
+-      {
+-        id: "mfa",
+-        contextKey: "prevent_mfa_maturity",
+-        label: "Access control (MFA)",
+-        prompt: "Is MFA enforced across critical systems?",
+-        options: [
+-          { score: 0, label: "None" },
+-          { score: 1, label: "Limited pilots" },
+-          { score: 2, label: "Some critical systems" },
+-          { score: 3, label: "Partial enforcement" },
+-          { score: 4, label: "Most critical systems" },
+-          { score: 5, label: "Full enforcement" },
+-        ],
+-        defaultScore: 5,
+-      },
+-      {
+-        id: "segmentation",
+-        contextKey: "prevent_segmentation_maturity",
+-        label: "Network segmentation",
+-        prompt: "Are systems segmented to limit lateral movement?",
+-        options: [
+-          { score: 0, label: "Flat network" },
+-          { score: 1, label: "Basic VLANs" },
+-          { score: 2, label: "Some tiering" },
+-          { score: 3, label: "Critical zones segmented" },
+-          { score: 4, label: "Strong segmentation" },
+-          { score: 5, label: "Zero trust controls" },
+-        ],
+-        defaultScore: 3,
+-      },
+-      {
+-        id: "hardening",
+-        contextKey: "prevent_hardening_maturity",
+-        label: "Hardening / configuration",
+-        prompt: "Are secure baselines enforced?",
+-        options: [
+-          { score: 0, label: "None" },
+-          { score: 1, label: "Informal standards" },
+-          { score: 2, label: "Documented baselines" },
+-          { score: 3, label: "Periodic checks" },
+-          { score: 4, label: "Managed enforcement" },
+-          { score: 5, label: "Automated + enforced" },
+-        ],
+-        defaultScore: 4,
+-      },
+-    ],
+-  },
+-  {
+-    id: "detect",
+-    title: "Detect",
+-    fairMapping: "Time-to-detect",
+-    weight: 0.25,
+-    toneClass: "border-indigo-200 bg-indigo-50 text-indigo-800",
+-    questions: [
+-      {
+-        id: "logging",
+-        contextKey: "detect_logging_maturity",
+-        label: "Logging coverage",
+-        prompt: "Are critical systems centrally logged?",
+-        options: [
+-          { score: 0, label: "None" },
+-          { score: 1, label: "Local logs only" },
+-          { score: 2, label: "Some central logging" },
+-          { score: 3, label: "Most critical systems" },
+-          { score: 4, label: "Broad central logging" },
+-          { score: 5, label: "Full centralized logging" },
+-        ],
+-        defaultScore: 3,
+-      },
+-      {
+-        id: "siem",
+-        contextKey: "detect_siem_maturity",
+-        label: "Monitoring / SIEM",
+-        prompt: "Are alerts generated and monitored?",
+-        options: [
+-          { score: 0, label: "None" },
+-          { score: 1, label: "Manual log review" },
+-          { score: 2, label: "Basic alerting" },
+-          { score: 3, label: "Monitored business hours" },
+-          { score: 4, label: "24/7 monitored alerts" },
+-          { score: 5, label: "Real-time monitored SIEM" },
+-        ],
+-        defaultScore: 4,
+-      },
+-      {
+-        id: "speed",
+-        contextKey: "detect_speed_maturity",
+-        label: "Detection speed",
+-        prompt: "How quickly are incidents typically detected?",
+-        options: [
+-          { score: 0, label: "Weeks" },
+-          { score: 1, label: "Several days" },
+-          { score: 2, label: "1-2 days" },
+-          { score: 3, label: "Same day" },
+-          { score: 4, label: "Within hours" },
+-          { score: 5, label: "Near real-time" },
+-        ],
+-        defaultScore: 3,
+-      },
+-    ],
+-  },
+-  {
+-    id: "respond",
+-    title: "Respond",
+-    fairMapping: "Time-to-respond",
+-    weight: 0.25,
+-    toneClass: "border-amber-200 bg-amber-50 text-amber-800",
+-    questions: [
+-      {
+-        id: "plan",
+-        contextKey: "respond_plan_maturity",
+-        label: "Incident response plan",
+-        prompt: "Is there a documented and tested IR plan?",
+-        options: [
+-          { score: 0, label: "None" },
+-          { score: 1, label: "Informal plan" },
+-          { score: 2, label: "Drafted plan" },
+-          { score: 3, label: "Documented plan" },
+-          { score: 4, label: "Tested occasionally" },
+-          { score: 5, label: "Tested regularly" },
+-        ],
+-        defaultScore: 4,
+-      },
+-      {
+-        id: "speed",
+-        contextKey: "respond_speed_maturity",
+-        label: "Response time",
+-        prompt: "How quickly can you contain incidents?",
+-        options: [
+-          { score: 0, label: "Several days" },
+-          { score: 1, label: "1-2 days" },
+-          { score: 2, label: "Same day" },
+-          { score: 3, label: "Several hours" },
+-          { score: 4, label: "1-2 hours" },
+-          { score: 5, label: "Minutes-hours" },
+-        ],
+-        defaultScore: 3,
+-      },
+-      {
+-        id: "automation",
+-        contextKey: "respond_automation_maturity",
+-        label: "Automation",
+-        prompt: "Are response actions automated?",
+-        options: [
+-          { score: 0, label: "None" },
+-          { score: 1, label: "Manual checklists" },
+-          { score: 2, label: "Scripted tasks" },
+-          { score: 3, label: "Some orchestration" },
+-          { score: 4, label: "Reusable playbooks" },
+-          { score: 5, label: "Automated playbooks" },
+-        ],
+-        defaultScore: 2,
+-      },
+-    ],
+-  },
+-  {
+-    id: "contain",
+-    title: "Contain",
+-    fairMapping: "Loss magnitude reduction",
+-    weight: 0.15,
+-    toneClass: "border-emerald-200 bg-emerald-50 text-emerald-800",
+-    questions: [
+-      {
+-        id: "edr",
+-        contextKey: "contain_edr_maturity",
+-        label: "Endpoint protection (EDR/XDR)",
+-        prompt: "How broadly is endpoint detection and response deployed?",
+-        options: [
+-          { score: 0, label: "None" },
+-          { score: 1, label: "Pilot coverage" },
+-          { score: 2, label: "Partial servers" },
+-          { score: 3, label: "Most endpoints" },
+-          { score: 4, label: "Critical endpoints" },
+-          { score: 5, label: "Full deployment" },
+-        ],
+-        defaultScore: 4,
+-      },
+-      {
+-        id: "privilege",
+-        contextKey: "contain_privilege_maturity",
+-        label: "Privilege management",
+-        prompt: "Are least privilege and access controls enforced?",
+-        options: [
+-          { score: 0, label: "None" },
+-          { score: 1, label: "Informal reviews" },
+-          { score: 2, label: "Some least privilege" },
+-          { score: 3, label: "Role-based access" },
+-          { score: 4, label: "Regular access reviews" },
+-          { score: 5, label: "Strict + audited" },
+-        ],
+-        defaultScore: 3,
+-      },
+-      {
+-        id: "data",
+-        contextKey: "contain_data_maturity",
+-        label: "Data protection",
+-        prompt: "Is sensitive data encrypted and controlled?",
+-        options: [
+-          { score: 0, label: "None" },
+-          { score: 1, label: "Limited encryption" },
+-          { score: 2, label: "Some sensitive data" },
+-          { score: 3, label: "Encryption at rest" },
+-          { score: 4, label: "Encryption + access controls" },
+-          { score: 5, label: "Strong encryption + controls" },
+-        ],
+-        defaultScore: 5,
+-      },
+-    ],
+-  },
+-];
+-
+-function formatPercent(value: number) {
+-  return `${Math.round(value * 100)}%`;
+-}
+-
+-export function SecurityQuestionnairePage() {
+-  const [answers, setAnswers] = useState(readControlContext);
+-  const [copied, setCopied] = useState(false);
+-  const [syncStatus, setSyncStatus] = useState<"idle" | "loading" | "saving" | "saved" | "error">(
+-    "idle"
+-  );
+-  const [syncError, setSyncError] = useState<string | null>(null);
+-
+-  useEffect(() => {
+-    let active = true;
+-
+-    async function loadSavedAssessment() {
+-      try {
+-        setSyncStatus("loading");
+-        setSyncError(null);
+-        const assessment = await getCurrentControlAssessment();
+-        if (!active) return;
+-
+-        const next = fromNestedControlContext(assessment.answers);
+-        setAnswers(next);
+-        writeControlContext(next);
+-        setSyncStatus(assessment.id ? "saved" : "idle");
+-      } catch (err) {
+-        if (!active) return;
+-        setSyncStatus("error");
+-        setSyncError(
+-          err instanceof Error ? err.message : "Failed to load saved control assessment."
+-        );
+-      }
+-    }
+-
+-    loadSavedAssessment();
+-    return () => {
+-      active = false;
+-    };
+-  }, []);
+-
+-  const domainScores = useMemo(() => {
+-    return DOMAINS.map((domain) => {
+-      const normalizedScores = domain.questions.map(
+-        (question) => answers[question.contextKey] / 5
+-      );
+-      const score =
+-        normalizedScores.reduce((total, current) => total + current, 0) /
+-        normalizedScores.length;
+-
+-      return { ...domain, score };
+-    });
+-  }, [answers]);
+-
+-  const controlScore = useMemo(() => {
+-    return domainScores.reduce(
+-      (total, domain) => total + domain.weight * domain.score,
+-      0
+-    );
+-  }, [domainScores]);
+-
+-  const contextJson = useMemo(
+-    () => JSON.stringify(toNestedControlContext(answers), null, 2),
+-    [answers]
+-  );
+-
+-  const persistAnswers = async (nextAnswers: Record<string, number>) => {
+-    try {
+-      setSyncStatus("saving");
+-      setSyncError(null);
+-      await saveCurrentControlAssessment(toNestedControlContext(nextAnswers));
+-      setSyncStatus("saved");
+-    } catch (err) {
+-      setSyncStatus("error");
+-      setSyncError(
+-        err instanceof Error ? err.message : "Failed to save control assessment."
+-      );
+-    }
+-  };
+-
+-  const updateAnswer = (contextKey: string, score: number) => {
+-    setAnswers((current) => {
+-      const next = { ...current, [contextKey]: score };
+-      writeControlContext(next);
+-      void persistAnswers(next);
+-      return next;
+-    });
+-  };
+-
+-  const handleCopy = async () => {
+-    try {
+-      await navigator.clipboard?.writeText(contextJson);
+-      setCopied(true);
+-      window.setTimeout(() => setCopied(false), 1600);
+-    } catch {
+-      setCopied(false);
+-    }
+-  };
+-
+-  return (
+-    <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+-      <div className="flex flex-col gap-4">
+-        <Card>
+-          <CardHeader className="pb-3">
+-            <CardTitle className="text-sm font-semibold">
+-              FAIR-Aligned Control Maturity
+-            </CardTitle>
+-          </CardHeader>
+-          <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+-            {domainScores.map((domain) => (
+-              <div
+-                key={domain.id}
+-                className="rounded-lg border border-slate-200 bg-slate-50 p-3"
+-              >
+-                <div className="flex items-start justify-between gap-3">
+-                  <div>
+-                    <div className="text-sm font-semibold text-slate-900">
+-                      {domain.title}
+-                    </div>
+-                    <div className="mt-1 text-xs text-slate-500">
+-                      {domain.fairMapping}
+-                    </div>
+-                  </div>
+-                  <span
+-                    className={cn(
+-                      "rounded-md border px-2 py-1 text-xs font-semibold",
+-                      domain.toneClass
+-                    )}
+-                  >
+-                    {Math.round(domain.weight * 100)}%
+-                  </span>
+-                </div>
+-                <div className="mt-3 h-2 rounded-full bg-slate-200">
+-                  <div
+-                    className="h-2 rounded-full bg-slate-900"
+-                    style={{ width: formatPercent(domain.score) }}
+-                  />
+-                </div>
+-                <div className="mt-2 text-xs font-medium text-slate-600">
+-                  {formatPercent(domain.score)} mature
+-                </div>
+-              </div>
+-            ))}
+-          </CardContent>
+-        </Card>
+-
+-        {DOMAINS.map((domain) => (
+-          <Card key={domain.id}>
+-            <CardHeader className="border-b border-slate-100 pb-4">
+-              <div className="flex flex-wrap items-center justify-between gap-3">
+-                <div>
+-                  <CardTitle className="text-base font-semibold">
+-                    {domain.title}
+-                  </CardTitle>
+-                  <p className="mt-1 text-sm text-slate-500">
+-                    {domain.fairMapping}
+-                  </p>
+-                </div>
+-                <span
+-                  className={cn(
+-                    "rounded-md border px-2.5 py-1 text-xs font-semibold",
+-                    domain.toneClass
+-                  )}
+-                >
+-                  Weight {Math.round(domain.weight * 100)}%
+-                </span>
+-              </div>
+-            </CardHeader>
+-            <CardContent className="pt-5">
+-              <div className="divide-y divide-slate-100">
+-                {domain.questions.map((question) => {
+-                  const value = answers[question.contextKey];
+-                  const selectedOption = question.options.find(
+-                    (option) => option.score === value
+-                  );
+-
+-                  return (
+-                    <div
+-                      key={question.contextKey}
+-                      className="grid gap-3 py-4 first:pt-0 last:pb-0 xl:grid-cols-[minmax(0,330px)_1fr]"
+-                    >
+-                      <div>
+-                        <div className="text-sm font-semibold text-slate-900">
+-                          {question.label}
+-                        </div>
+-                        <p className="mt-1 text-sm text-slate-500">
+-                          {question.prompt}
+-                        </p>
+-                        <div className="mt-2 text-xs text-slate-500">
+-                          Context value:{" "}
+-                          <span className="font-semibold text-slate-700">
+-                            {value}
+-                          </span>
+-                          {selectedOption ? (
+-                            <span> - {selectedOption.label}</span>
+-                          ) : null}
+-                        </div>
+-                      </div>
+-                      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+-                        {question.options.map((option) => {
+-                          const active = option.score === value;
+-
+-                          return (
+-                            <button
+-                              key={`${question.contextKey}-${option.score}`}
+-                              type="button"
+-                              className={cn(
+-                                "min-h-12 rounded-lg border px-3 py-2 text-left text-sm transition-colors",
+-                                active
+-                                  ? "border-slate-950 bg-slate-950 text-white"
+-                                  : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+-                              )}
+-                              onClick={() =>
+-                                updateAnswer(question.contextKey, option.score)
+-                              }
+-                            >
+-                              <span className="block font-semibold">
+-                                {option.label}
+-                              </span>
+-                              {option.detail ? (
+-                                <span
+-                                  className={cn(
+-                                    "mt-1 block text-xs",
+-                                    active ? "text-slate-300" : "text-slate-500"
+-                                  )}
+-                                >
+-                                  {option.detail}
+-                                </span>
+-                              ) : null}
+-                            </button>
+-                          );
+-                        })}
+-                      </div>
+-                    </div>
+-                  );
+-                })}
+-              </div>
+-            </CardContent>
+-          </Card>
+-        ))}
+-      </div>
+-
+-      <aside className="flex flex-col gap-4 xl:sticky xl:top-4 xl:self-start">
+-        <Card>
+-          <CardHeader className="pb-3">
+-            <CardTitle className="text-sm font-semibold">Control Score</CardTitle>
+-          </CardHeader>
+-          <CardContent>
+-            <div className="text-4xl font-semibold tracking-tight text-slate-900">
+-              {formatPercent(controlScore)}
+-            </div>
+-            <div className="mt-3 h-2 rounded-full bg-slate-200">
+-              <div
+-                className="h-2 rounded-full bg-slate-950"
+-                style={{ width: formatPercent(controlScore) }}
+-              />
+-            </div>
+-            <p className="mt-3 text-sm text-slate-600">
+-              Weighted from Prevent, Detect, Respond, and Contain maturity. Each
+-              answer is normalized as score / 5 before domain weighting.
+-            </p>
+-          </CardContent>
+-        </Card>
+-
+-        <Card>
+-          <CardHeader className="pb-3">
+-            <div className="flex items-center justify-between gap-3">
+-              <div>
+-                <CardTitle className="text-sm font-semibold">Context Payload</CardTitle>
+-                <p className="mt-1 text-xs text-slate-500">
+-                  {syncStatus === "loading"
+-                    ? "Loading saved assessment..."
+-                    : syncStatus === "saving"
+-                      ? "Saving assessment..."
+-                      : syncStatus === "saved"
+-                        ? "Saved to Supabase."
+-                        : syncStatus === "error"
+-                          ? syncError ?? "Unable to sync assessment."
+-                          : "Local questionnaire context."}
+-                </p>
+-              </div>
+-              <div className="flex items-center gap-2">
+-                <Button
+-                  aria-label="Reset questionnaire"
+-                  size="icon"
+-                  variant="outline"
+-                  onClick={() => {
+-                    setAnswers(DEFAULT_CONTROL_CONTEXT);
+-                    writeControlContext(DEFAULT_CONTROL_CONTEXT);
+-                    void persistAnswers(DEFAULT_CONTROL_CONTEXT);
+-                  }}
+-                >
+-                  <RotateCcw className="h-4 w-4" />
+-                </Button>
+-                <Button
+-                  size="sm"
+-                  variant="outline"
+-                  disabled={syncStatus === "saving"}
+-                  onClick={() => void persistAnswers(answers)}
+-                >
+-                  <Save className="h-4 w-4" />
+-                  {syncStatus === "saving" ? "Saving..." : "Save Changes"}
+-                </Button>
+-                <Button
+-                  aria-label="Copy context payload"
+-                  size="icon"
+-                  variant="outline"
+-                  onClick={handleCopy}
+-                >
+-                  {copied ? (
+-                    <Check className="h-4 w-4" />
+-                  ) : (
+-                    <Clipboard className="h-4 w-4" />
+-                  )}
+-                </Button>
+-              </div>
+-            </div>
+-          </CardHeader>
+-          <CardContent>
+-            <pre className="max-h-[520px] overflow-auto rounded-lg border border-slate-200 bg-slate-950 p-3 text-xs leading-relaxed text-slate-100">
+-              {contextJson}
+-            </pre>
+-          </CardContent>
+-        </Card>
+-      </aside>
+-    </section>
+-  );
+-}
+diff --git a/frontend/src/components/dashboard/FindingDetailPage.tsx b/frontend/src/components/dashboard/FindingDetailPage.tsx
+index 63b2deb..e96b5fa 100644
+--- a/frontend/src/components/dashboard/FindingDetailPage.tsx
++++ b/frontend/src/components/dashboard/FindingDetailPage.tsx
+@@ -1,27 +1,13 @@
+-import { useEffect, useMemo, useState, type ReactNode } from "react";
+-import {
+-  Area,
+-  AreaChart,
+-  CartesianGrid,
+-  ResponsiveContainer,
+-  Tooltip,
+-  XAxis,
+-  YAxis,
+-} from "recharts";
++import { useCallback, type ReactNode } from "react";
+ 
+-import type { FairLossPredictionResponse, FindingRouteOrigin, ScoredFinding } from "../../types";
+ import { predictFindingFairLoss } from "../../api/findings";
++import type { FindingRouteOrigin, ScoredFinding } from "../../types";
+ import type { BreadcrumbEntry } from "../business-services/TopologyChrome";
+ import { useFindingDetails } from "../../hooks/findings/useFindingDetails";
+-import {
+-  readControlContext,
+-  toNestedControlContext,
+-} from "../../lib/controlQuestionnaire";
++import { FairFrequencyPanel } from "../fair/FairFrequencyPanel";
+ import { EntityHero } from "../business-services/shared/EntityHero";
+ import { MetricCard, MetricGrid } from "../business-services/shared/MetricCard";
+ import { StatusBadge } from "../business-services/shared/TopologyBadges";
+-import { Button } from "../ui/button";
+-import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+ import {
+   FindingAffectedContextSection,
+   FindingOverviewSection,
+@@ -72,21 +58,12 @@ function getFindingTitle(finding: ScoredFinding) {
+   return raw;
+ }
+ 
+-function getAssetLabel(finding: ScoredFinding, origin?: FindingRouteOrigin | null) {
++function getAssetLabel(finding: ScoredFinding, origin?: FindingRouteOrigin | null): string {
+   if (origin?.assetLabel) return origin.assetLabel;
+-  if (isPopulated(finding.target_names)) return finding.target_names;
++  if (isPopulated(finding.target_names)) return finding.target_names ?? "-";
+   return "-";
+ }
+ 
+-function formatCurrency(value?: number | null) {
+-  if (value === null || value === undefined || Number.isNaN(value)) return "-";
+-  return new Intl.NumberFormat("en-US", {
+-    style: "currency",
+-    currency: "USD",
+-    maximumFractionDigits: 0,
+-  }).format(value);
+-}
+-
+ function LoadingState({
+   breadcrumbs,
+   backLabel,
+@@ -166,195 +143,6 @@ function HeroTags({ finding }: { finding: ScoredFinding }) {
+   return <div className="flex flex-wrap items-center justify-end gap-2">{tags}</div>;
+ }
+ 
+-function LossPredictionPanel({ finding }: { finding: ScoredFinding }) {
+-  const [primaryMean, setPrimaryMean] = useState(50000);
+-  const [secondaryMean, setSecondaryMean] = useState(15000);
+-  const [prediction, setPrediction] = useState<FairLossPredictionResponse | null>(null);
+-  const [loading, setLoading] = useState(false);
+-  const [error, setError] = useState<string | null>(null);
+-  const [generated, setGenerated] = useState(false);
+-
+-  const chartData = useMemo(
+-    () =>
+-      prediction?.histogram.map((point) => ({
+-        loss: point.loss,
+-        probability: point.probability,
+-      })) ?? [],
+-    [prediction]
+-  );
+-
+-  useEffect(() => {
+-    if (!generated) return;
+-
+-    const controller = new AbortController();
+-    const timer = window.setTimeout(async () => {
+-      try {
+-        setLoading(true);
+-        setError(null);
+-        const result = await predictFindingFairLoss(finding.id, {
+-          control_context: toNestedControlContext(readControlContext()),
+-          primary_loss_mean: primaryMean,
+-          secondary_loss_mean: secondaryMean,
+-          iterations: 10000,
+-        });
+-        if (!controller.signal.aborted) {
+-          setPrediction(result);
+-        }
+-      } catch (err) {
+-        if (!controller.signal.aborted) {
+-          setError(err instanceof Error ? err.message : "Failed to generate prediction.");
+-        }
+-      } finally {
+-        if (!controller.signal.aborted) {
+-          setLoading(false);
+-        }
+-      }
+-    }, 250);
+-
+-    return () => {
+-      controller.abort();
+-      window.clearTimeout(timer);
+-    };
+-  }, [finding.id, generated, primaryMean, secondaryMean]);
+-
+-  return (
+-    <Card>
+-      <CardHeader>
+-        <CardTitle className="text-sm">FAIR Predicted Loss</CardTitle>
+-      </CardHeader>
+-      <CardContent>
+-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
+-          <div className="min-h-[320px] rounded-lg border border-slate-200 bg-slate-50/60 p-4">
+-            {!generated ? (
+-              <div className="flex min-h-[280px] flex-col items-center justify-center text-center">
+-                <div className="text-sm font-semibold text-slate-900">
+-                  Generate predicted annualized loss
+-                </div>
+-                <p className="mt-2 max-w-xl text-sm leading-6 text-slate-500">
+-                  Uses this finding, asset context, the saved security questionnaire,
+-                  and the backend FAIR frequency, magnitude, and risk engines.
+-                </p>
+-                <Button className="mt-4" onClick={() => setGenerated(true)}>
+-                  Generate Predicted Loss
+-                </Button>
+-              </div>
+-            ) : error ? (
+-              <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+-                {error}
+-              </div>
+-            ) : loading && !prediction ? (
+-              <div className="flex min-h-[280px] items-center justify-center text-sm text-slate-500">
+-                Generating prediction...
+-              </div>
+-            ) : (
+-              <div className="h-[320px]">
+-                <ResponsiveContainer width="100%" height="100%">
+-                  <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+-                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+-                    <XAxis
+-                      dataKey="loss"
+-                      minTickGap={24}
+-                      tick={{ fontSize: 11 }}
+-                      tickFormatter={(value) => formatCurrency(Number(value))}
+-                    />
+-                    <YAxis
+-                      width={42}
+-                      tick={{ fontSize: 11 }}
+-                      tickFormatter={(value) => `${Math.round(Number(value) * 100)}%`}
+-                    />
+-                    <Tooltip
+-                      formatter={(value: number) => [
+-                        `${(Number(value) * 100).toFixed(1)}%`,
+-                        "Probability",
+-                      ]}
+-                      labelFormatter={(value) => formatCurrency(Number(value))}
+-                    />
+-                    <Area
+-                      type="monotone"
+-                      dataKey="probability"
+-                      stroke="#0f172a"
+-                      fill="#0f172a"
+-                      fillOpacity={0.18}
+-                    />
+-                  </AreaChart>
+-                </ResponsiveContainer>
+-              </div>
+-            )}
+-          </div>
+-
+-          <div className="grid gap-4">
+-            <div className="rounded-lg border border-slate-200 bg-white p-4">
+-              <div className="text-sm font-semibold text-slate-900">Magnitude assumptions</div>
+-              <div className="mt-4 grid gap-4">
+-                <label className="grid gap-2">
+-                  <span className="flex items-center justify-between gap-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+-                    Primary mean
+-                    <span className="text-slate-900">{formatCurrency(primaryMean)}</span>
+-                  </span>
+-                  <input
+-                    className="h-2 cursor-pointer accent-slate-950"
+-                    type="range"
+-                    min="0"
+-                    max="1000000"
+-                    step="5000"
+-                    value={primaryMean}
+-                    onChange={(event) => setPrimaryMean(Number(event.target.value))}
+-                  />
+-                </label>
+-                <label className="grid gap-2">
+-                  <span className="flex items-center justify-between gap-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+-                    Secondary mean
+-                    <span className="text-slate-900">{formatCurrency(secondaryMean)}</span>
+-                  </span>
+-                  <input
+-                    className="h-2 cursor-pointer accent-slate-950"
+-                    type="range"
+-                    min="0"
+-                    max="1000000"
+-                    step="5000"
+-                    value={secondaryMean}
+-                    onChange={(event) => setSecondaryMean(Number(event.target.value))}
+-                  />
+-                </label>
+-              </div>
+-            </div>
+-
+-            {prediction ? (
+-              <MetricGrid className="grid-cols-1">
+-                <MetricCard
+-                  label="P50 / median"
+-                  value={formatCurrency(prediction.loss_p50)}
+-                  hint={`Mean ${formatCurrency(prediction.loss_mean)}`}
+-                />
+-                <MetricCard
+-                  label="P90"
+-                  value={formatCurrency(prediction.loss_p90)}
+-                  hint={`P95 ${formatCurrency(prediction.loss_p95)}`}
+-                />
+-                <MetricCard
+-                  label="Worst simulated loss"
+-                  value={formatCurrency(prediction.worst_loss)}
+-                  hint={`P99 ${formatCurrency(prediction.loss_p99)}`}
+-                />
+-                <MetricCard
+-                  label="Frequency"
+-                  value={`LEF ${formatNumber(prediction.lef_mean, 3)}`}
+-                  hint={`TEF ${formatNumber(prediction.tef_mean, 3)} / year`}
+-                />
+-                <MetricCard
+-                  label="Control score"
+-                  value={`${Math.round(prediction.control_score * 100)}%`}
+-                  hint={`Vulnerability ${formatNumber(prediction.vulnerability, 4)}`}
+-                />
+-              </MetricGrid>
+-            ) : null}
+-          </div>
+-        </div>
+-      </CardContent>
+-    </Card>
+-  );
+-}
+-
+ export function FindingDetailPage({
+   findingId,
+   refreshToken,
+@@ -364,6 +152,11 @@ export function FindingDetailPage({
+   onBack,
+ }: FindingDetailPageProps) {
+   const { finding, loading, error } = useFindingDetails(findingId, refreshToken);
++  const predictFairFrequency = useCallback(
++    (payload: Parameters<typeof predictFindingFairLoss>[1]) =>
++      predictFindingFairLoss(findingId, payload),
++    [findingId]
++  );
+ 
+   if (loading) {
+     return (
+@@ -458,7 +251,12 @@ export function FindingDetailPage({
+         />
+       </MetricGrid>
+ 
+-      <LossPredictionPanel finding={finding} />
++      <FairFrequencyPanel
++        title="Finding FAIR Event Frequency"
++        description="Shows likelihood indicators for this finding without assigning dollar loss at the finding level."
++        scopeLabel="finding"
++        onPredict={predictFairFrequency}
++      />
+ 
+       <FindingOverviewSection
+         finding={finding}
+diff --git a/frontend/src/components/dashboard/FindingDetailSections.tsx b/frontend/src/components/dashboard/FindingDetailSections.tsx
+index 8ce6587..5e0cf73 100644
+--- a/frontend/src/components/dashboard/FindingDetailSections.tsx
++++ b/frontend/src/components/dashboard/FindingDetailSections.tsx
+@@ -183,22 +183,26 @@ export function FindingSupportingDetailsSection({
+   finding: ScoredFinding;
+   hasAttackContext: boolean;
+ }) {
+-  const identifierItems = [
++  const identifierItems: Array<{ label: string; value: ReactNode }> = [
+     { label: "Internal finding row ID", value: finding.id },
+     { label: "CVE", value: finding.cve_id || "-" },
+-  ].concat(
+-    finding.uid && finding.uid !== finding.id ? [{ label: "Source UID", value: finding.uid }] : [],
+-    isPopulatedText(finding.cwe_ids) ? [{ label: "CWE", value: finding.cwe_ids || "-" }] : [],
+-    finding.record_link ? [{ label: "Record link", value: renderLink(finding.record_link) }] : [],
+-    finding.detail_fetched_at
+-      ? [
+-          {
+-            label: "Detail fetched",
+-            value: formatDate(finding.detail_fetched_at, true),
+-          },
+-        ]
+-      : []
+-  );
++  ];
++
++  if (finding.uid && finding.uid !== finding.id) {
++    identifierItems.push({ label: "Source UID", value: finding.uid });
++  }
++  if (isPopulatedText(finding.cwe_ids)) {
++    identifierItems.push({ label: "CWE", value: finding.cwe_ids || "-" });
++  }
++  if (finding.record_link) {
++    identifierItems.push({ label: "Record link", value: renderLink(finding.record_link) });
++  }
++  if (finding.detail_fetched_at) {
++    identifierItems.push({
++      label: "Detail fetched",
++      value: formatDate(finding.detail_fetched_at, true),
++    });
++  }
+   const scoringItems = [
+     { label: "Display risk source", value: finding.score_source || "Vendor fallback" },
+     {
+diff --git a/frontend/src/components/dashboard/RiskBandDistributionChart.tsx b/frontend/src/components/dashboard/RiskBandDistributionChart.tsx
+index 3909c47..9b29a44 100644
+--- a/frontend/src/components/dashboard/RiskBandDistributionChart.tsx
++++ b/frontend/src/components/dashboard/RiskBandDistributionChart.tsx
+@@ -9,13 +9,13 @@ import {
+   CardDescription,
+   CardHeader,
+   CardTitle,
+-} from "@/components/ui/card";
++} from "../ui/card";
+ import {
+   ChartContainer,
+   ChartLegend,
+   ChartLegendContent,
+   type ChartConfig,
+-} from "@/components/ui/chart";
++} from "../ui/chart";
+ 
+ interface RiskBandDistributionChartProps {
+   summary: ScoresSummary | null;
+diff --git a/frontend/src/components/dashboard/RiskTable.tsx b/frontend/src/components/dashboard/RiskTable.tsx
+index b6c32c5..d7e8442 100644
+--- a/frontend/src/components/dashboard/RiskTable.tsx
++++ b/frontend/src/components/dashboard/RiskTable.tsx
+@@ -74,7 +74,6 @@ export function RiskTable({
+     if (tone === "success") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+     return "border-slate-200 bg-slate-50 text-slate-700";
+   };
+-
+   return (
+     <Card className="flex-1 overflow-hidden">
+       <CardHeader>
+diff --git a/frontend/src/components/layout/Header.tsx b/frontend/src/components/layout/Header.tsx
+index a9eb792..d73cea4 100644
+--- a/frontend/src/components/layout/Header.tsx
++++ b/frontend/src/components/layout/Header.tsx
+@@ -26,7 +26,7 @@ export function Header({
+       : page === "integrations"
+         ? "Sources"
+         : page === "controls"
+-          ? "Controls"
++          ? "Security Score"
+           : "Companies";
+ 
+   return (
+@@ -61,7 +61,7 @@ export function Header({
+             className="border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800 hover:text-white"
+             onClick={() => onNavigate("controls")}
+           >
+-            Controls
++            Security Score
+           </Button>
+           <Button
+             variant="outline"
+diff --git a/frontend/src/lib/controlQuestionnaire.ts b/frontend/src/lib/controlQuestionnaire.ts
+deleted file mode 100644
+index 98c6237..0000000
+--- a/frontend/src/lib/controlQuestionnaire.ts
++++ /dev/null
+@@ -1,142 +0,0 @@
+-export const CONTROL_QUESTIONNAIRE_STORAGE_KEY = "vulncontext.controlQuestionnaire";
+-
+-export const DEFAULT_CONTROL_CONTEXT: Record<string, number> = {
+-  prevent_patch_maturity: 4,
+-  prevent_mfa_maturity: 5,
+-  prevent_segmentation_maturity: 3,
+-  prevent_hardening_maturity: 4,
+-  detect_logging_maturity: 3,
+-  detect_siem_maturity: 4,
+-  detect_speed_maturity: 3,
+-  respond_plan_maturity: 4,
+-  respond_speed_maturity: 3,
+-  respond_automation_maturity: 2,
+-  contain_edr_maturity: 4,
+-  contain_privilege_maturity: 3,
+-  contain_data_maturity: 5,
+-};
+-
+-export type NestedControlContext = {
+-  prevent: {
+-    patch_maturity: number;
+-    mfa_maturity: number;
+-    segmentation_maturity: number;
+-    hardening_maturity: number;
+-  };
+-  detect: {
+-    logging_maturity: number;
+-    siem_maturity: number;
+-    speed_maturity: number;
+-  };
+-  respond: {
+-    plan_maturity: number;
+-    speed_maturity: number;
+-    automation_maturity: number;
+-  };
+-  contain: {
+-    edr_maturity: number;
+-    privilege_maturity: number;
+-    data_maturity: number;
+-  };
+-};
+-
+-export function toNestedControlContext(
+-  context: Record<string, number>
+-): NestedControlContext {
+-  return {
+-    prevent: {
+-      patch_maturity: context.prevent_patch_maturity,
+-      mfa_maturity: context.prevent_mfa_maturity,
+-      segmentation_maturity: context.prevent_segmentation_maturity,
+-      hardening_maturity: context.prevent_hardening_maturity,
+-    },
+-    detect: {
+-      logging_maturity: context.detect_logging_maturity,
+-      siem_maturity: context.detect_siem_maturity,
+-      speed_maturity: context.detect_speed_maturity,
+-    },
+-    respond: {
+-      plan_maturity: context.respond_plan_maturity,
+-      speed_maturity: context.respond_speed_maturity,
+-      automation_maturity: context.respond_automation_maturity,
+-    },
+-    contain: {
+-      edr_maturity: context.contain_edr_maturity,
+-      privilege_maturity: context.contain_privilege_maturity,
+-      data_maturity: context.contain_data_maturity,
+-    },
+-  };
+-}
+-
+-export function fromNestedControlContext(
+-  context: Record<string, Record<string, number>>
+-): Record<string, number> {
+-  return {
+-    prevent_patch_maturity:
+-      context.prevent?.patch_maturity ?? DEFAULT_CONTROL_CONTEXT.prevent_patch_maturity,
+-    prevent_mfa_maturity:
+-      context.prevent?.mfa_maturity ?? DEFAULT_CONTROL_CONTEXT.prevent_mfa_maturity,
+-    prevent_segmentation_maturity:
+-      context.prevent?.segmentation_maturity
+-      ?? DEFAULT_CONTROL_CONTEXT.prevent_segmentation_maturity,
+-    prevent_hardening_maturity:
+-      context.prevent?.hardening_maturity ?? DEFAULT_CONTROL_CONTEXT.prevent_hardening_maturity,
+-    detect_logging_maturity:
+-      context.detect?.logging_maturity ?? DEFAULT_CONTROL_CONTEXT.detect_logging_maturity,
+-    detect_siem_maturity:
+-      context.detect?.siem_maturity ?? DEFAULT_CONTROL_CONTEXT.detect_siem_maturity,
+-    detect_speed_maturity:
+-      context.detect?.speed_maturity ?? DEFAULT_CONTROL_CONTEXT.detect_speed_maturity,
+-    respond_plan_maturity:
+-      context.respond?.plan_maturity ?? DEFAULT_CONTROL_CONTEXT.respond_plan_maturity,
+-    respond_speed_maturity:
+-      context.respond?.speed_maturity ?? DEFAULT_CONTROL_CONTEXT.respond_speed_maturity,
+-    respond_automation_maturity:
+-      context.respond?.automation_maturity
+-      ?? DEFAULT_CONTROL_CONTEXT.respond_automation_maturity,
+-    contain_edr_maturity:
+-      context.contain?.edr_maturity ?? DEFAULT_CONTROL_CONTEXT.contain_edr_maturity,
+-    contain_privilege_maturity:
+-      context.contain?.privilege_maturity ?? DEFAULT_CONTROL_CONTEXT.contain_privilege_maturity,
+-    contain_data_maturity:
+-      context.contain?.data_maturity ?? DEFAULT_CONTROL_CONTEXT.contain_data_maturity,
+-  };
+-}
+-
+-export function readControlContext(): Record<string, number> {
+-  if (typeof window === "undefined") {
+-    return DEFAULT_CONTROL_CONTEXT;
+-  }
+-
+-  try {
+-    const raw = window.localStorage.getItem(CONTROL_QUESTIONNAIRE_STORAGE_KEY);
+-    if (!raw) {
+-      return DEFAULT_CONTROL_CONTEXT;
+-    }
+-
+-    const parsed = JSON.parse(raw);
+-    if (!parsed || typeof parsed !== "object") {
+-      return DEFAULT_CONTROL_CONTEXT;
+-    }
+-
+-    return Object.fromEntries(
+-      Object.entries(DEFAULT_CONTROL_CONTEXT).map(([key, fallback]) => {
+-        const value = Number((parsed as Record<string, unknown>)[key]);
+-        return [key, Number.isFinite(value) ? value : fallback];
+-      })
+-    );
+-  } catch {
+-    return DEFAULT_CONTROL_CONTEXT;
+-  }
+-}
+-
+-export function writeControlContext(context: Record<string, number>) {
+-  if (typeof window === "undefined") {
+-    return;
+-  }
+-
+-  window.localStorage.setItem(
+-    CONTROL_QUESTIONNAIRE_STORAGE_KEY,
+-    JSON.stringify(context)
+-  );
+-}
+diff --git a/frontend/src/types/api.ts b/frontend/src/types/api.ts
+index f29d1ea..ae0b855 100644
+--- a/frontend/src/types/api.ts
++++ b/frontend/src/types/api.ts
+@@ -83,6 +83,7 @@ export interface ScoredFinding {
+   risk_owner_name?: string | null;
+   remediation_owner_name?: string | null;
+   remediation_status?: string | null;
++  disposition?: string | null;
+ 
+   detail_source?: string | null;
+   detail_fetched_at?: string | null;
+diff --git a/frontend/tsconfig.json b/frontend/tsconfig.json
+index f95dedb..04c46fc 100644
+--- a/frontend/tsconfig.json
++++ b/frontend/tsconfig.json
+@@ -1,5 +1,6 @@
+ {
+   "compilerOptions": {
++    "ignoreDeprecations": "6.0",
+     "target": "ES2020",
+     "module": "commonjs",
+     "lib": ["ES2020", "DOM"],
