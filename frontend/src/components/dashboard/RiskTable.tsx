@@ -10,7 +10,7 @@ import { getNormalizedFindingTitle } from "../../lib/findings";
 import { riskBandPillClass } from "../../lib/findings/findingRisk";
 import { normalizeFindingStatus } from "../../lib/findings/findingStatus";
 import type { FindingsSortBy, RiskBandFilter, ScoredFinding } from "../../types";
-import { StatusBadge } from "../business-services/shared/TopologyBadges";
+import { StatusBadge } from "../topology/shared/TopologyBadges";
 
 interface RiskTableProps {
   refreshToken: number;

@@ -8,8 +8,8 @@
 
 - `frontend/src/components/shared/data-table/DataTable.tsx`
 - `frontend/src/components/findings/FindingsTable.tsx`
-- `frontend/src/components/business-services/AssetInventoryPanel.tsx`
-- `frontend/src/components/business-services/shared/FindingsExplorerPanel.tsx`
+- `frontend/src/components/topology/AssetInventoryPanel.tsx`
+- `frontend/src/components/topology/shared/FindingsExplorerPanel.tsx`
 
 ## Responsibilities
 

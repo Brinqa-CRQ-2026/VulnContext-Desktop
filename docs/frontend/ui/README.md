@@ -16,18 +16,22 @@ Finding detail UI should only render fields returned by the backend finding sche
 
 ## Topology Area
 
-`frontend/src/components/business-services/` contains:
+`frontend/src/pages/topology/` contains the route-level topology screens:
 
 - business-unit overview and detail
 - business-service detail
 - application detail
+- asset findings drill-down
+
+`frontend/src/components/topology/` contains reusable topology UI:
+
 - asset distribution charts
-- asset inventory and asset findings drill-down
+- asset inventory
 - breadcrumb helpers and shared topology chrome
 
-Reusable topology pieces live under `frontend/src/components/business-services/shared/`. Use this folder for repeated cards, panels, entity headers, badges, and findings explorer UI.
+Reusable topology pieces live under `frontend/src/components/topology/shared/`. Use this folder for repeated cards, panels, entity headers, badges, and findings explorer UI.
 
-Feature-level business-services view types live in `frontend/src/components/business-services/types.ts`.
+Feature-level topology view types live in `frontend/src/components/topology/types.ts`.
 
 ## Sources Area
 

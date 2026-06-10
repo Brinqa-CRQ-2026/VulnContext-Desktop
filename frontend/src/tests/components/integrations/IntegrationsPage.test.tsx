@@ -36,6 +36,30 @@ describe("IntegrationsPage", () => {
     expect(screen.getByText("No source summaries are available yet.")).toBeInTheDocument();
   });
 
+  it("renders loading and error states from the sources hook", () => {
+    useSourcesSummary.mockReturnValue({
+      sources: [],
+      loading: true,
+      error: null,
+    });
+
+    const { rerender } = render(<IntegrationsPage refreshToken={5} />);
+
+    expect(useSourcesSummary).toHaveBeenCalledWith(5);
+    expect(screen.getByText("Loading sources…")).toBeInTheDocument();
+    expect(screen.queryByText("No source summaries are available yet.")).not.toBeInTheDocument();
+
+    useSourcesSummary.mockReturnValue({
+      sources: [],
+      loading: false,
+      error: "Unable to load sources",
+    });
+    rerender(<IntegrationsPage refreshToken={5} />);
+
+    expect(screen.getByText("Unable to load sources")).toBeInTheDocument();
+    expect(screen.getByText("No source summaries are available yet.")).toBeInTheDocument();
+  });
+
   it("renders source cards in descending finding-count order", () => {
     useSourcesSummary.mockReturnValue({
       sources: [

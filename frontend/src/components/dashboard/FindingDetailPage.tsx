@@ -3,12 +3,12 @@ import { Info } from "lucide-react";
 
 import { predictFindingFairLoss } from "../../api/findings";
 import type { FindingRouteOrigin, ScoredFinding } from "../../types";
-import type { BreadcrumbEntry } from "../business-services/TopologyChrome";
+import type { BreadcrumbEntry } from "../topology/TopologyChrome";
 import { useFindingDetails } from "../../hooks/findings/useFindingDetails";
 import { FairFrequencyPanel } from "../fair/FairFrequencyPanel";
-import { EntityHero } from "../business-services/shared/EntityHero";
-import { MetricCard, MetricGrid } from "../business-services/shared/MetricCard";
-import { StatusBadge } from "../business-services/shared/TopologyBadges";
+import { EntityHero } from "../topology/shared/EntityHero";
+import { MetricCard, MetricGrid } from "../topology/shared/MetricCard";
+import { StatusBadge } from "../topology/shared/TopologyBadges";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "../ui/hover-card";
 import {
   FindingOverviewSection,
@@ -121,12 +121,21 @@ function ErrorState({
 
 function HeroTags({ finding }: { finding: ScoredFinding }) {
   const active = isActiveFinding(finding);
-
+  const hasNvdData = Boolean(
+    finding.nvd_vuln_status ||
+    finding.nvd_published ||
+    finding.nvd_last_modified ||
+    finding.cvss_version
+  );
   return (
     <div className="flex flex-wrap items-center justify-end gap-2">
       <StatusBadge tone={active ? "active" : "neutral"}>
         {active ? "Active" : "Inactive"}
       </StatusBadge>
+      {hasNvdData && (
+      <StatusBadge tone="dark">
+        Known Exploited Vulnerability
+      </StatusBadge>)}
     </div>
   );
 }

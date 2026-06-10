@@ -8,7 +8,7 @@ Topology pages render the company-to-finding drill-down path. They use persisted
 
 | Page | Component | Primary hooks |
 | --- | --- | --- |
-| Company | `BusinessServicesOverview` | `useBusinessUnits` |
+| Company | `TopologyOverviewPage` | `useBusinessUnits` |
 | Business Unit | `BusinessUnitDetailPage` | `useBusinessUnitDetail`, `useBusinessUnitRiskOverview`, `useBusinessUnitTopFindings` |
 | Business Service | `BusinessServiceDetailPage` | `useBusinessServiceDetail`, `useBusinessServiceAnalytics`, asset inventory hooks |
 | Application | `ApplicationDetailPage` | `useApplicationDetail`, asset inventory hooks |
@@ -29,5 +29,5 @@ Topology pages render the company-to-finding drill-down path. They use persisted
 
 ## Tests
 
-- `frontend/src/tests/components/business-services/*.test.tsx`
+- `frontend/src/tests/components/topology/*.test.tsx`
 - `frontend/src/tests/app.test.tsx`

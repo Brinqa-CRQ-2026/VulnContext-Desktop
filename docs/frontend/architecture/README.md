@@ -12,10 +12,14 @@ The frontend is a React/Electron renderer for vulnerability review, source summa
   Canonical shared frontend types. These mirror backend response schemas, plus small shared query/domain types.
 - `frontend/src/hooks/`
   Async loading, pagination, filtering, and route-oriented state coordination. Hooks should not render UI.
+- `frontend/src/pages/`
+  Route-level page composition, app shell sections, and topology drill-down screens.
+- `frontend/src/routing/`
+  Renderer route parsing, route writing, and route-derived page metadata.
 - `frontend/src/components/dashboard/`
   Dashboard summary cards, findings table, and finding detail presentation.
-- `frontend/src/components/business-services/`
-  Topology drill-down pages, asset inventory, asset findings, and topology shared UI.
+- `frontend/src/components/topology/`
+  Reusable topology UI, asset inventory, charts, entity cards, metrics, and shared topology chrome.
 - `frontend/src/components/integrations/`
   Read-only source-summary page.
 - `frontend/src/components/controls/`
@@ -36,7 +40,7 @@ The frontend is a React/Electron renderer for vulnerability review, source summa
 
 `frontend/src/api/types.ts` exists only as a compatibility barrel. Do not add new type definitions there.
 
-Component props should stay local when used once. Feature-only business-services table/chart types belong in `frontend/src/components/business-services/types.ts`.
+Component props should stay local when used once. Route-level topology screens belong in `frontend/src/pages/topology`. Feature-only topology table/chart types belong in `frontend/src/components/topology/types.ts`.
 
 ## Import Rules
 

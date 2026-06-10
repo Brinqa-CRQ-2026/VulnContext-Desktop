@@ -6,7 +6,7 @@ This page maps the main renderer pages to their purpose, data sources, and UI re
 
 ## Company
 
-- Component: `BusinessServicesOverview`
+- Component: `TopologyOverviewPage`
 - Purpose: company-level topology landing page.
 - Shows: business units, counts, risk context, and drill-down entry points.
 - Data: `getBusinessUnits()` through `useBusinessUnits`.

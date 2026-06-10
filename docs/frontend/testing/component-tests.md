@@ -1,262 +1,175 @@
 # Frontend Component Tests
 
-These tests protect page rendering, shared table behavior, drill-down entry points, and persisted-data UI expectations.
+These tests protect public UI behavior for React components and pages. They use Vitest, React Testing Library, jsdom, local mocks, and reusable fixtures. They do not add E2E, Playwright, browser automation, visual regression, or real Electron launch coverage.
 
-## frontend/src/tests/components/business-services/ApplicationDetailPage.test.tsx
+## Fixtures And Mocks
 
-### Files Tested
+Fixtures are reusable fake data builders used by more than one test, for example `buildFinding()`, `buildAsset()`, and `buildTableRows()`. They live under `frontend/src/tests/fixtures/` and keep typed test data consistent without repeating large object literals.
 
-- `frontend/src/components/business-services/ApplicationDetailPage.tsx`
-- `frontend/src/components/business-services/AssetInventoryPanel.tsx`
-- `frontend/src/hooks/topology/applications/useApplicationDetail.ts`
-- `frontend/src/hooks/topology/assets/useAssetsAnalytics.ts`
-- `frontend/src/hooks/topology/assets/usePaginatedAssets.ts`
+Mocks stay local when only one test file needs them. Shared boundaries currently include Electron bridge mocks under `frontend/src/tests/mocks/`, route helpers under `frontend/src/tests/utils/`, and typed finding/topology/table fixtures under `frontend/src/tests/fixtures/`.
 
-### Cases Covered
+## Shared Components
 
-- Renders application metrics and assets in a sortable table.
-- Exposes asset-findings entry points.
-- Renders inventory controls for paginated asset lists.
+### `frontend/src/tests/components/shared/LoadingSpinnerState.test.tsx`
 
-### Edge Cases Covered
+- Source: `frontend/src/components/shared/LoadingSpinnerState.tsx`
+- Covers: default and custom loading copy.
+- Mocks: none.
+- Gaps: animation timing and visual layout.
 
-- Keeps application asset table behavior wired through mocked paginated inventory state.
+### `frontend/src/tests/components/shared/data-table/DataTable.test.tsx`
 
-### Not Covered Here
+- Source: `frontend/src/components/shared/data-table/DataTable.tsx`
+- Covers: headers, row rendering, grouped score styling, search, select filters, toggle filters, sorting, pagination, row click, dense rows, loading, error, empty, disabled pagination boundaries, and no-row-action behavior.
+- Mocks/fixtures: `buildTableRows()`.
+- Gaps: browser overflow/scroll rendering and backend filtering/sorting.
 
-- Backend application detail route behavior.
-- Real browser table overflow behavior.
+## Table Wrappers
 
-## frontend/src/tests/components/business-services/AssetDistributionCharts.test.tsx
+### `frontend/src/tests/components/findings/FindingsTable.test.tsx`
 
-### Files Tested
+- Source: `frontend/src/components/findings/FindingsTable.tsx`
+- Covers: configured column order, search/filter/sort callbacks, row click, loading, error, and empty states.
+- Mocks: local handler spies.
+- Gaps: domain page data loading.
 
-- `frontend/src/components/business-services/AssetDistributionCharts.tsx`
+### `frontend/src/tests/components/topology/FindingsExplorerPanel.test.tsx`
 
-### Cases Covered
+- Source: `frontend/src/components/topology/shared/FindingsExplorerPanel.tsx`
+- Covers: finding rows, KEV badges, source filter visibility, search submit, risk filter, KEV toggle, source filter, sort, pagination, row open, and empty state.
+- Mocks/fixtures: `buildFinding()`, local handler spies.
+- Gaps: backend finding search/filter behavior.
 
-- Renders asset distribution chart cards.
-- Includes an unscored segment only when unscored data is present.
+### `frontend/src/tests/components/topology/AssetInventoryPanel.test.tsx`
 
-### Edge Cases Covered
+- Source: `frontend/src/components/topology/AssetInventoryPanel.tsx`
+- Covers: hook scope params, populated assets, row open, search/filter/sort/pagination wiring, loading, error, empty, and analytics-warning states.
+- Mocks/fixtures: local mock for `useAssetInventoryState`, `buildAsset()`.
+- Gaps: real Recharts layout and backend asset inventory behavior.
 
-- Suppresses unscored rows when the count is zero.
+## Topology Shared UI
 
-### Not Covered Here
+### `ChartPanel`, `MetricCard`, `TopologyBadges`, `PageIntro`, `TopologyChrome`, `EntityHero`, `EntityCard`
 
-- Recharts pixel rendering in a real browser.
-- Backend analytics aggregation.
+- Sources: `frontend/src/components/topology/shared/*` and `frontend/src/components/topology/TopologyChrome.tsx`
+- Tests:
+  - `ChartPanel.test.tsx`
+  - `MetricCard.test.tsx`
+  - `TopologyBadges.test.tsx`
+  - `PageIntro.test.tsx`
+  - `TopologyChrome.test.tsx`
+  - `EntityHero.test.tsx`
+  - `EntityCard.test.tsx`
+- Covers: loading/error/empty chart panel priority, metric formatting, optional hints, status/risk badges, page intro actions, breadcrumb formatting/clicks, hero fallback/metadata/actions, base/entity-card rendering, and card open callbacks.
+- Mocks/fixtures: topology fixture builders where typed entity data is repeated.
+- Gaps: visual responsive layout.
 
-## frontend/src/tests/components/business-services/AssetFindingsPage.test.tsx
+## Topology Pages
 
-### Files Tested
+### `TopologyOverviewPage.test.tsx`
 
-- `frontend/src/components/business-services/AssetFindingsPage.tsx`
-- `frontend/src/components/business-services/shared/FindingsExplorerPanel.tsx`
-- `frontend/src/hooks/topology/assets/useAssetDetail.ts`
-- `frontend/src/hooks/topology/assets/useAssetFindings.ts`
-- `frontend/src/hooks/topology/assets/useAssetFindingsAnalytics.ts`
+- Source: `frontend/src/pages/topology/TopologyOverviewPage.tsx`
+- Covers: loading, empty companies, company cards, card ordering, business-unit navigation, schema-unavailable errors, and generic load errors.
+- Mocks: `useBusinessUnits`.
 
-### Cases Covered
+### `BusinessUnitDetailPage.test.tsx`
 
-- Renders the compact asset-first findings layout from persisted asset metadata.
-- Opens a finding from the asset findings table with route-origin context.
-- Passes analytics filters without requesting live enrichment.
-- Shows table rows in server-provided order.
+- Source: `frontend/src/pages/topology/BusinessUnitDetailPage.tsx`
+- Covers: loading, schema unavailable, generic error, empty child services, analytics-error rendering, metrics, risk overview, business-service cards, scoped findings table, KEV filter control, and service navigation.
+- Mocks: `useBusinessUnitDetail`, `useBusinessUnitRiskOverview`, `useBusinessUnitTopFindings`.
 
-### Edge Cases Covered
+### `BusinessServiceDetailPage.test.tsx`
 
-- Confirms old enrichment probe/run controls are absent.
-- Confirms asset hero omits asset type and extra classification chips.
+- Source: `frontend/src/pages/topology/BusinessServiceDetailPage.tsx`
+- Covers: loading, schema unavailable, generic error, empty applications/assets, analytics warning, service metrics, application cards, direct asset table, asset-open callback, and API order preservation.
+- Mocks: business-service detail/analytics hooks plus asset inventory hooks.
 
-### Not Covered Here
+### `ApplicationDetailPage.test.tsx`
 
-- Backend asset findings SQL behavior.
-- Live Brinqa enrichment fetches.
+- Source: `frontend/src/pages/topology/ApplicationDetailPage.tsx`
+- Covers: loading, schema unavailable, generic error, application metrics, asset table columns, asset-findings entry points, inventory controls, and asset row ordering.
+- Mocks: application detail and asset inventory hooks.
 
-## frontend/src/tests/components/business-services/BusinessServiceDetailPage.test.tsx
+### `AssetFindingsPage.test.tsx`
 
-### Files Tested
+- Source: `frontend/src/pages/topology/AssetFindingsPage.tsx`
+- Covers: loading, not found/error, analytics-warning, asset-detail-warning, empty findings, compact asset-first layout, risk spread, findings table columns, source/filter params, server order, and finding-open route origin.
+- Mocks: asset detail, asset findings, and asset findings analytics hooks.
 
-- `frontend/src/components/business-services/BusinessServiceDetailPage.tsx`
-- `frontend/src/components/business-services/AssetInventoryPanel.tsx`
-- `frontend/src/hooks/topology/assets/useAssetsAnalytics.ts`
-- `frontend/src/hooks/topology/assets/usePaginatedAssets.ts`
-- `frontend/src/hooks/topology/business-services/useBusinessServiceAnalytics.ts`
-- `frontend/src/hooks/topology/business-services/useBusinessServiceDetail.ts`
+### `AssetDistributionCharts.test.tsx`
 
-### Cases Covered
+- Source: `frontend/src/components/topology/AssetDistributionCharts.tsx`
+- Covers: chart card rendering and unscored segment inclusion/exclusion.
+- Gaps: Recharts pixel layout in a real browser.
 
-- Renders application cards and direct assets in the explorer table.
-- Preserves API order for direct assets.
-- Displays service metrics, charts, FAIR panel, applications, and direct assets.
+## Dashboard And Findings
 
-### Edge Cases Covered
+### `DashboardOverview.test.tsx`
 
-- Handles direct assets separately from application assets.
-- Keeps direct asset order aligned to backend/API ordering.
+- Source: `frontend/src/components/dashboard/DashboardOverview.tsx`
+- Covers: first-load state, hook refresh-token wiring, summary rendering, and non-blocking error display.
+- Mocks: `useDashboardOverviewData`.
 
-### Not Covered Here
+### `SummaryCards.test.tsx`
 
-- Business-service scoring math.
-- Real chart layout.
+- Source: `frontend/src/components/dashboard/SummaryCards.tsx`
+- Covers: first-load placeholders, formatted counts, KEV/critical counts, average score, and partial-data fallbacks.
 
-## frontend/src/tests/components/business-services/BusinessServicesOverview.test.tsx
+### `RiskBandDistributionChart.test.tsx`
 
-### Files Tested
+- Source: `frontend/src/components/dashboard/RiskBandDistributionChart.tsx`
+- Covers: loading, empty, and populated chart states without browser layout assertions.
+- Gaps: Recharts jsdom size warnings are accepted.
 
-- `frontend/src/components/business-services/BusinessServicesOverview.tsx`
-- `useBusinessUnits`
+### `FindingDetailPage.test.tsx`
 
-### Cases Covered
+- Source: `frontend/src/components/dashboard/FindingDetailPage.tsx`
+- Covers: loading, not found/error, dense detail layout, non-KEV details, KEV detail placement, missing remediation narrative, title normalization, metric cards, supporting tabs, and optional field behavior.
+- Mocks: `useFindingDetails`.
+- Gaps: `onDataChanged` is not currently invoked by this component.
 
-- Renders company summary cards and business-unit tiles.
-- Opens business-unit detail from a company card.
-- Shows schema-not-initialized state for backend `503`.
-- Shows generic company load failure state.
+### `FindingDetailSections.test.tsx`
 
-### Edge Cases Covered
+- Source: `frontend/src/components/dashboard/FindingDetailSections.tsx`
+- Covers: missing optional CVE/CVSS/CWE/reference fields, fallback copy, remediation reference selection, runtime-wrapper external link behavior, identifiers, record links, and conditional attack tab rendering.
+- Mocks: `openExternalUrl`.
 
-- Distinguishes topology schema initialization errors from generic load failures.
+### `RiskTable.test.tsx`
 
-### Not Covered Here
+- Source: `frontend/src/components/dashboard/RiskTable.tsx`
+- Covers: main findings table columns, scores/status rendering, row open, and current column expectations.
+- Mocks: findings explorer hook.
 
-- Backend topology table creation.
-- Business-unit detail rendering.
+## Integrations, Controls, FAIR, And Shell
 
-## frontend/src/tests/components/business-services/BusinessUnitDetailPage.test.tsx
+### `IntegrationsPage.test.tsx`
 
-### Files Tested
+- Source: `frontend/src/components/integrations/IntegrationsPage.tsx`
+- Covers: loading, error, empty, populated source ordering, finding-count display, and read-only runtime note.
+- Mocks: `useSourcesSummary`.
 
-- `frontend/src/components/business-services/BusinessUnitDetailPage.tsx`
-- `frontend/src/hooks/topology/business-units/useBusinessUnitDetail.ts`
-- `frontend/src/hooks/topology/business-units/useBusinessUnitRiskOverview.ts`
-- `frontend/src/hooks/topology/business-units/useBusinessUnitTopFindings.ts`
+### `SecurityScorePage.test.tsx`
 
-### Cases Covered
+- Source: `frontend/src/components/controls/SecurityScorePage.tsx`
+- Covers: saved assessment load, load failure, answer change auto-save, save failure, manual save, reset, copy success/failure, and local security-score context persistence.
+- Mocks: `api/controls`, `navigator.clipboard`, local storage.
+- Gaps: backend persistence semantics and browser clipboard permissions.
 
-- Renders child business services from live business-unit detail data.
-- Renders risk overview, metric cards, business services, and scoped findings table.
-- Confirms removed secondary back button and old summary table are absent.
+### `FairPanels.test.tsx`
 
-### Edge Cases Covered
+- Sources: `frontend/src/components/fair/FairFrequencyPanel.tsx`, `frontend/src/components/fair/FairScopeLossPanel.tsx`
+- Covers: closed/open info panels, successful prediction display, failed prediction errors, loading-through-async behavior, request payload wiring, local control context inclusion, and loss assumption changes.
+- Mocks: `onPredict` callbacks only. FAIR production logic is not changed or reimplemented.
 
-- Handles KEV filter control presence and business-unit scoped finding data.
+### `Header.test.tsx` and `AppSidebar.test.tsx`
 
-### Not Covered Here
+- Sources: `frontend/src/components/layout/Header.tsx`, `frontend/src/pages/shell/AppSidebar.tsx`
+- Covers: brand rendering, shutdown callback, shutdown pending disabled state, nav items, active state, and route callback wiring.
 
-- Backend business-unit rollup calculations.
-- Full table interaction coverage; shared table tests cover generic behavior.
+## Intentional Gaps
 
-## frontend/src/tests/components/dashboard/FindingDetailPage.test.tsx
-
-### Files Tested
-
-- `frontend/src/components/dashboard/FindingDetailPage.tsx`
-- `FindingDetailSections`
-- `useFindingDetails`
-
-### Cases Covered
-
-- Renders dense finding detail layout with compact supporting details.
-- Shows KEV details only for KEV findings and keeps them near the top.
-- Avoids large empty remediation callouts when remediation narrative is absent.
-
-### Edge Cases Covered
-
-- Handles finding title normalization, asset/business context, and optional KEV fields.
-- Keeps persisted details visible without requiring historical Brinqa-only fields.
-
-### Not Covered Here
-
-- Backend finding detail response generation.
-- FAIR prediction internals.
-
-## frontend/src/tests/components/dashboard/RiskTable.test.tsx
-
-### Files Tested
-
-- `frontend/src/components/dashboard/RiskTable.tsx`
-- `frontend/src/components/findings/FindingsTable.tsx`
-- `frontend/src/hooks/findings/usePaginatedFindings.ts`
-
-### Cases Covered
-
-- Keeps main findings page columns while using configurable table data.
-- Renders score/status columns and row-open behavior through the table wrapper.
-
-### Edge Cases Covered
-
-- Confirms old vendor-risk column expectations stay removed.
-
-### Not Covered Here
-
-- Backend findings query behavior.
-- Every generic table state; `DataTable.test.tsx` covers shared states.
-
-## frontend/src/tests/components/findings/FindingsTable.test.tsx
-
-### Files Tested
-
-- `frontend/src/components/findings/FindingsTable.tsx`
-- shared `DataTable` compatibility wrapper
-
-### Cases Covered
-
-- Renders only configured columns in configured order.
-- Calls search, filter, sort, direction, and row-click handlers.
-- Renders loading, error, and empty states.
-
-### Edge Cases Covered
-
-- Confirms wrapper behavior remains stable while the generic table owns rendering.
-
-### Not Covered Here
-
-- Domain-specific page data loading.
-- Backend filters.
-
-## frontend/src/tests/components/integrations/IntegrationsPage.test.tsx
-
-### Files Tested
-
-- `frontend/src/components/integrations/IntegrationsPage.tsx`
-- `useSourcesSummary`
-
-### Cases Covered
-
-- Renders empty source state.
-- Renders source cards in descending finding-count order.
-- Renders the read-only runtime note.
-
-### Edge Cases Covered
-
-- Confirms no source mutation controls are exposed.
-
-### Not Covered Here
-
-- Backend source summary grouping.
-- Source write flows.
-
-## frontend/src/tests/components/shared/data-table/DataTable.test.tsx
-
-### Files Tested
-
-- `frontend/src/components/shared/data-table/DataTable.tsx`
-
-### Cases Covered
-
-- Renders arbitrary rows and configured columns.
-- Supports search, select filters, toggles, sort controls, pagination, and row open.
-- Renders loading, error, and empty states.
-- Supports keyboard activation for row opening.
-
-### Edge Cases Covered
-
-- Applies score/info split styling from column group config.
-- Handles disabled pagination boundaries.
-
-### Not Covered Here
-
-- Consumer-specific column definitions.
-- Backend filtering or sorting.
+- Real Recharts layout and pixel rendering.
+- Browser overflow, responsive layout, and visual regression.
+- Backend SQL, scoring, Supabase, and request handler behavior.
+- Real Electron launch and window lifecycle.
+- E2E route flows.

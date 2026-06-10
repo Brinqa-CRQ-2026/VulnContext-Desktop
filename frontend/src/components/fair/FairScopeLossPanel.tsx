@@ -7,6 +7,7 @@ import {
   toNestedControlContext,
 } from "../../lib/securityScore";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "../ui/hover-card";
 
 interface FairScopeLossPanelProps {
   title: string;
@@ -31,11 +32,6 @@ function formatCurrency(value?: number | null) {
 function formatNumber(value?: number | null, digits = 3) {
   if (value === null || value === undefined || Number.isNaN(value)) return "-";
   return value.toFixed(digits);
-}
-
-function formatPercent(value?: number | null, digits = 1) {
-  if (value === null || value === undefined || Number.isNaN(value)) return "-";
-  return `${(value * 100).toFixed(digits)}%`;
 }
 
 export function FairScopeLossPanel({
@@ -103,8 +99,8 @@ export function FairScopeLossPanel({
       </CardHeader>
       <CardContent className="space-y-4">
         <FairScopeInfoPopup open={infoOpen} onClose={() => setInfoOpen(false)} />
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]">
-          <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-4">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_16rem]">
+          <div className="min-w-0">
             {error ? (
               <div className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
                 {error}
@@ -114,21 +110,48 @@ export function FairScopeLossPanel({
                 Generating FAIR loss exposure...
               </div>
             ) : prediction ? (
-              <div className="grid gap-4 md:grid-cols-2">
-                <SummaryTile label="Threat events / year" value={formatNumber(prediction.tef_mean)} />
-                <SummaryTile label="Loss events / year" value={formatNumber(prediction.lef_mean)} />
-                <SummaryTile label="Vulnerability" value={formatPercent(prediction.vulnerability)} />
-                <SummaryTile label="Security Score" value={`${Math.round(prediction.control_score * 100)}%`} />
-                <SummaryTile label="Expected annual loss" value={formatCurrency(prediction.loss_mean)} />
-                <SummaryTile label="P90 annual loss" value={formatCurrency(prediction.loss_p90)} />
-                <SummaryTile label="P95 annual loss" value={formatCurrency(prediction.loss_p95)} />
-                <SummaryTile label="Worst modeled year" value={formatCurrency(prediction.worst_loss)} />
+              <div className="space-y-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <SummaryTile label="Threat events / year" value={formatNumber(prediction.tef_mean)} />
+                  <SummaryTile label="Loss events / year" value={formatNumber(prediction.lef_mean)} />
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
+                  <SummaryTile label="Expected annual loss" value={formatCurrency(prediction.loss_mean)} />
+                  <SummaryTile label="P90 annual loss" value={formatCurrency(prediction.loss_p90)} />
+                  <SummaryTile label="P95 annual loss" value={formatCurrency(prediction.loss_p95)} />
+                  <SummaryTile label="Worst modeled year" value={formatCurrency(prediction.worst_loss)} />
+                </div>
               </div>
             ) : null}
           </div>
 
           <div className="rounded-lg border border-slate-200 bg-white p-4">
-            <div className="text-base font-semibold text-slate-900">Loss assumptions</div>
+            <div className="inline-flex items-center gap-1.5 text-base font-semibold text-slate-900">
+              Loss assumptions
+              <HoverCard openDelay={150} closeDelay={100}>
+                <HoverCardTrigger asChild>
+                  <button
+                    type="button"
+                    className="inline-flex h-4 w-4 items-center justify-center rounded-full text-slate-400 transition-colors hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2"
+                    aria-label="About loss assumptions"
+                  >
+                    <Info className="h-3.5 w-3.5" aria-hidden="true" />
+                  </button>
+                </HoverCardTrigger>
+                <HoverCardContent
+                  side="left"
+                  align="start"
+                  className="w-80 max-w-[calc(100vw-2rem)] text-sm leading-5"
+                >
+                  <div className="font-semibold text-slate-950">Loss assumptions</div>
+                  <p className="mt-1 text-sm font-normal leading-5 text-slate-500">
+                    Primary loss covers direct response and recovery costs. Secondary loss
+                    covers downstream business impact such as revenue loss, churn, or
+                    regulatory exposure.
+                  </p>
+                </HoverCardContent>
+              </HoverCard>
+            </div>
             <div className="mt-4 grid gap-5">
               <label className="grid gap-2">
                 <span className="flex items-center justify-between gap-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
@@ -161,10 +184,6 @@ export function FairScopeLossPanel({
                 />
               </label>
             </div>
-            <p className="mt-4 text-sm leading-6 text-slate-500">
-              Primary loss covers direct response and recovery costs. Secondary loss covers
-              downstream business impact such as revenue loss, churn, or regulatory exposure.
-            </p>
           </div>
         </div>
       </CardContent>

@@ -8,9 +8,9 @@ Frontend components render page UI and shared operational controls. They should 
 
 | Area | Files | Purpose |
 | --- | --- | --- |
-| App shell | `frontend/src/app.tsx`, `components/layout/` | route state, top headers, navigation, desktop shutdown |
+| App shell | `frontend/src/app.tsx`, `frontend/src/pages/shell/`, `components/layout/` | route state, top headers, navigation, desktop shutdown |
 | Dashboard/findings | `components/dashboard/`, `components/findings/` | dashboard summary, findings table, finding detail |
-| Topology | `components/business-services/` | company, business-unit, service, application, asset pages |
+| Topology | `pages/topology/`, `components/topology/` | topology route screens plus reusable topology UI |
 | Shared data table | `components/shared/data-table/` | generic searchable/filterable/sortable table shell |
 | FAIR | `components/fair/` | FAIR loss and event-frequency panels |
 | Sources | `components/integrations/` | read-only source summary page |

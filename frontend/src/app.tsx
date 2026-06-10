@@ -1,208 +1,26 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, BriefcaseBusiness, ListFilter, PlugZap, ShieldCheck } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
+
 import { Header } from "./components/layout/Header";
-import { DashboardOverview } from "./components/dashboard/DashboardOverview";
-import { RiskTable } from "./components/dashboard/RiskTable";
-import { FindingDetailPage } from "./components/dashboard/FindingDetailPage";
 import { IntegrationsPage } from "./components/integrations/IntegrationsPage";
 import { SecurityScorePage } from "./components/controls/SecurityScorePage";
-import { ApplicationDetailPage } from "./components/business-services/ApplicationDetailPage";
-import { AssetFindingsPage } from "./components/business-services/AssetFindingsPage";
-import { BusinessServiceDetailPage } from "./components/business-services/BusinessServiceDetailPage";
-import { BusinessUnitDetailPage } from "./components/business-services/BusinessUnitDetailPage";
-import { BusinessServicesOverview } from "./components/business-services/BusinessServicesOverview";
-import { PageIntro } from "./components/business-services/shared/PageIntro";
-import { requestDesktopShutdown } from "./runtime/desktopBridge";
+import { PageIntro } from "./components/topology/shared/PageIntro";
+import { formatSlugLabel } from "./components/topology/TopologyChrome";
 import { Button } from "./components/ui/button";
-import { cn } from "./lib/utils";
-import type {
-  ApplicationSummary,
-  AssetSummary,
-  BusinessServiceSummary,
-  BusinessUnitSummary,
-  FindingRouteOrigin,
-  ScoredFinding,
-} from "./types";
-import { formatSlugLabel } from "./components/business-services/TopologyChrome";
-
-type BasePage = "findings" | "integrations" | "business-services" | "controls";
-type AppRoute = {
-  page: BasePage;
-  findingId: string | null;
-  findingOrigin: FindingRouteOrigin | null;
-  businessUnitSlug: string | null;
-  businessServiceSlug: string | null;
-  applicationSlug: string | null;
-  assetId: string | null;
-};
-
-function getEmptyRoute(page: BasePage): AppRoute {
-  return {
-    page,
-    findingId: null,
-    findingOrigin: null,
-    businessUnitSlug: null,
-    businessServiceSlug: null,
-    applicationSlug: null,
-    assetId: null,
-  };
-}
-
-function readHistoryFindingOrigin(): FindingRouteOrigin | null {
-  const state = window.history.state;
-  if (!state || typeof state !== "object" || !("findingOrigin" in state)) {
-    return null;
-  }
-
-  const origin = (state as { findingOrigin?: unknown }).findingOrigin;
-  if (!origin || typeof origin !== "object") {
-    return null;
-  }
-
-  const mode = (origin as { mode?: unknown }).mode;
-  if (mode !== "global" && mode !== "asset") {
-    return null;
-  }
-
-  return origin as FindingRouteOrigin;
-}
-
-function parsePathRoute(pathname: string): AppRoute | null {
-  const parts = pathname.split("/").filter(Boolean);
-
-  if (parts.length === 0) {
-    return getEmptyRoute("business-services");
-  }
-
-  if (parts[0] === "business-services") {
-    const baseRoute = getEmptyRoute("business-services");
-
-    if (parts.length === 1) {
-      return baseRoute;
-    }
-    if (parts.length === 2) {
-      return { ...baseRoute, businessUnitSlug: parts[1] };
-    }
-    if (parts.length === 3) {
-      return {
-        ...baseRoute,
-        businessUnitSlug: parts[1],
-        businessServiceSlug: parts[2],
-      };
-    }
-    if (parts.length === 6 && parts[3] === "assets" && parts[5] === "findings") {
-      return {
-        ...baseRoute,
-        businessUnitSlug: parts[1],
-        businessServiceSlug: parts[2],
-        assetId: parts[4],
-      };
-    }
-    if (parts.length === 4) {
-      return {
-        ...baseRoute,
-        businessUnitSlug: parts[1],
-        businessServiceSlug: parts[2],
-        applicationSlug: parts[3],
-      };
-    }
-    if (parts.length === 7 && parts[4] === "assets" && parts[6] === "findings") {
-      return {
-        ...baseRoute,
-        businessUnitSlug: parts[1],
-        businessServiceSlug: parts[2],
-        applicationSlug: parts[3],
-        assetId: parts[5],
-      };
-    }
-  }
-
-  return null;
-}
-
-function parseHashRoute(): AppRoute {
-  const hash = (window.location.hash || "").replace(/^#/, "");
-  if (!hash) {
-    return parsePathRoute(window.location.pathname) ?? getEmptyRoute("business-services");
-  }
-  const parts = hash.split("/").filter(Boolean);
-
-  if (parts[0] === "findings") {
-    const id = parts[1]?.trim() || null;
-    return {
-      ...getEmptyRoute("findings"),
-      findingId: id,
-      findingOrigin: readHistoryFindingOrigin(),
-    };
-  }
-  if (parts[0] === "integrations") {
-    return getEmptyRoute("integrations");
-  }
-  if (parts[0] === "controls") {
-    return getEmptyRoute("controls");
-  }
-  return parsePathRoute(`/${hash}`) ?? getEmptyRoute("findings");
-}
-
-function writeHashRoute(route: AppRoute) {
-  const useHttpPathRouting =
-    window.location.protocol.startsWith("http") && route.page === "business-services";
-  const nextUrl = (() => {
-    if (useHttpPathRouting) {
-      const segments = ["business-services"];
-      if (route.businessUnitSlug) {
-        segments.push(route.businessUnitSlug);
-      }
-      if (route.businessServiceSlug) {
-        segments.push(route.businessServiceSlug);
-      }
-      if (route.applicationSlug) {
-        segments.push(route.applicationSlug);
-      }
-      if (route.assetId) {
-        segments.push("assets", route.assetId, "findings");
-      }
-      return `/${segments.join("/")}`;
-    }
-
-    if (route.page === "findings" && route.findingId) {
-      return `#/findings/${route.findingId}`;
-    }
-    if (route.page === "findings") {
-      return "#/findings";
-    }
-    if (route.page === "integrations") {
-      return "#/integrations";
-    }
-    if (route.page === "controls") {
-      return "#/controls";
-    }
-    if (route.page === "business-services") {
-      const segments = ["business-services"];
-      if (route.businessUnitSlug) {
-        segments.push(route.businessUnitSlug);
-      }
-      if (route.businessServiceSlug) {
-        segments.push(route.businessServiceSlug);
-      }
-      if (route.applicationSlug) {
-        segments.push(route.applicationSlug);
-      }
-      if (route.assetId) {
-        segments.push("assets", route.assetId, "findings");
-      }
-      return `#/${segments.join("/")}`;
-    }
-    return "#/findings";
-  })();
-
-  const currentUrl = useHttpPathRouting
-    ? window.location.pathname
-    : window.location.hash || "";
-  if (currentUrl !== nextUrl) {
-    window.history.pushState(route, "", nextUrl);
-  }
-}
+import { FindingsRoutePage } from "./pages/findings/FindingsRoutePage";
+import { AppSidebar } from "./pages/shell/AppSidebar";
+import { TopologyRoutePage } from "./pages/topology/TopologyRoutePage";
+import { requestDesktopShutdown } from "./runtime/desktopBridge";
+import {
+  getEmptyRoute,
+  parseHashRoute,
+  parsePathRoute,
+  writeHashRoute,
+  type AppRoute,
+  type BasePage,
+} from "./routing/appRoutes";
+import { getPageMeta, getRouteViewState } from "./routing/pageMeta";
+import type { FindingRouteOrigin, ScoredFinding } from "./types";
 
 function App() {
   const [route, setRoute] = useState<AppRoute>(() => parseHashRoute());
@@ -223,10 +41,6 @@ function App() {
       window.removeEventListener("popstate", onPopState);
     };
   }, []);
-
-  const handleDataChanged = () => {
-    setRefreshToken((prev) => prev + 1);
-  };
 
   const updateRoute = (nextRoute: AppRoute) => {
     writeHashRoute(nextRoute);
@@ -251,52 +65,15 @@ function App() {
     finding: ScoredFinding,
     origin: FindingRouteOrigin | null = { mode: "global" }
   ) => {
-    const nextRoute = {
+    updateRoute({
       ...getEmptyRoute("findings"),
       findingId: finding.id,
       findingOrigin: origin,
-    } as AppRoute;
-    updateRoute(nextRoute);
+    });
   };
 
-  const openBusinessUnit = (businessUnit: BusinessUnitSummary) => {
-    const nextRoute = {
-      ...getEmptyRoute("business-services"),
-      businessUnitSlug: businessUnit.slug,
-    } as AppRoute;
-    updateRoute(nextRoute);
-  };
-
-  const openBusinessService = (businessService: BusinessServiceSummary) => {
-    const nextRoute = {
-      ...getEmptyRoute("business-services"),
-      businessUnitSlug: route.businessUnitSlug,
-      businessServiceSlug: businessService.slug,
-    } as AppRoute;
-    updateRoute(nextRoute);
-  };
-
-  const openApplication = (application: ApplicationSummary) => {
-    const nextRoute = {
-      ...getEmptyRoute("business-services"),
-      businessUnitSlug: route.businessUnitSlug,
-      businessServiceSlug: route.businessServiceSlug,
-      applicationSlug: application.slug,
-    } as AppRoute;
-    updateRoute(nextRoute);
-  };
-
-  const openAssetFindings = (asset: AssetSummary) => {
-    const nextRoute = {
-      ...getEmptyRoute("business-services"),
-      businessUnitSlug: route.businessUnitSlug,
-      businessServiceSlug: route.businessServiceSlug,
-      applicationSlug: route.applicationSlug,
-      assetId: asset.asset_id,
-    } as AppRoute;
-    updateRoute(nextRoute);
-  };
-
+  const viewState = getRouteViewState(route);
+  const pageMeta = getPageMeta(route, viewState);
   const findingBackLabel =
     route.findingOrigin?.mode === "asset" ? "Back to Asset Findings" : "Back to Findings";
   const handleFindingBack = () => {
@@ -317,8 +94,9 @@ function App() {
       ? [
           { label: "Business Units", onClick: () => navigateTo("business-services") },
           {
-            label: route.findingOrigin.businessUnitLabel
-              ?? formatSlugLabel(route.findingOrigin.businessUnitSlug ?? null, "Business Unit"),
+            label:
+              route.findingOrigin.businessUnitLabel ??
+              formatSlugLabel(route.findingOrigin.businessUnitSlug ?? null, "Business Unit"),
             onClick: () =>
               updateRoute({
                 ...getEmptyRoute("business-services"),
@@ -326,8 +104,9 @@ function App() {
               }),
           },
           {
-            label: route.findingOrigin.businessServiceLabel
-              ?? formatSlugLabel(
+            label:
+              route.findingOrigin.businessServiceLabel ??
+              formatSlugLabel(
                 route.findingOrigin.businessServiceSlug ?? null,
                 "Business Service"
               ),
@@ -341,8 +120,9 @@ function App() {
           ...(route.findingOrigin.applicationSlug
             ? [
                 {
-                  label: route.findingOrigin.applicationLabel
-                    ?? formatSlugLabel(route.findingOrigin.applicationSlug, "Application"),
+                  label:
+                    route.findingOrigin.applicationLabel ??
+                    formatSlugLabel(route.findingOrigin.applicationSlug, "Application"),
                   onClick: () =>
                     updateRoute({
                       ...getEmptyRoute("business-services"),
@@ -354,10 +134,7 @@ function App() {
               ]
             : []),
           {
-            label:
-              route.findingOrigin.assetLabel
-              ?? route.findingOrigin.assetId
-              ?? "Asset",
+            label: route.findingOrigin.assetLabel ?? route.findingOrigin.assetId ?? "Asset",
             onClick: () =>
               updateRoute({
                 ...getEmptyRoute("business-services"),
@@ -375,26 +152,6 @@ function App() {
         ];
 
   const page = route.page;
-  const inFindingDetail = page === "findings" && route.findingId !== null;
-  const inAssetFindings =
-    page === "business-services" && route.assetId !== null && route.businessUnitSlug !== null;
-  const inApplicationDetail =
-    page === "business-services" &&
-    route.businessUnitSlug !== null &&
-    route.businessServiceSlug !== null &&
-    route.applicationSlug !== null &&
-    route.assetId === null;
-  const inBusinessServiceDetail =
-    page === "business-services" &&
-    route.businessUnitSlug !== null &&
-    route.businessServiceSlug !== null &&
-    route.applicationSlug === null &&
-    route.assetId === null;
-  const inBusinessUnitDetail =
-    page === "business-services" &&
-    route.businessUnitSlug !== null &&
-    route.businessServiceSlug === null;
-  const handleBusinessUnitBack = () => navigateTo("business-services");
   const handleBusinessServiceBack = () => {
     updateRoute({
       ...getEmptyRoute("business-services"),
@@ -419,55 +176,6 @@ function App() {
     });
   };
 
-  const pageMeta = {
-    findings: {
-      title: inFindingDetail ? "Finding" : "Organization Findings",
-      description: inFindingDetail
-        ? "Finding risk scope showing vulnerability context, severity, exploit signals, affected assets, and remediation guidance."
-        : "A centralized view of all vulnerability findings across business services, applications, and assets to support remediation prioritization.",
-    },
-    integrations: {
-      title: "Sources",
-      description: "Review imported sources and the number of findings stored for each.",
-    },
-    controls: {
-      title: "Security Score",
-      description:
-        "Capture concise security maturity answers and map them into FAIR-aligned scoring context.",
-    },
-    "business-services": {
-      title: inAssetFindings
-        ? "Asset"
-        : inApplicationDetail
-          ? "Application"
-          : inBusinessServiceDetail
-            ? "Business Service"
-            : inBusinessUnitDetail
-              ? "Business Unit"
-              : "Company",
-      description: inAssetFindings
-        ? "Asset risk scope showing asset criticality, FAIR frequency context, and all findings attached to the selected asset."
-        : inApplicationDetail
-          ? "Application risk scope showing attached assets, asset criticality, finding risk spread, and related risk drivers."
-          : inBusinessServiceDetail
-            ? "Business service risk scope showing applications, direct assets, FAIR loss exposure, and finding-driven risk."
-            : inBusinessUnitDetail
-              ? "Business-unit risk scope showing service inventory, finding distribution, and quantified risk across this part of the topology."
-              : "Company-level topology overview showing business units, services, applications, assets, findings, and risk distribution across the organization.",
-    },
-  } as const;
-
-  const navItems: Array<{
-    id: BasePage;
-    label: string;
-    icon: typeof ListFilter;
-  }> = [
-    { id: "business-services", label: "Companies", icon: BriefcaseBusiness },
-    { id: "findings", label: "Findings", icon: ListFilter },
-    { id: "controls", label: "Security Score", icon: ShieldCheck },
-    { id: "integrations", label: "Sources", icon: PlugZap },
-  ];
-
   return (
     <div className="flex h-screen w-screen flex-col bg-neutral-100 text-slate-900">
       <Header
@@ -477,30 +185,7 @@ function App() {
         shutdownPending={shutdownPending}
       />
       <div className="flex min-h-0 flex-1">
-        <aside className="hidden w-64 shrink-0 border-r border-slate-200 bg-neutral-100 p-3 md:block">
-          <nav className="space-y-1">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const active = page === item.id;
-              return (
-                <Button
-                  key={item.id}
-                  variant="ghost"
-                  className={cn(
-                    "h-10 w-full justify-start gap-2 rounded-lg border border-transparent px-3 text-sm font-medium shadow-none",
-                    active
-                      ? "bg-black text-white hover:bg-black hover:text-white"
-                      : "text-slate-700 hover:bg-white hover:text-slate-900"
-                  )}
-                  onClick={() => navigateTo(item.id)}
-                >
-                  <Icon className="h-4 w-4" />
-                  {item.label}
-                </Button>
-              );
-            })}
-          </nav>
-        </aside>
+        <AppSidebar page={page} onNavigate={navigateTo} />
 
         <div className="min-w-0 flex-1 overflow-auto bg-white">
           <div className="mx-auto flex w-full max-w-[1800px] flex-col gap-4 px-4 py-4 md:px-6">
@@ -508,36 +193,28 @@ function App() {
               title={pageMeta[page].title}
               description={pageMeta[page].description}
               actions={
-                inFindingDetail ? (
+                viewState.inFindingDetail ? (
                   <Button variant="outline" size="sm" onClick={handleFindingBack}>
                     <ArrowLeft className="h-4 w-4" />
                     {findingBackLabel}
                   </Button>
-                ) : inAssetFindings ? (
+                ) : viewState.inAssetFindings ? (
                   <Button variant="outline" size="sm" onClick={handleAssetBack}>
                     <ArrowLeft className="h-4 w-4" />
                     {route.applicationSlug ? "Back to Application" : "Back to Business Service"}
                   </Button>
-                ) : inApplicationDetail ? (
+                ) : viewState.inApplicationDetail ? (
                   <Button variant="outline" size="sm" onClick={handleApplicationBack}>
                     <ArrowLeft className="h-4 w-4" />
                     Back to Business Service
                   </Button>
-                ) : inBusinessServiceDetail ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleBusinessServiceBack}
-                  >
+                ) : viewState.inBusinessServiceDetail ? (
+                  <Button variant="outline" size="sm" onClick={handleBusinessServiceBack}>
                     <ArrowLeft className="h-4 w-4" />
                     Back to Business Unit
                   </Button>
-                ) : inBusinessUnitDetail ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleBusinessUnitBack}
-                  >
+                ) : viewState.inBusinessUnitDetail ? (
+                  <Button variant="outline" size="sm" onClick={() => navigateTo("business-services")}>
                     <ArrowLeft className="h-4 w-4" />
                     Back to Company
                   </Button>
@@ -546,120 +223,29 @@ function App() {
             />
 
             {page === "findings" ? (
-              inFindingDetail && route.findingId ? (
-                <FindingDetailPage
-                  findingId={route.findingId}
-                  refreshToken={refreshToken}
-                  origin={route.findingOrigin}
-                  breadcrumbs={findingBreadcrumbs}
-                  backLabel={findingBackLabel}
-                  onBack={handleFindingBack}
-                  onDataChanged={handleDataChanged}
-                />
-              ) : (
-                <>
-                  <DashboardOverview refreshToken={refreshToken} />
-                  <RiskTable
-                    refreshToken={refreshToken}
-                    onOpenIntegrations={() => navigateTo("integrations")}
-                    onOpenFinding={openFinding}
-                  />
-                </>
-              )
+              <FindingsRoutePage
+                route={route}
+                refreshToken={refreshToken}
+                findingBreadcrumbs={findingBreadcrumbs}
+                findingBackLabel={findingBackLabel}
+                onFindingBack={handleFindingBack}
+                onDataChanged={() => setRefreshToken((prev) => prev + 1)}
+                onNavigate={navigateTo}
+                onOpenFinding={openFinding}
+              />
             ) : page === "business-services" ? (
-              inAssetFindings ? (
-                <AssetFindingsPage
-                  businessUnitSlug={route.businessUnitSlug}
-                  businessServiceSlug={route.businessServiceSlug}
-                  applicationSlug={route.applicationSlug}
-                  assetId={route.assetId}
-                  refreshToken={refreshToken}
-                  onBack={handleAssetBack}
-                  onOpenOverview={() => navigateTo("business-services")}
-                  onOpenBusinessUnit={() => {
-                    updateRoute({
-                      ...getEmptyRoute("business-services"),
-                      businessUnitSlug: route.businessUnitSlug,
-                    });
-                  }}
-                  onOpenBusinessService={() => {
-                    updateRoute({
-                      ...getEmptyRoute("business-services"),
-                      businessUnitSlug: route.businessUnitSlug,
-                      businessServiceSlug: route.businessServiceSlug,
-                    });
-                  }}
-                  onOpenApplication={
-                    route.applicationSlug
-                      ? () => {
-                          updateRoute({
-                            ...getEmptyRoute("business-services"),
-                            businessUnitSlug: route.businessUnitSlug,
-                            businessServiceSlug: route.businessServiceSlug,
-                            applicationSlug: route.applicationSlug,
-                          });
-                        }
-                      : undefined
-                  }
-                  onOpenFinding={openFinding}
-                />
-              ) : inApplicationDetail ? (
-                <ApplicationDetailPage
-                  businessUnitSlug={route.businessUnitSlug}
-                  businessServiceSlug={route.businessServiceSlug}
-                  applicationSlug={route.applicationSlug}
-                  refreshToken={refreshToken}
-                  onBack={handleApplicationBack}
-                  onOpenOverview={() => navigateTo("business-services")}
-                  onOpenBusinessUnit={() => {
-                    updateRoute({
-                      ...getEmptyRoute("business-services"),
-                      businessUnitSlug: route.businessUnitSlug,
-                    });
-                  }}
-                  onOpenBusinessService={() => {
-                    updateRoute({
-                      ...getEmptyRoute("business-services"),
-                      businessUnitSlug: route.businessUnitSlug,
-                      businessServiceSlug: route.businessServiceSlug,
-                    });
-                  }}
-                  onOpenAssetFindings={openAssetFindings}
-                />
-              ) : inBusinessServiceDetail ? (
-                <BusinessServiceDetailPage
-                  businessUnitSlug={route.businessUnitSlug}
-                  businessServiceSlug={route.businessServiceSlug}
-                  refreshToken={refreshToken}
-                  onBack={handleBusinessServiceBack}
-                  onOpenOverview={() => navigateTo("business-services")}
-                  onOpenBusinessUnit={() => {
-                    updateRoute({
-                      ...getEmptyRoute("business-services"),
-                      businessUnitSlug: route.businessUnitSlug,
-                    });
-                  }}
-                  onOpenApplication={openApplication}
-                  onOpenAssetFindings={openAssetFindings}
-                />
-              ) : inBusinessUnitDetail ? (
-                <BusinessUnitDetailPage
-                  businessUnitSlug={route.businessUnitSlug}
-                  refreshToken={refreshToken}
-                  onBack={handleBusinessUnitBack}
-                  onOpenOverview={() => navigateTo("business-services")}
-                  onOpenBusinessService={openBusinessService}
-                />
-              ) : (
-                <BusinessServicesOverview
-                  refreshToken={refreshToken}
-                  onOpenBusinessUnit={openBusinessUnit}
-                />
-              )
-            ) : page === "controls" ? (
-              <SecurityScorePage />
-            ) : (
+              <TopologyRoutePage
+                route={route}
+                refreshToken={refreshToken}
+                viewState={viewState}
+                onNavigateOverview={() => navigateTo("business-services")}
+                onUpdateRoute={updateRoute}
+                onOpenFinding={openFinding}
+              />
+            ) : page === "integrations" ? (
               <IntegrationsPage refreshToken={refreshToken} />
+            ) : (
+              <SecurityScorePage />
             )}
           </div>
         </div>

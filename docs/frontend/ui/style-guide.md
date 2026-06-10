@@ -7,7 +7,7 @@ Use this guide when adding or changing frontend features.
 - Put backend request functions in `frontend/src/api`.
 - Put shared response, query, route-state, risk, chart, pagination, and topology types in `frontend/src/types`.
 - Keep component props local unless reused.
-- Keep feature-only business-services view types in `frontend/src/components/business-services/types.ts`.
+- Keep feature-only topology view types in `frontend/src/components/topology/types.ts`.
 - Put shared formatting, sorting, chart, finding, asset, pagination, and topology helpers in `frontend/src/lib`.
 
 ## Type And Contract Rules

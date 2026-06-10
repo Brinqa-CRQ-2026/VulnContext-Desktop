@@ -1,5 +1,5 @@
 import type { ScoresSummary } from "../../types";
-import { MetricCard, MetricGrid } from "../business-services/shared/MetricCard";
+import { MetricCard, MetricGrid } from "../topology/shared/MetricCard";
 
 interface SummaryCardsProps {
   summary: ScoresSummary | null;

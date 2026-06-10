@@ -11,6 +11,63 @@ vi.mock("../../../hooks/findings/useFindingDetails", () => ({
 const mockedUseFindingDetails = vi.mocked(useFindingDetails);
 
 describe("FindingDetailPage", () => {
+  it("renders loading and not-available states from the details hook", () => {
+    const { rerender } = renderDetailPage({
+      finding: null,
+      setFinding: vi.fn(),
+      loading: true,
+      error: null,
+    });
+
+    expect(screen.getByText("Loading finding")).toBeInTheDocument();
+
+    mockedUseFindingDetails.mockReturnValue({
+      finding: null,
+      setFinding: vi.fn(),
+      loading: false,
+      error: "Finding detail request failed",
+    });
+    rerender(
+      <FindingDetailPage
+        findingId="finding-404"
+        refreshToken={0}
+        origin={{ mode: "global" }}
+        breadcrumbs={[
+          { label: "Findings", onClick: vi.fn() },
+          { label: "Finding" },
+        ]}
+        backLabel="Back to Findings"
+        onBack={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("Finding not available")).toBeInTheDocument();
+    expect(screen.getByText("Finding detail request failed")).toBeInTheDocument();
+
+    mockedUseFindingDetails.mockReturnValue({
+      finding: null,
+      setFinding: vi.fn(),
+      loading: false,
+      error: null,
+    });
+    rerender(
+      <FindingDetailPage
+        findingId="finding-404"
+        refreshToken={0}
+        origin={{ mode: "global" }}
+        breadcrumbs={[
+          { label: "Findings", onClick: vi.fn() },
+          { label: "Finding" },
+        ]}
+        backLabel="Back to Findings"
+        onBack={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("Finding not available")).toBeInTheDocument();
+    expect(screen.getByText("Finding not found.")).toBeInTheDocument();
+  });
+
   it("renders the denser finding detail layout with compact supporting details", () => {
     mockedUseFindingDetails.mockReturnValue({
       finding: {
@@ -276,3 +333,30 @@ describe("FindingDetailPage", () => {
     expect(screen.getByRole("tab", { name: "Asset & Business Context" })).toBeInTheDocument();
   });
 });
+
+function renderDetailPage(
+  hookState: ReturnType<typeof mockedUseFindingDetails> extends never
+    ? never
+    : {
+        finding: null;
+        setFinding: ReturnType<typeof vi.fn>;
+        loading: boolean;
+        error: string | null;
+      }
+) {
+  mockedUseFindingDetails.mockReturnValue(hookState);
+
+  return render(
+    <FindingDetailPage
+      findingId="finding-404"
+      refreshToken={0}
+      origin={{ mode: "global" }}
+      breadcrumbs={[
+        { label: "Findings", onClick: vi.fn() },
+        { label: "Finding" },
+      ]}
+      backLabel="Back to Findings"
+      onBack={vi.fn()}
+    />
+  );
+}

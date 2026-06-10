@@ -6,6 +6,7 @@ import {
   DataTable,
   type DataTableColumn,
 } from "../../../../components/shared/data-table/DataTable";
+import { buildTableRows } from "../../../fixtures/tables/tableRows";
 
 interface DemoRow {
   id: string;
@@ -166,5 +167,95 @@ describe("DataTable", () => {
     );
     expect(screen.getByText("Nothing here")).toBeInTheDocument();
     expect(screen.getByText("No rows available.")).toBeInTheDocument();
+  });
+
+  it("renders dense data with stable absolute row context", () => {
+    const denseRows = buildTableRows(25);
+
+    render(
+      <DataTable
+        items={denseRows}
+        getRowId={(row) => row.id}
+        columns={[
+          {
+            id: "position",
+            label: "Position",
+            render: (_row, context) => `#${context.absoluteIndex + 1}`,
+          },
+          {
+            id: "name",
+            label: "Name",
+            render: (row) => row.name,
+          },
+        ]}
+        pagination={{
+          page: 3,
+          pageSize: 10,
+          total: 25,
+          pageNumbers: [1, 2, 3],
+          onPageChange: vi.fn(),
+        }}
+      />
+    );
+
+    expect(screen.getByText("#21")).toBeInTheDocument();
+    expect(screen.getByText("#45")).toBeInTheDocument();
+    expect(screen.getByText("Row 25")).toBeInTheDocument();
+    expect(screen.getByText("Showing 21-25 of 25 items")).toBeInTheDocument();
+  });
+
+  it("marks pagination boundaries as unavailable", () => {
+    const { rerender } = render(
+      <DataTable
+        items={rows}
+        getRowId={(row) => row.id}
+        columns={columns}
+        pagination={{
+          page: 1,
+          pageSize: 10,
+          total: 15,
+          pageNumbers: [1, 2],
+          onPageChange: vi.fn(),
+        }}
+      />
+    );
+
+    expect(screen.getByRole("link", { name: "Go to previous page" })).toHaveClass(
+      "pointer-events-none"
+    );
+    expect(screen.getByRole("link", { name: "Go to next page" })).not.toHaveClass(
+      "pointer-events-none"
+    );
+
+    rerender(
+      <DataTable
+        items={rows}
+        getRowId={(row) => row.id}
+        columns={columns}
+        pagination={{
+          page: 2,
+          pageSize: 10,
+          total: 15,
+          pageNumbers: [1, 2],
+          onPageChange: vi.fn(),
+        }}
+      />
+    );
+
+    expect(screen.getByRole("link", { name: "Go to previous page" })).not.toHaveClass(
+      "pointer-events-none"
+    );
+    expect(screen.getByRole("link", { name: "Go to next page" })).toHaveClass(
+      "pointer-events-none"
+    );
+  });
+
+  it("does not expose row button behavior when no row action is configured", () => {
+    render(
+      <DataTable items={rows} getRowId={(row) => row.id} columns={columns} />
+    );
+
+    expect(screen.queryByRole("button", { name: "Open Identity API" })).not.toBeInTheDocument();
+    expect(screen.getByText("Identity API")).toBeInTheDocument();
   });
 });

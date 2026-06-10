@@ -25,15 +25,17 @@ cd frontend && npm run build
 | API modules | `frontend/src/tests/api/` | [api-tests.md](api-tests.md) |
 | Components | `frontend/src/tests/components/` | [component-tests.md](component-tests.md) |
 | Hooks | `frontend/src/tests/hooks/` | [hook-tests.md](hook-tests.md) |
-| App routing | `frontend/src/tests/app.test.tsx` | [app-routing-tests.md](app-routing-tests.md) |
+| App routing | `frontend/src/tests/app/` | [app-routing-tests.md](app-routing-tests.md) |
 | Utilities | `frontend/src/tests/lib/` | [utility-tests.md](utility-tests.md) |
 | Known gaps | visual/browser/backend behavior | [coverage-gaps.md](coverage-gaps.md) |
 
 ## Current Position
 
-The suite is strong around persisted-data rendering, topology drill-down navigation, table controls, finding detail behavior, API query construction, hook refresh/filter behavior, and read-only source displays.
+The suite is strong around persisted-data rendering, topology drill-down navigation, table controls, finding detail behavior, API query construction, hook refresh/filter behavior, read-only source displays, Security Score persistence UI, FAIR panel request wiring, app route state, and Electron bridge wrappers.
 
 Live Brinqa enrichment, backend scoring math, Supabase/Postgres behavior, and browser visual-regression layout are not frontend test targets.
+
+Reusable test data lives in `frontend/src/tests/fixtures/`. A fixture is a typed fake-data builder, such as `buildFinding()` or `buildAsset()`, used when repeated object literals would make tests noisy or inconsistent.
 
 ## Related Docs
 
